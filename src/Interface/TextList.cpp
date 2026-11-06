@@ -429,10 +429,25 @@ void TextList::addRow(int cols, ...)
 #endif
 
 	_texts.push_back(temp);
+#ifdef __EMSCRIPTEN__
+	const size_t logicalRow = _texts.size() - 1;
+	if (_hdFixedStride)
+	{
+		// Keep vanilla wrapping in the backup while the active HD map exposes
+		// exactly one fixed-stride entry for this logical item.
+		for (int i = 0; i < rows; ++i) _hdPhysicalRows.push_back(logicalRow);
+		_rows.push_back(logicalRow);
+	}
+	else
+	{
+		for (int i = 0; i < rows; ++i) _rows.push_back(logicalRow);
+	}
+#else
 	for (int i = 0; i < rows; ++i)
 	{
 		_rows.push_back(_texts.size() - 1);
 	}
+#endif
 
 	// Place arrow buttons
 	// Position defined w.r.t. main window, NOT TextList.
@@ -477,6 +492,10 @@ void TextList::addRow(int cols, ...)
  */
 void TextList::removeLastRow()
 {
+#ifdef __EMSCRIPTEN__
+	const bool hadTextRows = !_texts.empty();
+	const size_t logicalRow = hadTextRows ? _texts.size() - 1 : 0;
+#endif
 	if (!_texts.empty())
 	{
 		_texts.pop_back();
@@ -489,6 +508,16 @@ void TextList::removeLastRow()
 			_rows.pop_back();
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	if (_hdFixedStride && hadTextRows)
+	{
+		while (!_hdPhysicalRows.empty() && _hdPhysicalRows.back() == logicalRow)
+			_hdPhysicalRows.pop_back();
+		if (_selRow > _rows.size()) _selRow = _rows.size();
+		const size_t maxScroll = _rows.size() > _visibleRows ? _rows.size() - _visibleRows : 0;
+		if (_scroll > maxScroll) _scroll = maxScroll;
+	}
+#endif
 	if (_arrowPos != -1)
 	{
 		if (!_arrowLeft.empty())
@@ -1028,6 +1057,14 @@ void TextList::clearList()
 	scrollUp(true, false);
 	_texts.clear();
 	_rows.clear();
+#ifdef __EMSCRIPTEN__
+	if (_hdFixedStride)
+	{
+		_hdPhysicalRows.clear();
+		_scroll = 0;
+		_selRow = 0;
+	}
+#endif
 	_redraw = true;
 }
 

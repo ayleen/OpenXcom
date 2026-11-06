@@ -19,7 +19,7 @@
     {"id": "allocated", "label": "ALLOCATED", "value": "100"},
     {"id": "lab-space", "label": "LAB SPACE", "value": "0"}
   ],
-  "collection": {"mode": "table", "selectionRole": "research-project", "heading": "RESEARCH PROJECTS", "meta": "1 ACTIVE", "columns": [{"id": "project", "label": "RESEARCH PROJECT", "contentRole": "name"}, {"id": "scientists", "label": "SCIENTISTS ALLOCATED", "contentRole": "count"}, {"id": "progress", "label": "PROGRESS", "contentRole": "status"}], "items": [{"id": "decanted-corpse", "values": ["Decanted Corpse", "100", "Unknown"]}]},
+  "collection": {"mode": "table", "selectionRole": "research-project", "heading": "RESEARCH PROJECTS", "meta": "1 ACTIVE", "rowActions": ["move-up", "move-down"], "columns": [{"id": "project", "label": "RESEARCH PROJECT", "contentRole": "name"}, {"id": "scientists", "label": "SCIENTISTS ALLOCATED", "contentRole": "count"}, {"id": "progress", "label": "PROGRESS", "contentRole": "status"}], "items": [{"id": "decanted-corpse", "values": ["Decanted Corpse", "100", "Unknown"]}]},
   "controls": [],
   "toolbar": [],
   "detail": {"id": "selected-project", "label": "SELECTED PROJECT", "title": "Decanted Corpse", "subtitle": "RESEARCH PROJECT", "metrics": [{"id": "scientists", "label": "SCIENTISTS", "value": "100"}, {"id": "progress", "label": "PROGRESS", "value": "Unknown"}], "actions": [{"id": "open-project", "label": "OPEN PROJECT", "labelKey": "STR_OPEN_PROJECT", "tone": "primary", "action": "open-project"}, {"id": "tech-tree", "label": "TECH TREE", "labelKey": "STR_TECH_TREE", "tone": "normal", "action": "open-tech-tree"}]}

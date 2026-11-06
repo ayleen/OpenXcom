@@ -44,6 +44,12 @@
 namespace OpenXcom { namespace Calypso {
 namespace {
 
+bool g_harnessQueueListSetupPending = false;
+size_t g_harnessQueueListSetupSelected = 0;
+size_t g_harnessQueueListSetupOffset = 0;
+bool g_harnessCatalogueListSetupPending = false;
+size_t g_harnessCatalogueListSetupSelected = 0;
+
 /// Shared responsive input for the eleven R&D forms (re-review P1): the
 /// layout class comes from the canonical logical viewport, never from
 /// Options::baseXResolution or the physical backing size. Below the 740x360
@@ -52,8 +58,9 @@ bool calypsoHdRdWideLayout(Game *game)
 {
 	(void)game;
 	const auto &viewport = Calypso::calypsoViewportRuntime().current();
+	const auto effective = Calypso::calypsoHdOperationsEffectiveViewport();
 	const auto layoutClass = Calypso::classifyCalypsoHdOperationsLayout(
-		std::max(1, viewport.logicalWidth), std::max(1, viewport.logicalHeight));
+		effective.cssWidth, std::max(1, viewport.logicalHeight));
 	if (layoutClass == Calypso::CalypsoHdOperationsLayoutClass::Unsupported)
 	{
 		CalypsoHdUiOverlay::instance().failHdRoute(
@@ -255,6 +262,11 @@ void CalypsoF09ResearchUi::configure(ResearchState &state)
 	state._hdAdapter = adapter;
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter->_renderer);
 	adapter->refresh();
+	// HD owns the presentation from the first eligible frame.  Complete the
+	// legacy popup's temporary input lock after the adapter is registered;
+	// otherwise a real pointer action during the 200 ms POPUP_BOTH animation is
+	// discarded by InteractiveSurface while the HD model already advertises it.
+	if (state._window) state._window->finishPopupForHd();
 	calypsoHdOperationsPublishHarnessVisibility();
 }
 
@@ -272,6 +284,7 @@ void CalypsoF09ResearchUi::configure(NewResearchListState &state)
 	state._hdAdapter = adapter;
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter->_renderer);
 	adapter->refresh();
+	if (state._window) state._window->finishPopupForHd();
 	calypsoHdOperationsPublishHarnessVisibility();
 }
 
@@ -290,6 +303,7 @@ void CalypsoF09ResearchUi::configure(ResearchInfoState &state)
 	state._hdAdapter = adapter;
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter->_renderer);
 	adapter->refresh();
+	if (state._window) state._window->finishPopupForHd();
 	calypsoHdOperationsPublishHarnessVisibility();
 }
 
@@ -317,6 +331,26 @@ bool CalypsoF09ResearchUi::resize(ResearchInfoState &state)
 	return true;
 }
 
+void CalypsoF09ResearchUi::queueHarnessQueueListSetup(size_t selectedRow,
+	size_t scrollOffset)
+{
+	g_harnessQueueListSetupPending = true;
+	g_harnessQueueListSetupSelected = selectedRow;
+	g_harnessQueueListSetupOffset = scrollOffset;
+}
+
+void CalypsoF09ResearchUi::queueHarnessCatalogueListSetup(size_t selectedRow)
+{
+	g_harnessCatalogueListSetupPending = true;
+	g_harnessCatalogueListSetupSelected = selectedRow;
+}
+
+void CalypsoF09ResearchUi::clearHarnessQueueListSetup()
+{
+	g_harnessQueueListSetupPending = false;
+	g_harnessCatalogueListSetupPending = false;
+}
+
 void CalypsoF09ResearchUi::syncGeometry()
 {
 	switch (_kind)
@@ -332,6 +366,21 @@ void CalypsoF09ResearchUi::refresh()
 {
 	if (!_renderer) return;
 	syncGeometry();
+	if (_kind == Kind::Queue && g_harnessQueueListSetupPending && _queue
+		&& _queue->_lstResearch
+		&& _queue->_lstResearch->getRowsDoNotUse() > 0)
+	{
+		_queue->_lstResearch->setSelectedRow(g_harnessQueueListSetupSelected);
+		_queue->_lstResearch->scrollTo(g_harnessQueueListSetupOffset);
+		g_harnessQueueListSetupPending = false;
+	}
+	if (_kind == Kind::Catalogue && g_harnessCatalogueListSetupPending && _catalogue
+		&& _catalogue->_lstResearch
+		&& _catalogue->_lstResearch->getRowsDoNotUse() > 0)
+	{
+		_catalogue->_lstResearch->setSelectedRow(g_harnessCatalogueListSetupSelected);
+		g_harnessCatalogueListSetupPending = false;
+	}
 	_renderer->setModel(buildModel());
 }
 
@@ -375,6 +424,38 @@ void CalypsoF09ResearchUi::ensureQueueOwners()
 		_queue->_btnTechTree->onMouseClick(
 			(ActionHandler)&ResearchState::onOpenTechTreeViewer);
 	}
+	if (Options::oxceBaseResearchReorder && !_moveUp)
+	{
+		_moveUp = new TextButton(44, 44, 0, 0);
+		_moveUp->setText("");
+		_queue->add(_moveUp, "button", "researchMenu");
+		_moveUp->onMouseClick((ActionHandler)&ResearchState::lstResearchLeftArrowClick);
+		_moveUp->onMouseClick((ActionHandler)&ResearchState::lstResearchLeftArrowClick,
+			SDL_BUTTON_RIGHT);
+	}
+	if (Options::oxceBaseResearchReorder && !_moveDown)
+	{
+		_moveDown = new TextButton(44, 44, 0, 0);
+		_moveDown->setText("");
+		_queue->add(_moveDown, "button", "researchMenu");
+		_moveDown->onMouseClick((ActionHandler)&ResearchState::lstResearchRightArrowClick);
+		_moveDown->onMouseClick((ActionHandler)&ResearchState::lstResearchRightArrowClick,
+			SDL_BUTTON_RIGHT);
+	}
+}
+
+bool CalypsoF09ResearchUi::ownsQueueReorderPoint(int x, int y) const
+{
+	if (!_queue || !Options::oxceBaseResearchReorder) return false;
+	// Reserve the whole row-action lane: a reorder moves the button to its new
+	// row before the underlying TextList sees the same release event.
+	if (y < _queue->_lstResearch->getY()
+		|| y >= _queue->_lstResearch->getY() + _queue->_lstResearch->getHeight()) return false;
+	for (const TextButton *owner : {_moveUp, _moveDown})
+		if (owner && owner->getVisible() && x >= owner->getX()
+			&& x < owner->getX() + owner->getWidth())
+			return true;
+	return false;
 }
 
 void CalypsoF09ResearchUi::ensureCatalogueOwners()
@@ -431,8 +512,8 @@ void CalypsoF09ResearchUi::applyQueueGeometry()
 	place(_queue->_txtScientists, g->collection_column_scientists);
 	place(_queue->_txtProgress, g->collection_column_progress);
 	place(_queue->_lstResearch, g->collectionViewport, FluidVRole::Stretch);
-	place(_queue->_btnGlobalOverview, g->action_global_overview);
-	place(_queue->_btnNew, g->action_new_project);
+	place(_queue->_btnGlobalOverview, g->action_global_overview, FluidVRole::BottomShift);
+	place(_queue->_btnNew, g->action_new_project, FluidVRole::BottomShift);
 	place(_queue->_btnOk, g->action_done, FluidVRole::BottomShift, FluidAnchor::Right);
 	place(_queue->_btnOpenProject, g->detail_selected_project_action_open_project, FluidVRole::BottomShift, FluidAnchor::Right);
 	place(_queue->_btnTechTree, g->detail_selected_project_action_tech_tree, FluidVRole::BottomShift, FluidAnchor::Right);
@@ -441,10 +522,18 @@ void CalypsoF09ResearchUi::applyQueueGeometry()
 	// the list like every other position.
 	if (Options::oxceResearchScrollSpeed > 0 || Options::oxceResearchScrollSpeedWithCtrl > 0)
 	{
-		const auto scientistsColumn = fluid.resolve(
-			CalypsoHdOperationsRectf{g->collection_column_scientists.x,
-				g->collection_column_scientists.y, g->collection_column_scientists.w,
-				g->collection_column_scientists.h}, FluidVRole::Fixed);
+		CalypsoHdOperationsRectf columns[3] = {
+			{g->collection_column_project.x, g->collection_column_project.y,
+				g->collection_column_project.w, g->collection_column_project.h},
+			{g->collection_column_scientists.x, g->collection_column_scientists.y,
+				g->collection_column_scientists.w, g->collection_column_scientists.h},
+			{g->collection_column_progress.x, g->collection_column_progress.y,
+				g->collection_column_progress.w, g->collection_column_progress.h}};
+		fluid.policy.mapXStretchGroup(columns, 3, fluid.width());
+		const auto scientistsCss = fluid.cssY(columns[1], FluidVRole::Fixed);
+		const auto scientistsColumn = calypsoHdOperationsProjectForCurrentPresentation(
+			{scientistsCss.x, scientistsCss.y, scientistsCss.w, scientistsCss.h},
+			fluid.width(), fluid.height());
 		_queue->_lstResearch->setNoScrollArea(
 			scientistsColumn.x, scientistsColumn.x + scientistsColumn.w);
 	}
@@ -453,22 +542,24 @@ void CalypsoF09ResearchUi::applyQueueGeometry()
 		_queue->_lstResearch->setNoScrollArea(0, 0);
 	}
 	// Row capacity comes from the resolved viewport; the input rail equals the
-	// painted track (RR3-001 parity with the generated geometry).
-	const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
-	const int rowStride = std::max(1, g->collection_row_slot_1.h);
-	const auto resolvedViewport = fluid.resolve(
-		CalypsoHdOperationsRectf{g->collectionViewport.x, g->collectionViewport.y,
-			g->collectionViewport.w, g->collectionViewport.h}, FluidVRole::Stretch);
-	const int visibleRows = fluid.policy.visibleRows(
-		resolvedViewport.y, resolvedViewport.h, headerHeight, rowStride);
-	const auto resolvedTrack = fluid.resolve(
-		CalypsoHdOperationsRectf{g->collection_scroll_track.x,
-			resolvedViewport.y + headerHeight, g->collection_scroll_track.w,
-			visibleRows * rowStride}, FluidVRole::Fixed);
+	// painted track (RR3-001 parity with the generated geometry). The generated
+	// row slot is the single source for both native input and HD paint.
+	const int tableRowHeight = g->collection_row_slot_1.h;
+	const CalypsoHdOperationsRectf authoredQueueRow{
+		g->collection_row_slot_1.x,
+		g->collection_row_slot_1.y,
+		g->collection_row_slot_1.w,
+		tableRowHeight};
+	const auto descriptor = fluid.selectionListGeometry(
+		{g->collectionViewport.x, g->collectionViewport.y,
+			g->collectionViewport.w, g->collectionViewport.h},
+		authoredQueueRow,
+		{g->collection_scroll_track.x, g->collection_scroll_track.y,
+			g->collection_scroll_track.w, g->collection_scroll_track.h});
 	_queue->_lstResearch->configureCalypsoHdSelectionList(
-		std::max(1, resolvedTrack.w), 44,
-		rowStride, resolvedTrack.y - resolvedViewport.y,
-		std::max(1, visibleRows * rowStride), static_cast<std::size_t>(visibleRows));
+		descriptor.scrollBarWidth, descriptor.minThumbHeight,
+		descriptor.rowStride, descriptor.rowOriginY,
+		descriptor.dataViewportH, descriptor.visibleRows);
 }
 
 void CalypsoF09ResearchUi::applyCatalogueGeometry()
@@ -496,31 +587,46 @@ void CalypsoF09ResearchUi::applyCatalogueGeometry()
 			CalypsoHdOperationsRectf{rect.x, rect.y, rect.w, rect.h}, vrole, anchor));
 	};
 	place(_catalogue->_txtTitle, g->title);
-	place(_catalogue->_lstResearch, g->collectionViewport, FluidVRole::Stretch);
+	place(_catalogue->_lstResearch, g->collectionViewport,
+		FluidVRole::Stretch, FluidAnchor::Stretch);
 	place(_catalogue->_btnReview, g->detail_selected_project_action_review_project, FluidVRole::BottomShift, FluidAnchor::Right);
 	place(_catalogue->_btnChangeVisibility,
 		g->detail_selected_project_action_change_visibility, FluidVRole::BottomShift, FluidAnchor::Right);
 	place(_catalogue->_btnTechTree, g->detail_selected_project_action_tech_tree, FluidVRole::BottomShift, FluidAnchor::Right);
-	place(_catalogue->_btnMarkAllSeen, g->action_mark_all_seen);
+	place(_catalogue->_btnMarkAllSeen, g->action_mark_all_seen, FluidVRole::BottomShift);
 	place(_catalogue->_btnOK, g->action_done, FluidVRole::BottomShift, FluidAnchor::Right);
 	place(_catalogue->_btnQuickSearch, g->toolbar_quick_search, FluidVRole::Fixed, FluidAnchor::Right);
 	place(_catalogue->_cbxSort, g->toolbar_sort_default);
+	const auto chooserBounds = fluid.resolve(
+		CalypsoHdOperationsRectf{g->toolbarChooser.bounds.x,
+			g->toolbarChooser.bounds.y, g->toolbarChooser.bounds.w,
+			g->toolbarChooser.bounds.h},
+		FluidVRole::Stretch, FluidAnchor::Stretch);
+	const auto chooserRow = fluid.resolve(
+		CalypsoHdOperationsRectf{0, 0, 1, g->toolbarChooser.optionRowHeight},
+		FluidVRole::Fixed);
+	const auto chooserInsetX = fluid.resolve(
+		CalypsoHdOperationsRectf{0, 0, g->toolbarChooser.optionInsetX, 1},
+		FluidVRole::Fixed);
+	const auto chooserInsetY = fluid.resolve(
+		CalypsoHdOperationsRectf{0, 0, 1, g->toolbarChooser.optionInsetY},
+		FluidVRole::Fixed);
+	_catalogue->_cbxSort->calypsoHdConfigurePopupSelection(
+		chooserRow.h, chooserInsetX.w, chooserInsetY.h,
+		chooserBounds.x, chooserBounds.y, chooserBounds.w, chooserBounds.h);
 	place(_catalogue->_btnShowOnlyNew, g->toolbar_show_only_new);
-	const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
-	const int rowStride = std::max(1, g->collection_row_slot_1.h);
-	const auto resolvedViewport = fluid.resolve(
-		CalypsoHdOperationsRectf{g->collectionViewport.x, g->collectionViewport.y,
-			g->collectionViewport.w, g->collectionViewport.h}, FluidVRole::Stretch);
-	const int visibleRows = fluid.policy.visibleRows(
-		resolvedViewport.y, resolvedViewport.h, headerHeight, rowStride);
-	const auto resolvedTrack = fluid.resolve(
-		CalypsoHdOperationsRectf{g->collection_scroll_track.x,
-			resolvedViewport.y + headerHeight, g->collection_scroll_track.w,
-			visibleRows * rowStride}, FluidVRole::Fixed);
+	const auto descriptor = fluid.selectionListGeometry(
+		{g->collectionViewport.x, g->collectionViewport.y,
+			g->collectionViewport.w, g->collectionViewport.h},
+		{g->collection_row_slot_1.x, g->collection_row_slot_1.y,
+			g->collection_row_slot_1.w, g->collection_row_slot_1.h},
+		{g->collection_scroll_track.x, g->collection_scroll_track.y,
+			g->collection_scroll_track.w, g->collection_scroll_track.h},
+		FluidVRole::Stretch, FluidAnchor::Stretch);
 	_catalogue->_lstResearch->configureCalypsoHdSelectionList(
-		std::max(1, resolvedTrack.w), 44,
-		rowStride, resolvedTrack.y - resolvedViewport.y,
-		std::max(1, visibleRows * rowStride), static_cast<std::size_t>(visibleRows));
+		descriptor.scrollBarWidth, descriptor.minThumbHeight,
+		descriptor.rowStride, descriptor.rowOriginY,
+		descriptor.dataViewportH, descriptor.visibleRows);
 }
 
 CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
@@ -566,6 +672,8 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 		_queue->_txtSpace, _queue->_txtProject, _queue->_txtScientists,
 		_queue->_txtProgress, _queue->_lstResearch,
 		_queue->_btnGlobalOverview, _queue->_btnOpenProject, _queue->_btnTechTree};
+	if (_moveUp) model.suppressedWidgets.push_back(_moveUp);
+	if (_moveDown) model.suppressedWidgets.push_back(_moveDown);
 	model.title = tr("STR_CURRENT_RESEARCH");
 	model.geometry.designWidth = fluid.width();
 	model.geometry.designHeight = fluid.height();
@@ -573,24 +681,22 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 	model.geometry.title = p(g->title);
 	model.geometry.screenHeader = p(g->screenHeader);
 	model.geometry.headerArt = p(g->headerArt);
-	model.geometry.footer = p(g->footer);
+	model.geometry.footer = p(g->footer, FluidVRole::BottomShift);
 	model.geometry.summaryBar = p(g->summaryBar);
 	model.geometry.toolbarBar = p(g->toolbarBar);
 	model.geometry.collectionViewport = p(g->collectionViewport, FluidVRole::Stretch);
 	model.geometry.detailPanel = p(g->detailPanel, FluidVRole::BottomShift);
 	model.geometry.detailIdentity = p(g->detail_selected_project_label, FluidVRole::BottomShift);
-	{
-		const auto viewportCss = p(g->collectionViewport, FluidVRole::Stretch);
-		const auto trackCss = fluid.cssX(
-			CalypsoHdOperationsRectf{g->collection_scroll_track.x, 0,
-				g->collection_scroll_track.w, 0});
-		const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
-		const int stride = std::max(1, g->collection_row_slot_1.h);
-		model.geometry.collectionScrollTrack = {
-			trackCss.x, viewportCss.y + headerHeight, trackCss.w,
-			static_cast<int>(model.geometry.collectionRows.size()) * stride};
-	}
-	model.geometry.collectionScrollThumb = model.geometry.collectionScrollTrack;
+	const auto rowActionArea = p(CalypsoHdOperationsRectf{
+		generated.rowActionArea.x,
+		generated.rowActionArea.y,
+		generated.rowActionArea.w,
+		generated.rowActionArea.h},
+		FluidVRole::Fixed, FluidAnchor::Right);
+	const int authoredActionGap = std::max(0,
+		generated.rowActionArea.x
+		- (g->collection_column_progress.x + g->collection_column_progress.w));
+	const int rowDataRight = rowActionArea.x - authoredActionGap;
 	{
 		CalypsoHdOperationsRectf cols[3] = {
 			{g->collection_column_project.x, g->collection_column_project.y,
@@ -600,50 +706,58 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 			{g->collection_column_progress.x, g->collection_column_progress.y,
 				g->collection_column_progress.w, g->collection_column_progress.h}};
 		fluid.policy.mapXStretchGroup(cols, 3, fluid.width());
+		for (auto &column : cols) column = fluid.cssY(column, FluidVRole::Fixed);
+		cols[2].w = std::max(1, rowDataRight - cols[2].x);
 		model.geometry.collectionColumns = {
 			CalypsoHdOperationsRect{cols[0].x, cols[0].y, cols[0].w, cols[0].h},
 			CalypsoHdOperationsRect{cols[1].x, cols[1].y, cols[1].w, cols[1].h},
 			CalypsoHdOperationsRect{cols[2].x, cols[2].y, cols[2].w, cols[2].h}};
 	}
-	{
-		const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
-		const int stride = std::max(1, g->collection_row_slot_1.h);
-		const int rows = fluid.policy.visibleRows(
-			model.geometry.collectionViewport.y, model.geometry.collectionViewport.h,
-			headerHeight, stride);
-		model.geometry.collectionRows.clear();
-		for (int i = 0; i < rows; ++i)
-		{
-			model.geometry.collectionRows.push_back(CalypsoHdOperationsRect{
-				model.geometry.collectionViewport.x,
-				model.geometry.collectionViewport.y + headerHeight + i * stride,
-				model.geometry.collectionViewport.w, stride});
-		}
-	}
+	const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
+	const auto resolvedViewport = p(g->collectionViewport, FluidVRole::Stretch);
+	const int tableRowHeight = g->collection_row_slot_1.h;
+	const auto authoredQueueRow = p(CalypsoHdOperationsRectf{
+		g->collection_row_slot_1.x,
+		g->collection_row_slot_1.y,
+		g->collection_row_slot_1.w,
+		tableRowHeight});
+	const auto resolvedTrack = p(CalypsoHdOperationsRectf{
+		g->collection_scroll_track.x,
+		g->collectionViewport.y + headerHeight,
+		g->collection_scroll_track.w, 0});
+	calypsoHdOperationsResolveCollectionGeometry(model.collection,
+		resolvedViewport, authoredQueueRow, resolvedTrack, headerHeight,
+		g->collectionViewport.w);
+	for (auto &slot : model.collection.rowSlots)
+		slot.w = std::max(1, rowDataRight - slot.x);
+	model.geometry.collectionViewport = model.collection.viewport;
+	model.geometry.collectionRows = model.collection.rowSlots;
+	model.geometry.collectionScrollTrack = model.collection.scrollTrack;
+	model.geometry.collectionScrollThumb = model.collection.scrollThumb;
 	model.geometry.detailIdentityTitle = p(g->detail_selected_project_identity_title, FluidVRole::BottomShift);
 	model.geometry.detailIdentitySubtitle = p(g->detail_selected_project_identity_subtitle, FluidVRole::BottomShift);
 	model.geometry.detailMetrics = {
 		p(g->detail_selected_project_metric_scientists, FluidVRole::BottomShift),
 		p(g->detail_selected_project_metric_progress, FluidVRole::BottomShift)};
 	model.geometry.detailActions = {
-		p(g->detail_selected_project_action_open_project, FluidVRole::BottomShift),
-		p(g->detail_selected_project_action_tech_tree, FluidVRole::BottomShift)};
+		p(g->detail_selected_project_action_open_project, FluidVRole::BottomShift, FluidAnchor::Right),
+		p(g->detail_selected_project_action_tech_tree, FluidVRole::BottomShift, FluidAnchor::Right)};
 	model.geometry.footerActions = {
 		p(g->action_global_overview, FluidVRole::BottomShift),
 		p(g->action_new_project, FluidVRole::BottomShift),
-		p(g->action_done, FluidVRole::BottomShift)};
+		p(g->action_done, FluidVRole::BottomShift, FluidAnchor::Right)};
 	model.summaryFields.push_back(summary("available",
 		tr("STR_CALYPSO_RESEARCH_SCIENTISTS_AVAILABLE"),
 		std::to_string(_queue->_base->getAvailableScientists()),
-		p(g->summary_available), _queue->_txtAvailable));
+		p(g->summary_available, FluidVRole::Fixed, FluidAnchor::Right), _queue->_txtAvailable));
 	model.summaryFields.push_back(summary("allocated",
 		tr("STR_CALYPSO_RESEARCH_SCIENTISTS_ALLOCATED"),
 		std::to_string(_queue->_base->getAllocatedScientists()),
-		p(g->summary_allocated), _queue->_txtAllocated));
+		p(g->summary_allocated, FluidVRole::Fixed, FluidAnchor::Right), _queue->_txtAllocated));
 	model.summaryFields.push_back(summary("lab-space",
 		tr("STR_CALYPSO_RESEARCH_LABORATORY_SPACE_AVAILABLE"),
 		std::to_string(_queue->_base->getFreeLaboratories()),
-		p(g->summary_lab_space), _queue->_txtSpace));
+		p(g->summary_lab_space, FluidVRole::Fixed, FluidAnchor::Right), _queue->_txtSpace));
 	const std::string columnLabels[] = {
 		tr("STR_RESEARCH_PROJECT"),
 		tr("STR_CALYPSO_RESEARCH_SCIENTISTS_ALLOCATED_UC"),
@@ -651,7 +765,7 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 	for (int i = 0; i < generated.columnCount; ++i)
 		model.collection.columns.push_back({
 			generated.columns[i].id, columnLabels[i],
-			p(generated.columns[i].rect), {}, generated.columns[i].contentRole});
+			model.geometry.collectionColumns.at(i), {}, generated.columns[i].contentRole});
 	const auto &projects = _queue->_base->getResearch();
 	model.collection.heading = tr("STR_CALYPSO_RESEARCH_PROJECTS");
 	model.collection.meta = tr("STR_CALYPSO_ACTIVE_PROJECT_COUNT").arg(projects.size());
@@ -693,14 +807,37 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 	model.collection.viewport = model.geometry.collectionViewport;
 	model.collection.scrollOffset = nativeOffset;
 	model.collection.scroll = {
-		nativeOffset, projects.size(), static_cast<std::size_t>(generated.rowSlotCount),
+		nativeOffset, projects.size(), model.collection.visibleRows,
 		model.geometry.collectionViewport, model.geometry.collectionScrollTrack,
 		model.geometry.collectionScrollThumb};
 	const bool hasSelection = !projects.empty()
 		&& model.collection.selectedIndex < projects.size();
 	const auto *selected = hasSelection ? projects[model.collection.selectedIndex] : nullptr;
+	if (Options::oxceBaseResearchReorder && hasSelection && _moveUp && _moveDown)
+	{
+		// These are real 44px HD owners bound to ResearchState's existing arrow
+		// handlers. The legacy TextList arrows remain native, but are too small to
+		// serve as a responsive HD hit target directly.
+		const auto row = model.collection.rows[nativeSelected].rect;
+		const int gap = 0;
+		const int width = std::max(1, rowActionArea.w / 2);
+		CalypsoHdOperationsRect upRect = row;
+		upRect.x = rowActionArea.x;
+		upRect.w = width;
+		upRect.h = std::max(width, row.h);
+		CalypsoHdOperationsRect downRect = upRect;
+		downRect.x += width + gap;
+		setSurfaceRect(_moveUp, upRect);
+		setSurfaceRect(_moveDown, downRect);
+		auto moveUpAction = action("move-up", "↑", upRect, _moveUp, true);
+		moveUpAction.state.disabled = nativeSelected == 0;
+		model.detail.actions.push_back(std::move(moveUpAction));
+		auto moveDownAction = action("move-down", "↓", downRect, _moveDown, true);
+		moveDownAction.state.disabled = nativeSelected + 1 >= projects.size();
+		model.detail.actions.push_back(std::move(moveDownAction));
+	}
 	model.detail.id = "selected-project";
-	model.detail.panel = p(g->detailPanel);
+	model.detail.panel = model.geometry.detailPanel;
 	model.detail.identity.id = "selected-project";
 	model.detail.identity.label = tr("STR_CALYPSO_RESEARCH_SELECTED_PROJECT");
 	model.detail.identity.title = selected
@@ -709,33 +846,33 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 	model.detail.identity.subtitle = selected
 		? std::string(tr("STR_RESEARCH_PROJECT"))
 		: _queue->_btnNew->getText();
-	model.detail.identity.rect = p(g->detail_selected_project);
-	model.detail.identity.titleRect = p(g->detail_selected_project_identity_title);
-	model.detail.identity.subtitleRect = p(g->detail_selected_project_identity_subtitle);
+	model.detail.identity.rect = p(g->detail_selected_project, FluidVRole::BottomShift);
+	model.detail.identity.titleRect = p(g->detail_selected_project_identity_title, FluidVRole::BottomShift);
+	model.detail.identity.subtitleRect = p(g->detail_selected_project_identity_subtitle, FluidVRole::BottomShift);
 	if (selected)
 	{
 		model.detail.metrics.push_back(metric("scientists",
 			tr("STR_CALYPSO_RESEARCH_SCIENTISTS_ALLOCATED"),
 			std::to_string(selected->getAssigned()),
-			p(g->detail_selected_project_metric_scientists)));
+			p(g->detail_selected_project_metric_scientists, FluidVRole::BottomShift)));
 		model.detail.metrics.push_back(metric("progress", tr("STR_PROGRESS"),
 			tr(selected->getResearchProgress()),
-			p(g->detail_selected_project_metric_progress)));
+			p(g->detail_selected_project_metric_progress, FluidVRole::BottomShift)));
 	}
 	model.detail.actions.push_back(action("open-project", _queue->_btnOpenProject->getText(),
-		p(g->detail_selected_project_action_open_project), _queue->_btnOpenProject,
+		p(g->detail_selected_project_action_open_project, FluidVRole::BottomShift, FluidAnchor::Right), _queue->_btnOpenProject,
 		hasSelection));
 	model.detail.actions.push_back(action("tech-tree", _queue->_btnTechTree->getText(),
-		p(g->detail_selected_project_action_tech_tree), _queue->_btnTechTree,
+		p(g->detail_selected_project_action_tech_tree, FluidVRole::BottomShift, FluidAnchor::Right), _queue->_btnTechTree,
 		hasSelection));
 	model.footerActions.push_back(action("global-overview",
 		_queue->_btnGlobalOverview->getText(),
-		p(g->action_global_overview), _queue->_btnGlobalOverview, true, "safe"));
+		p(g->action_global_overview, FluidVRole::BottomShift), _queue->_btnGlobalOverview, true, "safe"));
 	auto newProject = action("new-project", _queue->_btnNew->getText(),
-		p(g->action_new_project), _queue->_btnNew, true, "primary");
+		p(g->action_new_project, FluidVRole::BottomShift), _queue->_btnNew, true, "primary");
 	model.footerActions.push_back(std::move(newProject));
 	model.footerActions.push_back(action("done", _queue->_btnOk->getText(),
-		p(g->action_done), _queue->_btnOk));
+		p(g->action_done, FluidVRole::BottomShift, FluidAnchor::Right), _queue->_btnOk));
 	setFonts(model, _queue->_game->getMod());
 	return model;
 }
@@ -784,6 +921,7 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 		_catalogue->_lstResearch, _catalogue->_btnReview,
 		_catalogue->_btnChangeVisibility, _catalogue->_btnTechTree,
 		_catalogue->_btnMarkAllSeen};
+	_catalogue->_cbxSort->calypsoHdSuppressPopupWidgets(model.suppressedWidgets);
 	model.title = tr("STR_NEW_RESEARCH_PROJECTS");
 	model.geometry.designWidth = fluid.width();
 	model.geometry.designHeight = fluid.height();
@@ -792,24 +930,13 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 	model.geometry.screenHeader = p(g->screenHeader);
 	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.summaryBar = p(g->summaryBar);
-	model.geometry.collectionScrollThumb = p(g->collection_scroll_thumb);
-	model.geometry.toolbarBar = p(g->toolbarBar);
-	model.geometry.collectionViewport = p(g->collectionViewport, FluidVRole::Stretch);
+	model.geometry.toolbarBar = p(g->toolbarBar, FluidVRole::Fixed, FluidAnchor::Stretch);
+	model.geometry.collectionViewport = p(g->collectionViewport,
+		FluidVRole::Stretch, FluidAnchor::Stretch);
 	model.geometry.detailPanel = p(g->detailPanel,
 		wide ? FluidVRole::Stretch : FluidVRole::BottomShift);
 	model.geometry.footer = p(g->footer, FluidVRole::BottomShift);
-	{
-		const auto viewportCss = p(g->collectionViewport, FluidVRole::Stretch);
-		const auto trackCss = fluid.cssX(
-			CalypsoHdOperationsRectf{g->collection_scroll_track.x, 0,
-				g->collection_scroll_track.w, 0});
-		const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
-		const int stride = std::max(1, g->collection_row_slot_1.h);
-		model.geometry.collectionScrollTrack = {
-			trackCss.x, viewportCss.y + headerHeight, trackCss.w,
-			static_cast<int>(model.geometry.collectionRows.size()) * stride};
-	}
-	model.geometry.detailIdentity = p(g->detail_selected_project_label);
+	model.geometry.detailIdentity = p(g->detail_selected_project_label, wide ? FluidVRole::Fixed : FluidVRole::BottomShift, wide ? FluidAnchor::Right : FluidAnchor::Geometry);
 	{
 		CalypsoHdOperationsRectf cols[2] = {
 			{g->collection_column_project.x, g->collection_column_project.y,
@@ -817,39 +944,41 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 			{g->collection_column_status.x, g->collection_column_status.y,
 				g->collection_column_status.w, g->collection_column_status.h}};
 		fluid.policy.mapXStretchGroup(cols, 2, fluid.width());
+		for (auto &column : cols) column = fluid.cssY(column, FluidVRole::Fixed);
 		model.geometry.collectionColumns = {
 			CalypsoHdOperationsRect{cols[0].x, cols[0].y, cols[0].w, cols[0].h},
 			CalypsoHdOperationsRect{cols[1].x, cols[1].y, cols[1].w, cols[1].h}};
 	}
-	{
-		const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
-		const int stride = std::max(1, g->collection_row_slot_1.h);
-		const int rows = fluid.policy.visibleRows(
-			model.geometry.collectionViewport.y, model.geometry.collectionViewport.h,
-			headerHeight, stride);
-		model.geometry.collectionRows.clear();
-		for (int i = 0; i < rows; ++i)
-		{
-			model.geometry.collectionRows.push_back(CalypsoHdOperationsRect{
-				model.geometry.collectionViewport.x,
-				model.geometry.collectionViewport.y + headerHeight + i * stride,
-				model.geometry.collectionViewport.w, stride});
-		}
-	}
-	model.geometry.detailIdentityTitle = p(g->detail_selected_project_identity_title);
-	model.geometry.detailIdentitySubtitle = p(g->detail_selected_project_identity_subtitle);
-	model.geometry.detailMetrics = {p(g->detail_selected_project_metric_status)};
+	const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
+	const auto resolvedViewport = p(g->collectionViewport,
+		FluidVRole::Stretch, FluidAnchor::Stretch);
+	const auto resolvedTrack = p(CalypsoHdOperationsRectf{
+		g->collection_scroll_track.x,
+		g->collectionViewport.y + headerHeight,
+		g->collection_scroll_track.w, 0}, FluidVRole::Fixed, FluidAnchor::Right);
+	calypsoHdOperationsResolveCollectionGeometry(model.collection,
+		resolvedViewport, p(g->collection_row_slot_1), resolvedTrack, headerHeight,
+		g->collectionViewport.w);
+	model.geometry.collectionViewport = model.collection.viewport;
+	model.geometry.collectionRows = model.collection.rowSlots;
+	model.geometry.collectionScrollTrack = model.collection.scrollTrack;
+	model.geometry.collectionScrollThumb = model.collection.scrollThumb;
+	model.geometry.detailIdentityTitle = p(g->detail_selected_project_identity_title, wide ? FluidVRole::Fixed : FluidVRole::BottomShift, wide ? FluidAnchor::Right : FluidAnchor::Geometry);
+	model.geometry.detailIdentitySubtitle = p(g->detail_selected_project_identity_subtitle, wide ? FluidVRole::Fixed : FluidVRole::BottomShift, wide ? FluidAnchor::Right : FluidAnchor::Geometry);
+	model.geometry.detailMetrics = {p(g->detail_selected_project_metric_status, wide ? FluidVRole::Fixed : FluidVRole::BottomShift, wide ? FluidAnchor::Right : FluidAnchor::Geometry)};
 	model.geometry.detailActions = {
-		p(g->detail_selected_project_action_review_project),
-		p(g->detail_selected_project_action_change_visibility),
-		p(g->detail_selected_project_action_tech_tree)};
-	model.geometry.footerActions = {p(g->action_mark_all_seen), p(g->action_done)};
+		p(g->detail_selected_project_action_review_project, FluidVRole::BottomShift, FluidAnchor::Right),
+		p(g->detail_selected_project_action_change_visibility, FluidVRole::BottomShift, FluidAnchor::Right),
+		p(g->detail_selected_project_action_tech_tree, FluidVRole::BottomShift, FluidAnchor::Right)};
+	model.geometry.footerActions = {
+		p(g->action_mark_all_seen, FluidVRole::BottomShift),
+		p(g->action_done, FluidVRole::BottomShift, FluidAnchor::Right)};
 	const std::string columnLabels[] = {
 		tr("STR_RESEARCH_PROJECT"), tr("STR_CALYPSO_RESEARCH_STATUS")};
 	for (int i = 0; i < generated.columnCount; ++i)
 		model.collection.columns.push_back({
 			generated.columns[i].id, columnLabels[i],
-			p(generated.columns[i].rect), {}, generated.columns[i].contentRole});
+			model.geometry.collectionColumns.at(i), {}, generated.columns[i].contentRole});
 	model.collection.emptyTitle = tr("STR_CALYPSO_NO_AVAILABLE_RESEARCH");
 	model.collection.emptyBody = tr("STR_CALYPSO_NO_AVAILABLE_RESEARCH_PROMPT");
 	const std::size_t nativeSelected = nativeSelection(
@@ -889,42 +1018,49 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 	model.collection.count = _catalogue->_projects.size();
 	model.collection.viewport = model.geometry.collectionViewport;
 	model.collection.scroll = {
-		nativeOffset, _catalogue->_projects.size(), static_cast<std::size_t>(generated.rowSlotCount),
+		nativeOffset, _catalogue->_projects.size(), model.collection.visibleRows,
 		model.geometry.collectionViewport, model.geometry.collectionScrollTrack,
 		model.geometry.collectionScrollThumb};
 	const bool hasSelection = !_catalogue->_projects.empty()
 		&& model.collection.selectedIndex < _catalogue->_projects.size();
 	const auto *selected = hasSelection
 		? _catalogue->_projects[model.collection.selectedIndex] : nullptr;
+	// Keep the hidden native owners in sync with the HD selection sentinel. A
+	// filtered-out row must not leave its old hit rectangle armed to invoke the
+	// newly inserted row zero through the legacy callback.
+	if (_catalogue->_btnReview) _catalogue->_btnReview->setVisible(hasSelection);
+	if (_catalogue->_btnChangeVisibility) _catalogue->_btnChangeVisibility->setVisible(hasSelection);
+	if (_catalogue->_btnTechTree) _catalogue->_btnTechTree->setVisible(hasSelection);
 	const int selectedStatus = selected
 		? _catalogue->_game->getSavedGame()->getResearchRuleStatus(selected->getName()) : 0;
 	const std::string selectedStatusText = selectedStatus == RuleResearch::RESEARCH_STATUS_NEW
 		? tr("STR_NEW_PROJECT")
 		: selectedStatus == RuleResearch::RESEARCH_STATUS_HIDDEN
 			? tr("STR_FILTER_HIDDEN") : tr("STR_NORMAL");
+	model.detail.id = "selected-project";
 	model.detail.identity.title = selected ? tr(selected->getName()) : tr("STR_NONE");
-	model.detail.panel = p(g->detailPanel);
+	model.detail.panel = model.geometry.detailPanel;
 	model.detail.identity.id = "selected-project";
 	model.detail.identity.label = tr("STR_CALYPSO_RESEARCH_SELECTED_PROJECT");
 	model.detail.identity.subtitle = tr("STR_RESEARCH_PROJECT");
-	model.detail.identity.rect = p(g->detail_selected_project);
-	model.detail.identity.titleRect = p(g->detail_selected_project_identity_title);
-	model.detail.identity.subtitleRect = p(g->detail_selected_project_identity_subtitle);
+	model.detail.identity.rect = p(g->detail_selected_project, wide ? FluidVRole::Fixed : FluidVRole::BottomShift, wide ? FluidAnchor::Right : FluidAnchor::Geometry);
+	model.detail.identity.titleRect = p(g->detail_selected_project_identity_title, wide ? FluidVRole::Fixed : FluidVRole::BottomShift, wide ? FluidAnchor::Right : FluidAnchor::Geometry);
+	model.detail.identity.subtitleRect = p(g->detail_selected_project_identity_subtitle, wide ? FluidVRole::Fixed : FluidVRole::BottomShift, wide ? FluidAnchor::Right : FluidAnchor::Geometry);
 	if (selected)
 		model.detail.metrics.push_back(metric("status",
 			tr("STR_CALYPSO_RESEARCH_VISIBILITY_STATUS"),
-			selectedStatusText, p(g->detail_selected_project_metric_status)));
+			selectedStatusText, p(g->detail_selected_project_metric_status, wide ? FluidVRole::Fixed : FluidVRole::BottomShift, wide ? FluidAnchor::Right : FluidAnchor::Geometry)));
 	model.detail.actions.push_back(action("review-project", tr("STR_REVIEW_PROJECT"),
-		p(g->detail_selected_project_action_review_project), _catalogue->_btnReview,
+		p(g->detail_selected_project_action_review_project, FluidVRole::BottomShift, FluidAnchor::Right), _catalogue->_btnReview,
 		hasSelection, "primary"));
 	auto visibility = action("change-visibility", tr("STR_CHANGE_VISIBILITY"),
-		p(g->detail_selected_project_action_change_visibility),
+		p(g->detail_selected_project_action_change_visibility, FluidVRole::BottomShift, FluidAnchor::Right),
 		_catalogue->_btnChangeVisibility, hasSelection);
 	visibility.state.disabled = !_catalogue->_isSortingEnabled
 		&& !Options::oxceHighlightNewTopics;
 	model.detail.actions.push_back(std::move(visibility));
 	model.detail.actions.push_back(action("tech-tree", tr("STR_TECH_TREE"),
-		p(g->detail_selected_project_action_tech_tree), _catalogue->_btnTechTree,
+		p(g->detail_selected_project_action_tech_tree, FluidVRole::BottomShift, FluidAnchor::Right), _catalogue->_btnTechTree,
 		hasSelection));
 	const char *sortLabelKey = "STR_SORT_DEFAULT";
 	switch (_catalogue->_cbxSort->getSelected())
@@ -948,12 +1084,53 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 	const std::string query = _catalogue->_btnQuickSearch->getText();
 	model.toolbarActions.push_back(action("quick-search",
 		query.empty() ? std::string(tr("STR_TOGGLE_QUICK_SEARCH")) : query,
-		p(g->toolbar_quick_search), _catalogue->_btnQuickSearch,
+		p(g->toolbar_quick_search, FluidVRole::Fixed, FluidAnchor::Right), _catalogue->_btnQuickSearch,
 		_catalogue->_btnQuickSearch->getVisible()));
 	model.footerActions.push_back(action("mark-all-seen", tr("STR_MARK_ALL_SEEN"),
-		p(g->action_mark_all_seen), _catalogue->_btnMarkAllSeen, true, "safe"));
+		p(g->action_mark_all_seen, FluidVRole::BottomShift), _catalogue->_btnMarkAllSeen, true, "safe"));
 	model.footerActions.push_back(action("done", tr("STR_DONE"),
-		p(g->action_done), _catalogue->_btnOK));
+		p(g->action_done, FluidVRole::BottomShift, FluidAnchor::Right), _catalogue->_btnOK));
+	model.chooser.bounds = p(CalypsoHdOperationsRectf{
+		g->toolbarChooser.bounds.x, g->toolbarChooser.bounds.y,
+		g->toolbarChooser.bounds.w, g->toolbarChooser.bounds.h},
+		FluidVRole::Stretch, FluidAnchor::Stretch);
+	model.chooser.optionInsetX = p(CalypsoHdOperationsRectf{
+		0, 0, g->toolbarChooser.optionInsetX, 1}).w;
+	model.chooser.optionInsetY = p(CalypsoHdOperationsRectf{
+		0, 0, 1, g->toolbarChooser.optionInsetY}).h;
+	const int chooserRowHeight = p(CalypsoHdOperationsRectf{
+		0, 0, 1, g->toolbarChooser.optionRowHeight}).h;
+	const TextList *popupList = _catalogue->_cbxSort->calypsoHdPopupList();
+	if (popupList)
+	{
+		model.chooser.owner = _catalogue->_cbxSort;
+		model.chooser.open = _catalogue->_cbxSort->calypsoHdPopupVisible();
+		const int rowHeight = std::max(1, chooserRowHeight);
+		int panelX = 0, panelY = 0, panelW = 0, panelH = 0;
+		_catalogue->_cbxSort->calypsoHdPopupWindowRect(
+			panelX, panelY, panelW, panelH);
+		model.chooser.panel = {panelX, panelY, panelW, panelH};
+		model.chooser.selectedIndex = popupList->getTexts() > 0
+			? static_cast<int>(_catalogue->_cbxSort->getSelected()) : -1;
+		model.chooser.hoveredIndex = popupList->getTexts() > 0
+			? static_cast<int>(_catalogue->_cbxSort->getHoveredListIdx()) : -1;
+		for (std::size_t index = 0; index < popupList->getTexts(); ++index)
+		{
+			CalypsoHdOperationsChooserOption option;
+			option.id = index < static_cast<std::size_t>(
+				CalypsoF09ResearchCatalogueGen::kToolbarChooserOptionCount)
+				? std::string(CalypsoF09ResearchCatalogueGen::kToolbarChooserOptions[index].id)
+				: std::string("sort-option-") + std::to_string(index);
+			option.label = popupList->getCellText(index, 0);
+			option.rect = {popupList->getX(), popupList->getY()
+				+ static_cast<int>(index) * rowHeight, popupList->getWidth(), rowHeight};
+			option.state.visible = model.chooser.open;
+			option.state.selected = static_cast<int>(index) == model.chooser.selectedIndex;
+			option.state.hovered = static_cast<int>(index) == model.chooser.hoveredIndex;
+			option.widget = popupList;
+			model.chooser.options.push_back(std::move(option));
+		}
+	}
 	setFonts(model, _catalogue->_game->getMod());
 	return model;
 }
@@ -991,6 +1168,15 @@ void CalypsoF09ResearchUi::applyStaffingGeometry()
 	// the stepper and 44px actions keep their authored CSS size.
 	const auto fluid = CalypsoHdOperationsFluidFrame::forReference(
 		g->window.w, g->window.h, g->footer.x, g->footer.w);
+	auto groupAnchor = [&](const auto &parent) {
+		const int contentRight = fluid.policy.contentLeft + fluid.policy.contentWidth;
+		return fluidSameEdge(parent.x + parent.w, contentRight)
+			&& !fluidSameEdge(parent.x, fluid.policy.contentLeft)
+			? FluidAnchor::Right : FluidAnchor::Geometry;
+	};
+	const auto capacityAnchor = groupAnchor(g->region_capacity);
+	const auto staffingActionsAnchor = wide ? FluidAnchor::Right
+		: groupAnchor(g->region_staffing_actions);
 	auto place = [&](Surface *surface, const auto &rect,
 		FluidVRole vrole = FluidVRole::Fixed, FluidAnchor anchor = FluidAnchor::Geometry)
 	{
@@ -999,21 +1185,22 @@ void CalypsoF09ResearchUi::applyStaffingGeometry()
 	};
 	place(_staffing->_txtTitle, g->title);
 	place(_staffing->_txtAvailableScientist,
-		g->region_capacity_field_available_value);
-	place(_staffing->_txtAvailableSpace, g->region_capacity_field_labs_value);
+		g->region_capacity_field_available_value, FluidVRole::Fixed, capacityAnchor);
+	place(_staffing->_txtAvailableSpace, g->region_capacity_field_labs_value,
+		FluidVRole::Fixed, capacityAnchor);
 	place(_staffing->_txtAllocatedScientist,
-		g->region_capacity_field_allocated_value);
+		g->region_capacity_field_allocated_value, FluidVRole::Fixed, capacityAnchor);
 	place(_staffing->_txtMore, g->control_scientists_increment);
 	place(_staffing->_txtLess, g->control_scientists_decrement);
 	place(_staffing->_btnMore, g->control_scientists_increment);
 	place(_staffing->_btnLess, g->control_scientists_decrement);
 	place(_staffing->_surfaceScientists, g->control_scientists);
 	place(_staffing->_btnRemoveAll,
-		g->region_staffing_actions_action_slot_1);
+		g->region_staffing_actions_action_slot_1, FluidVRole::Fixed, staffingActionsAnchor);
 	place(_staffing->_btnAllAvailable,
-		g->region_staffing_actions_action_slot_2);
-	place(_staffing->_btnCancel, g->action_cancel);
-	place(_staffing->_btnOk, g->action_start_project);
+		g->region_staffing_actions_action_slot_2, FluidVRole::Fixed, staffingActionsAnchor);
+	place(_staffing->_btnCancel, g->action_cancel, FluidVRole::BottomShift);
+	place(_staffing->_btnOk, g->action_start_project, FluidVRole::BottomShift);
 }
 
 CalypsoHdOperationsModel CalypsoF09ResearchUi::buildStaffingModel() const
@@ -1035,6 +1222,15 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildStaffingModel() const
 	if (!g) return model;
 	const auto fluid = CalypsoHdOperationsFluidFrame::forReference(
 		g->window.w, g->window.h, g->footer.x, g->footer.w);
+	auto groupAnchor = [&](const auto &parent) {
+		const int contentRight = fluid.policy.contentLeft + fluid.policy.contentWidth;
+		return fluidSameEdge(parent.x + parent.w, contentRight)
+			&& !fluidSameEdge(parent.x, fluid.policy.contentLeft)
+			? FluidAnchor::Right : FluidAnchor::Geometry;
+	};
+	const auto capacityAnchor = groupAnchor(g->region_capacity);
+	const auto staffingActionsAnchor = wide ? FluidAnchor::Right
+		: groupAnchor(g->region_staffing_actions);
 	auto p = [&](const auto &r, FluidVRole vr = FluidVRole::Fixed,
 		FluidAnchor ha = FluidAnchor::Geometry) {
 		const auto css = fluid.cssY(fluid.cssX(
@@ -1072,7 +1268,7 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildStaffingModel() const
 	model.geometry.screenHeader = p(g->status);
 	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.controlBar = p(g->controlBar);
-	model.geometry.footer = p(g->footer);
+	model.geometry.footer = p(g->footer, FluidVRole::BottomShift);
 	auto addRegion = [&](const std::string &id, const std::string &label,
 		const auto &rect, const auto &labelRect)
 	{
@@ -1092,6 +1288,8 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildStaffingModel() const
 	addRegion("capacity", tr("STR_CALYPSO_RESEARCH_STAFFING"),
 		g->region_capacity, g->region_capacity_label);
 	auto &capacity = model.regions.back();
+	capacity.rect = p(g->region_capacity, FluidVRole::Fixed, capacityAnchor);
+	capacity.labelRect = p(g->region_capacity_label, FluidVRole::Fixed, capacityAnchor);
 	int availableScientists = _staffing->_base ? _staffing->_base->getAvailableScientists() : 0;
 	int availableLaboratories = _staffing->_base ? _staffing->_base->getFreeLaboratories() : 0;
 	if (_staffing->_transaction.pending())
@@ -1102,22 +1300,24 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildStaffingModel() const
 	capacity.fields.push_back(metric("available",
 		tr("STR_CALYPSO_RESEARCH_SCIENTISTS_AVAILABLE_UC"),
 		std::to_string(availableScientists),
-		p(g->region_capacity_field_available_value)));
+		p(g->region_capacity_field_available_value, FluidVRole::Fixed, capacityAnchor)));
 	capacity.fields.push_back(metric("labs",
 		tr("STR_CALYPSO_RESEARCH_LABORATORY_SPACE_AVAILABLE_UC"),
 		std::to_string(availableLaboratories),
-		p(g->region_capacity_field_labs_value)));
+		p(g->region_capacity_field_labs_value, FluidVRole::Fixed, capacityAnchor)));
 	capacity.fields.push_back(metric("allocated",
 		tr("STR_CALYPSO_RESEARCH_SCIENTISTS_ALLOCATED"),
 		std::to_string(_staffing->_project->getAssigned()),
-		p(g->region_capacity_field_allocated_value)));
+		p(g->region_capacity_field_allocated_value, FluidVRole::Fixed, capacityAnchor)));
 	addRegion("staffing-actions", tr("STR_CALYPSO_RESEARCH_STAFFING_ACTIONS"),
 		g->region_staffing_actions, g->region_staffing_actions_label);
 	auto &staffingActions = model.regions.back();
+	staffingActions.rect = p(g->region_staffing_actions, FluidVRole::Fixed, staffingActionsAnchor);
+	staffingActions.labelRect = p(g->region_staffing_actions_label, FluidVRole::Fixed, staffingActionsAnchor);
 	staffingActions.actions.push_back(action("remove-all", tr("STR_REMOVE_ALL"),
-		p(g->region_staffing_actions_action_slot_1), _staffing->_btnRemoveAll));
+		p(g->region_staffing_actions_action_slot_1, FluidVRole::Fixed, staffingActionsAnchor), _staffing->_btnRemoveAll));
 	staffingActions.actions.push_back(action("all-available", tr("STR_ALL_AVAILABLE"),
-		p(g->region_staffing_actions_action_slot_2), _staffing->_btnAllAvailable));
+		p(g->region_staffing_actions_action_slot_2, FluidVRole::Fixed, staffingActionsAnchor), _staffing->_btnAllAvailable));
 	staffingActions.kind = CalypsoHdOperationsRegionKind::Actions;
 	CalypsoHdOperationsControl control;
 	control.id = "scientists";
@@ -1133,10 +1333,13 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildStaffingModel() const
 	control.increment = action("scientists-increment", "+",
 		p(g->control_scientists_increment), _staffing->_btnMore);
 	model.controls.push_back(std::move(control));
+	model.geometry.footerActions = {
+		p(g->action_cancel, FluidVRole::BottomShift),
+		p(g->action_start_project, FluidVRole::BottomShift)};
 	model.footerActions.push_back(action("cancel", _staffing->_btnCancel->getText(),
-		p(g->action_cancel), _staffing->_btnCancel, true, "danger"));
+		p(g->action_cancel, FluidVRole::BottomShift), _staffing->_btnCancel, true, "danger"));
 	model.footerActions.push_back(action("start-project", _staffing->_btnOk->getText(),
-		p(g->action_start_project), _staffing->_btnOk, true, "primary"));
+		p(g->action_start_project, FluidVRole::BottomShift), _staffing->_btnOk, true, "primary"));
 	setFonts(model, _staffing->_game->getMod());
 	return model;
 }

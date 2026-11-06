@@ -52,8 +52,9 @@ bool calypsoHdRdWideLayout(Game *game)
 {
 	(void)game;
 	const auto &viewport = Calypso::calypsoViewportRuntime().current();
+	const auto effective = Calypso::calypsoHdOperationsEffectiveViewport();
 	const auto layoutClass = Calypso::classifyCalypsoHdOperationsLayout(
-		std::max(1, viewport.logicalWidth), std::max(1, viewport.logicalHeight));
+		effective.cssWidth, std::max(1, viewport.logicalHeight));
 	if (layoutClass == Calypso::CalypsoHdOperationsLayoutClass::Unsupported)
 	{
 		CalypsoHdUiOverlay::instance().failHdRoute(
@@ -292,6 +293,7 @@ void CalypsoF10ProductionUi::configure(TYPE &state) \
 	state._hdLayout = true; state._hdWideLayout = calypsoHdRdWideLayout(state._game); \
 	auto *adapter = new CalypsoF10ProductionUi(&state); state._hdAdapter = adapter; \
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter->_renderer); adapter->refresh(); \
+	if (state._window) state._window->finishPopupForHd(); \
 	calypsoHdOperationsPublishHarnessVisibility(); \
 }
 F10_CONFIGURE(ManufactureState)
@@ -414,27 +416,23 @@ void CalypsoF10ProductionUi::applyQueueGeometry()
 	place(_queue->_txtCost, g->collection_column_cost);
 	place(_queue->_txtTimeLeft, g->collection_column_time);
 	place(_queue->_lstManufacture, g->collectionViewport, FluidVRole::Stretch);
-	place(_queue->_btnGlobalOverview, g->action_global_overview);
-	place(_queue->_btnNew, g->action_new_production);
-	place(_queue->_btnOk, g->action_done);
-	place(_queue->_btnOpenProduction, g->detail_selected_production_action_open_production);
-	place(_queue->_btnTechTree, g->detail_selected_production_action_tech_tree);
+	place(_queue->_btnGlobalOverview, g->action_global_overview, FluidVRole::BottomShift);
+	place(_queue->_btnNew, g->action_new_production, FluidVRole::BottomShift);
+	place(_queue->_btnOk, g->action_done, FluidVRole::BottomShift);
+	place(_queue->_btnOpenProduction, g->detail_selected_production_action_open_production, FluidVRole::BottomShift);
+	place(_queue->_btnTechTree, g->detail_selected_production_action_tech_tree, FluidVRole::BottomShift);
 	{
-		const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
-		const int rowStride = std::max(1, g->collection_row_slot_1.h);
-		const auto resolvedViewport = fluid.resolve(
-			CalypsoHdOperationsRectf{g->collectionViewport.x, g->collectionViewport.y,
-				g->collectionViewport.w, g->collectionViewport.h}, FluidVRole::Stretch);
-		const int visibleRows = fluid.policy.visibleRows(
-			resolvedViewport.y, resolvedViewport.h, headerHeight, rowStride);
-		const auto resolvedTrack = fluid.resolve(
-			CalypsoHdOperationsRectf{g->collection_scroll_track.x,
-				resolvedViewport.y + headerHeight, g->collection_scroll_track.w,
-				visibleRows * rowStride}, FluidVRole::Fixed);
+		const auto descriptor = fluid.selectionListGeometry(
+			{g->collectionViewport.x, g->collectionViewport.y,
+				g->collectionViewport.w, g->collectionViewport.h},
+			{g->collection_row_slot_1.x, g->collection_row_slot_1.y,
+				g->collection_row_slot_1.w, g->collection_row_slot_1.h},
+			{g->collection_scroll_track.x, g->collection_scroll_track.y,
+				g->collection_scroll_track.w, g->collection_scroll_track.h});
 		_queue->_lstManufacture->configureCalypsoHdSelectionList(
-			std::max(1, resolvedTrack.w), 44, rowStride,
-			resolvedTrack.y - resolvedViewport.y,
-			std::max(1, visibleRows * rowStride), static_cast<std::size_t>(visibleRows));
+			descriptor.scrollBarWidth, descriptor.minThumbHeight,
+			descriptor.rowStride, descriptor.rowOriginY,
+			descriptor.dataViewportH, descriptor.visibleRows);
 	}
 }
 
@@ -462,29 +460,28 @@ void CalypsoF10ProductionUi::applyCatalogueGeometry()
 	};
 	put(_catalogue->_txtTitle, g->title); put(_catalogue->_txtItem, g->collection_column_item);
 	put(_catalogue->_txtCategory, g->collection_column_category);
-	put(_catalogue->_lstManufacture, g->collectionViewport, FluidVRole::Stretch);
+	put(_catalogue->_lstManufacture, g->collectionViewport,
+		FluidVRole::Stretch, FluidAnchor::Stretch);
 	put(_catalogue->_cbxFilter, g->toolbar_availability_default); put(_catalogue->_cbxCategory, g->toolbar_category_all);
 	put(_catalogue->_btnShowOnlyNew, g->toolbar_show_only_new); put(_catalogue->_btnQuickSearch, g->toolbar_quick_search, FluidVRole::Fixed, FluidAnchor::Right);
 	put(_catalogue->_btnReview, g->detail_selected_item_action_review_production, FluidVRole::BottomShift, FluidAnchor::Right);
 	put(_catalogue->_btnTechTree, g->detail_selected_item_action_tech_tree, FluidVRole::BottomShift, FluidAnchor::Right);
 	put(_catalogue->_btnUfopaedia, g->detail_selected_item_action_ufopaedia, FluidVRole::BottomShift, FluidAnchor::Right);
-	put(_catalogue->_btnMarkAllSeen, g->action_mark_all_seen); put(_catalogue->_btnOk, g->action_done, FluidVRole::BottomShift, FluidAnchor::Right);
+	put(_catalogue->_btnMarkAllSeen, g->action_mark_all_seen, FluidVRole::BottomShift);
+	put(_catalogue->_btnOk, g->action_done, FluidVRole::BottomShift, FluidAnchor::Right);
 	{
-		const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
-		const int rowStride = std::max(1, g->collection_row_slot_1.h);
-		const auto resolvedViewport = fluid.resolve(
-			CalypsoHdOperationsRectf{g->collectionViewport.x, g->collectionViewport.y,
-				g->collectionViewport.w, g->collectionViewport.h}, FluidVRole::Stretch);
-		const int visibleRows = fluid.policy.visibleRows(
-			resolvedViewport.y, resolvedViewport.h, headerHeight, rowStride);
-		const auto resolvedTrack = fluid.resolve(
-			CalypsoHdOperationsRectf{g->collection_scroll_track.x,
-				resolvedViewport.y + headerHeight, g->collection_scroll_track.w,
-				visibleRows * rowStride}, FluidVRole::Fixed);
+		const auto descriptor = fluid.selectionListGeometry(
+			{g->collectionViewport.x, g->collectionViewport.y,
+				g->collectionViewport.w, g->collectionViewport.h},
+			{g->collection_row_slot_1.x, g->collection_row_slot_1.y,
+				g->collection_row_slot_1.w, g->collection_row_slot_1.h},
+			{g->collection_scroll_track.x, g->collection_scroll_track.y,
+				g->collection_scroll_track.w, g->collection_scroll_track.h},
+			FluidVRole::Stretch, FluidAnchor::Stretch);
 		_catalogue->_lstManufacture->configureCalypsoHdSelectionList(
-			std::max(1, resolvedTrack.w), 44, rowStride,
-			resolvedTrack.y - resolvedViewport.y,
-			std::max(1, visibleRows * rowStride), static_cast<std::size_t>(visibleRows));
+			descriptor.scrollBarWidth, descriptor.minThumbHeight,
+			descriptor.rowStride, descriptor.rowOriginY,
+			descriptor.dataViewportH, descriptor.visibleRows);
 	}
 }
 
@@ -512,37 +509,40 @@ void CalypsoF10ProductionUi::applyRequirementsGeometry()
 			CalypsoHdOperationsRectf{r.x, r.y, r.w, r.h}, vrole, anchor));
 	};
 	put(_requirements->_txtTitle, g->title);
-	put(_requirements->_txtManHour, g->region_facts_field_hours_value);
-	put(_requirements->_txtCost, g->region_facts_field_cost_value);
-	put(_requirements->_txtWorkSpace, g->region_context_content);
+	// Facts/context are one right-hand semantic group.  Keep their native
+	// input owners with the panel when the content band gains width; applying
+	// Geometry to the inner fields would leave them at authored x coordinates.
+	put(_requirements->_txtManHour, g->region_facts_field_hours_value,
+		FluidVRole::Fixed, FluidAnchor::Right);
+	put(_requirements->_txtCost, g->region_facts_field_cost_value,
+		FluidVRole::Fixed, FluidAnchor::Right);
+	put(_requirements->_txtWorkSpace, g->region_context_content,
+		FluidVRole::Fixed, FluidAnchor::Right);
 	put(_requirements->_txtRequiredItemsTitle, g->region_requirements_label);
 	put(_requirements->_txtItemNameColumn, g->region_requirements_collection_column_item, FluidVRole::Fixed);
 	put(_requirements->_txtUnitRequiredColumn, g->region_requirements_collection_column_required, FluidVRole::Fixed);
 	put(_requirements->_txtUnitAvailableColumn, g->region_requirements_collection_column_available, FluidVRole::Fixed);
 	put(_requirements->_lstRequiredItems, g->region_requirements_collection, FluidVRole::Stretch);
-	put(_requirements->_btnCancel, g->action_cancel);
-	put(_requirements->_btnStart, g->action_start_production);
+	put(_requirements->_btnCancel, g->action_cancel, FluidVRole::BottomShift);
+	put(_requirements->_btnStart, g->action_start_production, FluidVRole::BottomShift);
 	{
-		const int headerHeight = g->region_requirements_collection_row_slot_1.y
-			- g->region_requirements_collection.y;
-		const int rowStride = std::max(1,
-			g->region_requirements_collection_row_slot_1.h);
-		const auto resolvedCollection = fluid.resolve(
-			CalypsoHdOperationsRectf{g->region_requirements_collection.x,
+		const auto descriptor = fluid.selectionListGeometry(
+			{g->region_requirements_collection.x,
 				g->region_requirements_collection.y,
 				g->region_requirements_collection.w,
-				g->region_requirements_collection.h}, FluidVRole::Stretch);
-		const int visibleRows = fluid.policy.visibleRows(
-			resolvedCollection.y, resolvedCollection.h, headerHeight, rowStride);
-		const auto resolvedTrack = fluid.resolve(
-			CalypsoHdOperationsRectf{g->region_requirements_collection_scroll_track.x,
-				resolvedCollection.y + headerHeight,
+				g->region_requirements_collection.h},
+			{g->region_requirements_collection_row_slot_1.x,
+				g->region_requirements_collection_row_slot_1.y,
+				g->region_requirements_collection_row_slot_1.w,
+				g->region_requirements_collection_row_slot_1.h},
+			{g->region_requirements_collection_scroll_track.x,
+				g->region_requirements_collection_scroll_track.y,
 				g->region_requirements_collection_scroll_track.w,
-				visibleRows * rowStride}, FluidVRole::Fixed);
+				g->region_requirements_collection_scroll_track.h});
 		_requirements->_lstRequiredItems->configureCalypsoHdSelectionList(
-			std::max(1, resolvedTrack.w), 44, rowStride,
-			resolvedTrack.y - resolvedCollection.y,
-			std::max(1, visibleRows * rowStride), static_cast<std::size_t>(visibleRows));
+			descriptor.scrollBarWidth, descriptor.minThumbHeight,
+			descriptor.rowStride, descriptor.rowOriginY,
+			descriptor.dataViewportH, descriptor.visibleRows);
 	}
 }
 
@@ -563,26 +563,43 @@ void CalypsoF10ProductionUi::applyControlsGeometry()
 	// footer commands shift with the bottom band.
 	const auto fluid = CalypsoHdOperationsFluidFrame::forReference(
 		g->window.w, g->window.h, g->footer.x, g->footer.w);
+	auto groupAnchor = [&](const auto &parent) {
+		const int contentRight = fluid.policy.contentLeft + fluid.policy.contentWidth;
+		return fluidSameEdge(parent.x + parent.w, contentRight)
+			&& !fluidSameEdge(parent.x, fluid.policy.contentLeft)
+			? FluidAnchor::Right : FluidAnchor::Geometry;
+	};
+	const auto resourcesAnchor = groupAnchor(g->region_resources);
+	const auto resultAnchor = groupAnchor(g->region_result);
+	const auto sellAnchor = wide ? FluidAnchor::Right
+		: groupAnchor(g->region_sell);
 	auto put = [&](Surface *s, const auto &r,
 		FluidVRole vrole = FluidVRole::Fixed, FluidAnchor anchor = FluidAnchor::Geometry)
 	{
 		setSurfaceRect(s, fluid.resolve(
 			CalypsoHdOperationsRectf{r.x, r.y, r.w, r.h}, vrole, anchor));
 	};
-	put(_controls->_txtTitle, g->title); put(_controls->_txtAvailableEngineer, g->region_resources_field_available_engineers_value);
-	put(_controls->_txtAvailableSpace, g->region_resources_field_workshop_space_value);
-	put(_controls->_txtHoursPerUnit, g->region_resources_field_hours_per_unit_value);
-	put(_controls->_txtMonthlyProfit, g->region_result_field_monthly_profit_value);
-	put(_controls->_txtAllocatedEngineer, g->region_result_label); put(_controls->_txtAllocated, g->control_engineers_value);
+	put(_controls->_txtTitle, g->title);
+	put(_controls->_txtAvailableEngineer, g->region_resources_field_available_engineers_value,
+		FluidVRole::Fixed, resourcesAnchor);
+	put(_controls->_txtAvailableSpace, g->region_resources_field_workshop_space_value,
+		FluidVRole::Fixed, resourcesAnchor);
+	put(_controls->_txtHoursPerUnit, g->region_resources_field_hours_per_unit_value,
+		FluidVRole::Fixed, resourcesAnchor);
+	put(_controls->_txtMonthlyProfit, g->region_result_field_monthly_profit_value,
+		FluidVRole::Fixed, resultAnchor);
+	put(_controls->_txtAllocatedEngineer, g->region_result_label,
+		FluidVRole::Fixed, resultAnchor);
+	put(_controls->_txtAllocated, g->control_engineers_value);
 	put(_controls->_txtUnitToProduce, g->region_output_label); put(_controls->_txtTodo, g->control_units_value);
 	put(_controls->_txtEngineerUp, g->control_engineers_increment); put(_controls->_txtEngineerDown, g->control_engineers_decrement);
 	put(_controls->_btnEngineerUp, g->control_engineers_increment); put(_controls->_btnEngineerDown, g->control_engineers_decrement);
 	put(_controls->_txtUnitUp, g->control_units_increment); put(_controls->_txtUnitDown, g->control_units_decrement);
 	put(_controls->_btnUnitUp, g->control_units_increment); put(_controls->_btnUnitDown, g->control_units_decrement);
-	put(_controls->_btnSell, sellGroup.slots[0].rect);
-	put(_controls->_btnFallback, sellGroup.slots[1].rect);
-	put(_controls->_btnUnitInfinity, sellGroup.slots[2].rect);
-	put(_controls->_btnUnitMinimum, sellGroup.slots[3].rect);
+	put(_controls->_btnSell, sellGroup.slots[0].rect, FluidVRole::Fixed, sellAnchor);
+	put(_controls->_btnFallback, sellGroup.slots[1].rect, FluidVRole::Fixed, sellAnchor);
+	put(_controls->_btnUnitInfinity, sellGroup.slots[2].rect, FluidVRole::Fixed, sellAnchor);
+	put(_controls->_btnUnitMinimum, sellGroup.slots[3].rect, FluidVRole::Fixed, sellAnchor);
 	put(_controls->_surfaceEngineers, g->control_engineers);
 	put(_controls->_surfaceUnits, g->control_units);
 	put(_controls->_btnStop, g->action_stop_production, FluidVRole::BottomShift);
@@ -613,27 +630,24 @@ void CalypsoF10ProductionUi::applyDependenciesGeometry()
 	};
 	put(_dependencies->_txtTitle, g->title);
 	put(_dependencies->_lstTopics, g->region_tree_collection, FluidVRole::Stretch);
-	put(_dependencies->_btnShowAll, g->action_show_all);
-	put(_dependencies->_btnOk, g->action_ok);
+	put(_dependencies->_btnShowAll, g->action_show_all, FluidVRole::BottomShift);
+	put(_dependencies->_btnOk, g->action_ok, FluidVRole::BottomShift);
 	{
-		const int headerHeight = g->region_tree_collection_row_slot_1.y
-			- g->region_tree_collection.y;
-		const int rowStride = std::max(1, g->region_tree_collection_row_slot_1.h);
-		const auto resolvedCollection = fluid.resolve(
-			CalypsoHdOperationsRectf{g->region_tree_collection.x,
-				g->region_tree_collection.y, g->region_tree_collection.w,
-				g->region_tree_collection.h}, FluidVRole::Stretch);
-		const int visibleRows = fluid.policy.visibleRows(
-			resolvedCollection.y, resolvedCollection.h, headerHeight, rowStride);
-		const auto resolvedTrack = fluid.resolve(
-			CalypsoHdOperationsRectf{g->region_tree_collection_scroll_track.x,
-				resolvedCollection.y + headerHeight,
+		const auto descriptor = fluid.selectionListGeometry(
+			{g->region_tree_collection.x, g->region_tree_collection.y,
+				g->region_tree_collection.w, g->region_tree_collection.h},
+			{g->region_tree_collection_row_slot_1.x,
+				g->region_tree_collection_row_slot_1.y,
+				g->region_tree_collection_row_slot_1.w,
+				g->region_tree_collection_row_slot_1.h},
+			{g->region_tree_collection_scroll_track.x,
+				g->region_tree_collection_scroll_track.y,
 				g->region_tree_collection_scroll_track.w,
-				visibleRows * rowStride}, FluidVRole::Fixed);
+				g->region_tree_collection_scroll_track.h});
 		_dependencies->_lstTopics->configureCalypsoHdSelectionList(
-			std::max(1, resolvedTrack.w), 44, rowStride,
-			resolvedTrack.y - resolvedCollection.y,
-			std::max(1, visibleRows * rowStride), static_cast<std::size_t>(visibleRows));
+			descriptor.scrollBarWidth, descriptor.minThumbHeight,
+			descriptor.rowStride, descriptor.rowOriginY,
+			descriptor.dataViewportH, descriptor.visibleRows);
 	}
 }
 
@@ -687,49 +701,35 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildQueueModel() const
 	model.geometry.toolbarBar = p(g->toolbarBar);
 	model.geometry.collectionViewport = p(g->collectionViewport, FluidVRole::Stretch);
 	model.geometry.detailPanel = p(g->detailPanel, FluidVRole::BottomShift);
-	model.geometry.footer = p(g->footer);
-	{
-		const auto viewportCss = p(g->collectionViewport, FluidVRole::Stretch);
-		const auto trackCss = fluid.cssX(
-			CalypsoHdOperationsRectf{g->collection_scroll_track.x, 0,
-				g->collection_scroll_track.w, 0});
-		const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
-		const int stride = std::max(1, g->collection_row_slot_1.h);
-		model.geometry.collectionScrollTrack = {
-			trackCss.x, viewportCss.y + headerHeight, trackCss.w,
-			static_cast<int>(model.geometry.collectionRows.size()) * stride};
-	}
-	model.geometry.collectionScrollThumb = model.geometry.collectionScrollTrack;
+	model.geometry.footer = p(g->footer, FluidVRole::BottomShift);
 	model.geometry.collectionColumns = {
 		p(g->collection_column_item), p(g->collection_column_engineers),
 		p(g->collection_column_produced), p(g->collection_column_cost),
 		p(g->collection_column_time)};
-	{
-		const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
-		const int stride = std::max(1, g->collection_row_slot_1.h);
-		const int rows = fluid.policy.visibleRows(
-			model.geometry.collectionViewport.y, model.geometry.collectionViewport.h,
-			headerHeight, stride);
-		model.geometry.collectionRows.clear();
-		for (int i = 0; i < rows; ++i)
-		{
-			model.geometry.collectionRows.push_back(CalypsoHdOperationsRect{
-				model.geometry.collectionViewport.x,
-				model.geometry.collectionViewport.y + headerHeight + i * stride,
-				model.geometry.collectionViewport.w, stride});
-		}
-	}
-	model.geometry.detailIdentity = p(g->detail_selected_production_label);
-	model.geometry.detailIdentityTitle = p(g->detail_selected_production_identity_title);
-	model.geometry.detailIdentitySubtitle = p(g->detail_selected_production_identity_subtitle);
+	const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
+	const auto resolvedViewport = p(g->collectionViewport, FluidVRole::Stretch);
+	const auto resolvedTrack = p(CalypsoHdOperationsRectf{
+		g->collection_scroll_track.x,
+		g->collectionViewport.y + headerHeight,
+		g->collection_scroll_track.w, 0});
+	calypsoHdOperationsResolveCollectionGeometry(model.collection,
+		resolvedViewport, p(g->collection_row_slot_1), resolvedTrack, headerHeight,
+		g->collectionViewport.w);
+	model.geometry.collectionViewport = model.collection.viewport;
+	model.geometry.collectionRows = model.collection.rowSlots;
+	model.geometry.collectionScrollTrack = model.collection.scrollTrack;
+	model.geometry.collectionScrollThumb = model.collection.scrollThumb;
+	model.geometry.detailIdentity = p(g->detail_selected_production_label, FluidVRole::BottomShift);
+	model.geometry.detailIdentityTitle = p(g->detail_selected_production_identity_title, FluidVRole::BottomShift);
+	model.geometry.detailIdentitySubtitle = p(g->detail_selected_production_identity_subtitle, FluidVRole::BottomShift);
 	model.geometry.detailMetrics = {
-		p(g->detail_selected_production_metric_engineers),
-		p(g->detail_selected_production_metric_produced),
-		p(g->detail_selected_production_metric_unit_cost),
-		p(g->detail_selected_production_metric_time_left)};
+		p(g->detail_selected_production_metric_engineers, FluidVRole::BottomShift),
+		p(g->detail_selected_production_metric_produced, FluidVRole::BottomShift),
+		p(g->detail_selected_production_metric_unit_cost, FluidVRole::BottomShift),
+		p(g->detail_selected_production_metric_time_left, FluidVRole::BottomShift)};
 	model.geometry.detailActions = {
-		p(g->detail_selected_production_action_open_production),
-		p(g->detail_selected_production_action_tech_tree)};
+		p(g->detail_selected_production_action_open_production, FluidVRole::BottomShift),
+		p(g->detail_selected_production_action_tech_tree, FluidVRole::BottomShift)};
 	model.geometry.footerActions = {
 		p(g->action_global_overview, FluidVRole::BottomShift),
 		p(g->action_new_production, FluidVRole::BottomShift),
@@ -737,15 +737,15 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildQueueModel() const
 	model.summaryFields.push_back(summary("available",
 		tr("STR_CALYPSO_ENGINEERS_AVAILABLE"),
 		std::to_string(_queue->_base->getAvailableEngineers()),
-		p(g->summary_available), _queue->_txtAvailable));
+		p(g->summary_available, FluidVRole::Fixed, FluidAnchor::Right), _queue->_txtAvailable));
 	model.summaryFields.push_back(summary("allocated",
 		tr("STR_CALYPSO_ENGINEERS_ALLOCATED"),
 		std::to_string(_queue->_base->getAllocatedEngineers()),
-		p(g->summary_allocated), _queue->_txtAllocated));
+		p(g->summary_allocated, FluidVRole::Fixed, FluidAnchor::Right), _queue->_txtAllocated));
 	model.summaryFields.push_back(summary("workshop-space",
 		tr("STR_CALYPSO_WORKSHOP_SPACE"),
 		std::to_string(_queue->_base->getFreeWorkshops()),
-		p(g->summary_workshop_space), _queue->_txtSpace));
+		p(g->summary_workshop_space, FluidVRole::Fixed, FluidAnchor::Right), _queue->_txtSpace));
 	const std::string columnLabels[] = {
 		tr("STR_ITEM"), tr("STR_CALYPSO_ENGINEERS_ALLOCATED"),
 		tr("STR_CALYPSO_PRODUCED"), tr("STR_CALYPSO_COST_PER_UNIT"),
@@ -793,14 +793,14 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildQueueModel() const
 	model.collection.count = productions.size();
 	model.collection.viewport = model.geometry.collectionViewport;
 	model.collection.scroll = {
-		nativeOffset, productions.size(), static_cast<std::size_t>(generated.rowSlotCount),
+		nativeOffset, productions.size(), model.collection.visibleRows,
 		model.geometry.collectionViewport, model.geometry.collectionScrollTrack,
 		model.geometry.collectionScrollThumb};
 	const bool selected = !productions.empty()
 		&& model.collection.selectedIndex < productions.size();
 	const Production *prod = selected ? productions[model.collection.selectedIndex] : nullptr;
 	model.detail.id = "selected-production";
-	model.detail.panel = p(g->detailPanel);
+	model.detail.panel = p(g->detailPanel, FluidVRole::BottomShift);
 	model.detail.identity.id = "selected-production";
 	model.detail.identity.label = tr("STR_CALYPSO_SELECTED_PRODUCTION");
 	model.detail.identity.title = prod
@@ -809,44 +809,44 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildQueueModel() const
 	model.detail.identity.subtitle = prod
 		? std::string(tr(prod->getRules()->getCategory()))
 		: _queue->_btnNew->getText();
-	model.detail.identity.rect = p(g->detail_selected_production);
-	model.detail.identity.titleRect = p(g->detail_selected_production_identity_title);
-	model.detail.identity.subtitleRect = p(g->detail_selected_production_identity_subtitle);
+	model.detail.identity.rect = p(g->detail_selected_production, FluidVRole::BottomShift);
+	model.detail.identity.titleRect = p(g->detail_selected_production_identity_title, FluidVRole::BottomShift);
+	model.detail.identity.subtitleRect = p(g->detail_selected_production_identity_subtitle, FluidVRole::BottomShift);
 	if (prod)
 	{
 		model.detail.metrics.push_back(metric("engineers",
 			tr("STR_CALYPSO_ENGINEERS_ALLOCATED"),
 			std::to_string(prod->getAssignedEngineers()),
-			p(g->detail_selected_production_metric_engineers)));
+			p(g->detail_selected_production_metric_engineers, FluidVRole::BottomShift)));
 		model.detail.metrics.push_back(metric("produced",
 			tr("STR_CALYPSO_PRODUCED"),
 			productionProgress(prod),
-			p(g->detail_selected_production_metric_produced)));
+			p(g->detail_selected_production_metric_produced, FluidVRole::BottomShift)));
 		model.detail.metrics.push_back(metric("unit-cost",
 			tr("STR_CALYPSO_COST_PER_UNIT"),
 			Unicode::formatFunding(prod->getRules()->getManufactureCost()),
-			p(g->detail_selected_production_metric_unit_cost)));
+			p(g->detail_selected_production_metric_unit_cost, FluidVRole::BottomShift)));
 		model.detail.metrics.push_back(metric("time-left",
 			tr("STR_DAYS_HOURS_LEFT"),
 			productionTimeLeft(prod),
-			p(g->detail_selected_production_metric_time_left)));
+			p(g->detail_selected_production_metric_time_left, FluidVRole::BottomShift)));
 	}
 	model.detail.actions.push_back(action("open-production",
 		_queue->_btnOpenProduction->getText(),
-		p(g->detail_selected_production_action_open_production),
+		p(g->detail_selected_production_action_open_production, FluidVRole::BottomShift),
 		_queue->_btnOpenProduction, selected));
 	model.detail.actions.push_back(action("tech-tree", _queue->_btnTechTree->getText(),
-		p(g->detail_selected_production_action_tech_tree), _queue->_btnTechTree,
+		p(g->detail_selected_production_action_tech_tree, FluidVRole::BottomShift), _queue->_btnTechTree,
 		selected));
 	model.footerActions.push_back(action("global-overview",
 		_queue->_btnGlobalOverview->getText(),
-		p(g->action_global_overview), _queue->_btnGlobalOverview, true, "safe"));
+		p(g->action_global_overview, FluidVRole::BottomShift), _queue->_btnGlobalOverview, true, "safe"));
 	auto newProduction = action("new-production", _queue->_btnNew->getText(),
-		p(g->action_new_production), _queue->_btnNew, true, "primary");
+		p(g->action_new_production, FluidVRole::BottomShift), _queue->_btnNew, true, "primary");
 	newProduction.state.selected = productions.empty();
 	model.footerActions.push_back(std::move(newProduction));
 	model.footerActions.push_back(action("done", _queue->_btnOk->getText(),
-		p(g->action_done), _queue->_btnOk));
+		p(g->action_done, FluidVRole::BottomShift), _queue->_btnOk));
 	finishModel(model, _queue->_game->getMod(),
 		CalypsoF10ProductionQueueGen::kPresentationProfile,
 		CalypsoF10ProductionQueueGen::kProfileId,
@@ -907,12 +907,39 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 	model.geometry.window = p(g->window); model.geometry.title = p(g->title); model.geometry.summaryBar = p(g->summaryBar);
 	model.geometry.screenHeader = p(g->screenHeader);
 	model.geometry.headerArt = p(g->headerArt);
-	model.geometry.toolbarBar = p(g->toolbarBar); model.geometry.collectionViewport = p(g->collectionViewport); model.geometry.detailPanel = p(g->detailPanel); model.geometry.footer = p(g->footer);
+	model.geometry.toolbarBar = p(g->toolbarBar, FluidVRole::Fixed, FluidAnchor::Stretch);
+	model.geometry.collectionViewport = p(g->collectionViewport,
+		FluidVRole::Stretch, FluidAnchor::Stretch);
+	model.geometry.detailPanel = p(g->detailPanel,
+		wide ? FluidVRole::Stretch : FluidVRole::BottomShift);
+	model.geometry.footer = p(g->footer, FluidVRole::BottomShift);
+	model.geometry.collectionColumns.clear();
+	for (int i = 0; i < generated.columnCount; ++i)
+		model.geometry.collectionColumns.push_back(p(generated.columns[i].rect));
 	setGeneratedCollectionRows(model, generated, p);
-	model.geometry.detailIdentity = p(g->detail_selected_item_label); model.geometry.detailIdentityTitle = p(g->detail_selected_item_identity_title); model.geometry.detailIdentitySubtitle = p(g->detail_selected_item_identity_subtitle);
-	model.geometry.detailMetrics = {p(g->detail_selected_item_metric_category)};
-	model.geometry.detailActions = {p(g->detail_selected_item_action_review_production),p(g->detail_selected_item_action_tech_tree),p(g->detail_selected_item_action_ufopaedia)};
-	model.geometry.footerActions = {p(g->action_mark_all_seen),p(g->action_done)};
+	const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
+	const auto resolvedViewport = p(g->collectionViewport,
+		FluidVRole::Stretch, FluidAnchor::Stretch);
+	const auto resolvedTrack = p(CalypsoHdOperationsRectf{
+		g->collection_scroll_track.x,
+		g->collectionViewport.y + headerHeight,
+		g->collection_scroll_track.w, 0}, FluidVRole::Fixed, FluidAnchor::Right);
+	calypsoHdOperationsResolveCollectionGeometry(model.collection,
+		resolvedViewport, p(g->collection_row_slot_1), resolvedTrack, headerHeight,
+		g->collectionViewport.w);
+	model.geometry.collectionViewport = model.collection.viewport;
+	model.geometry.collectionRows = model.collection.rowSlots;
+	model.geometry.collectionScrollTrack = model.collection.scrollTrack;
+	model.geometry.collectionScrollThumb = model.collection.scrollThumb;
+	model.geometry.detailIdentity = p(g->detail_selected_item_label, wide ? FluidVRole::Fixed : FluidVRole::BottomShift, wide ? FluidAnchor::Right : FluidAnchor::Geometry); model.geometry.detailIdentityTitle = p(g->detail_selected_item_identity_title, wide ? FluidVRole::Fixed : FluidVRole::BottomShift, wide ? FluidAnchor::Right : FluidAnchor::Geometry); model.geometry.detailIdentitySubtitle = p(g->detail_selected_item_identity_subtitle, wide ? FluidVRole::Fixed : FluidVRole::BottomShift, wide ? FluidAnchor::Right : FluidAnchor::Geometry);
+	model.geometry.detailMetrics = {p(g->detail_selected_item_metric_category, wide ? FluidVRole::Fixed : FluidVRole::BottomShift, wide ? FluidAnchor::Right : FluidAnchor::Geometry)};
+	model.geometry.detailActions = {
+		p(g->detail_selected_item_action_review_production, FluidVRole::BottomShift, FluidAnchor::Right),
+		p(g->detail_selected_item_action_tech_tree, FluidVRole::BottomShift, FluidAnchor::Right),
+		p(g->detail_selected_item_action_ufopaedia, FluidVRole::BottomShift, FluidAnchor::Right)};
+	model.geometry.footerActions = {
+		p(g->action_mark_all_seen, FluidVRole::BottomShift),
+		p(g->action_done, FluidVRole::BottomShift, FluidAnchor::Right)};
 	const std::string searchQuery = _catalogue->_btnQuickSearch->getText();
 	const bool filtered = !searchQuery.empty() || _catalogue->_cbxFilter->getSelected() != 0
 		|| _catalogue->_cbxCategory->getSelected() != 0
@@ -941,10 +968,11 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 		for (std::size_t c = 0; c < generated.columnCount; ++c)
 			row.values.push_back(c < nativeRows[i].size() && nativeRows[i][c]
 				? nativeRows[i][c]->getText() : std::string());
-		const std::size_t slot = generated.rowSlotCount == 0 ? 0
-			: (i >= nativeOffset ? i - nativeOffset : 0) % generated.rowSlotCount;
-		row.rect = generated.rowSlotCount == 0
-			? model.geometry.collectionViewport : p(generated.rowSlots[slot].rect);
+		const std::size_t slotCount = model.collection.rowSlots.size();
+		const std::size_t slot = slotCount == 0 ? 0
+			: (i >= nativeOffset ? i - nativeOffset : 0) % slotCount;
+		row.rect = slotCount == 0
+			? model.geometry.collectionViewport : model.collection.rowSlots[slot];
 		for (std::size_t c = 0; c < row.values.size(); ++c)
 			row.cells.push_back({row.values[c], generated.columns[c].contentRole, {}});
 		row.state.selected = i == nativeSelected;
@@ -960,7 +988,7 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 	model.collection.count = nativeCount;
 	model.collection.viewport = model.geometry.collectionViewport;
 	model.collection.scroll = {
-		nativeOffset, nativeCount, static_cast<std::size_t>(generated.rowSlotCount),
+		nativeOffset, nativeCount, model.collection.visibleRows,
 		model.geometry.collectionViewport, model.geometry.collectionScrollTrack,
 		model.geometry.collectionScrollThumb};
 	const bool selected = nativeSelected < nativeCount
@@ -968,24 +996,25 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 	const RuleManufacture *rule = selected
 		? _catalogue->_game->getMod()->getManufacture(items[nativeSelected]) : nullptr;
 	model.detail.id = "selected-item";
-	model.detail.panel = p(g->detailPanel);
+	model.detail.panel = p(g->detailPanel,
+		wide ? FluidVRole::Stretch : FluidVRole::BottomShift);
 	model.detail.identity.id = "selected-item";
 	model.detail.identity.label = tr("STR_CALYPSO_SELECTED_ITEM");
 	model.detail.identity.title = rule ? tr(rule->getName()) : tr("STR_NONE");
 	model.detail.identity.subtitle = rule ? tr(rule->getCategory()) : tr("STR_NONE");
-	model.detail.identity.rect = p(g->detail_selected_item);
-	model.detail.identity.titleRect = p(g->detail_selected_item_identity_title);
-	model.detail.identity.subtitleRect = p(g->detail_selected_item_identity_subtitle);
+	model.detail.identity.rect = p(g->detail_selected_item, wide ? FluidVRole::Fixed : FluidVRole::BottomShift, wide ? FluidAnchor::Right : FluidAnchor::Geometry);
+	model.detail.identity.titleRect = p(g->detail_selected_item_identity_title, wide ? FluidVRole::Fixed : FluidVRole::BottomShift, wide ? FluidAnchor::Right : FluidAnchor::Geometry);
+	model.detail.identity.subtitleRect = p(g->detail_selected_item_identity_subtitle, wide ? FluidVRole::Fixed : FluidVRole::BottomShift, wide ? FluidAnchor::Right : FluidAnchor::Geometry);
 	if (rule)
 		model.detail.metrics.push_back(metric("category", _catalogue->_txtCategory->getText(),
-			tr(rule->getCategory()), p(g->detail_selected_item_metric_category)));
-	model.detail.actions.push_back(action("review-production", tr("STR_REVIEW_PRODUCTION"),
-		p(g->detail_selected_item_action_review_production), _catalogue->_btnReview,
+			tr(rule->getCategory()), p(g->detail_selected_item_metric_category, wide ? FluidVRole::Fixed : FluidVRole::BottomShift, wide ? FluidAnchor::Right : FluidAnchor::Geometry)));
+	model.detail.actions.push_back(action("review-production", tr("STR_REVIEW_ITEM"),
+		p(g->detail_selected_item_action_review_production, FluidVRole::BottomShift, FluidAnchor::Right), _catalogue->_btnReview,
 		selected, "primary"));
 	model.detail.actions.push_back(action("tech-tree", tr("STR_TECH_TREE"),
-		p(g->detail_selected_item_action_tech_tree), _catalogue->_btnTechTree, selected));
+		p(g->detail_selected_item_action_tech_tree, FluidVRole::BottomShift, FluidAnchor::Right), _catalogue->_btnTechTree, selected));
 	model.detail.actions.push_back(action("ufopaedia", tr("STR_UFOPAEDIA"),
-		p(g->detail_selected_item_action_ufopaedia), _catalogue->_btnUfopaedia, selected));
+		p(g->detail_selected_item_action_ufopaedia, FluidVRole::BottomShift, FluidAnchor::Right), _catalogue->_btnUfopaedia, selected));
 	static constexpr const char *filterKeys[] = {
 		"STR_FILTER_DEFAULT", "STR_FILTER_DEFAULT_SUPPLIES_OK",
 		"STR_FILTER_DEFAULT_NO_SUPPLIES", "STR_FILTER_FACILITY_REQUIRED",
@@ -1008,11 +1037,11 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 	const std::string query = _catalogue->_btnQuickSearch->getText();
 	model.toolbarActions.push_back(action("quick-search",
 		query.empty() ? std::string(tr("STR_TOGGLE_QUICK_SEARCH")) : query,
-		p(g->toolbar_quick_search), _catalogue->_btnQuickSearch,
+		p(g->toolbar_quick_search, FluidVRole::Fixed, FluidAnchor::Right), _catalogue->_btnQuickSearch,
 		_catalogue->_btnQuickSearch->getVisible()));
-	model.footerActions.push_back(action("mark-all-seen", tr("STR_MARK_ALL_AS_SEEN"), p(g->action_mark_all_seen), _catalogue->_btnMarkAllSeen, true, "safe"));
+	model.footerActions.push_back(action("mark-all-seen", tr("STR_MARK_ALL_AS_SEEN"), p(g->action_mark_all_seen, FluidVRole::BottomShift), _catalogue->_btnMarkAllSeen, true, "safe"));
 	model.footerActions.push_back(action("done", tr("STR_DONE"),
-		p(g->action_done), _catalogue->_btnOk));
+		p(g->action_done, FluidVRole::BottomShift, FluidAnchor::Right), _catalogue->_btnOk));
 	finishModel(model, _catalogue->_game->getMod(),
 		CalypsoF10ProductionCatalogueGen::kPresentationProfile,
 		CalypsoF10ProductionCatalogueGen::kProfileId,
@@ -1073,22 +1102,28 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildRequirementsModel() const
 	model.geometry.screenHeader = p(g->status);
 	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.controlBar = p(g->controlBar);
-	model.geometry.footer = p(g->footer);
+	model.geometry.footer = p(g->footer, FluidVRole::BottomShift);
 	CalypsoHdOperationsRegion requirements;
 	setBaseCaption(model, _requirements->_base ? _requirements->_base->getName()
 		: std::string());
 	requirements.id = "requirements";
 	requirements.label = _requirements->_txtRequiredItemsTitle->getText();
 	requirements.kind = CalypsoHdOperationsRegionKind::Collection;
-	requirements.rect = p(g->region_requirements);
+	requirements.rect = p(g->region_requirements, FluidVRole::Stretch);
 	requirements.labelRect = p(g->region_requirements_label);
-	requirements.collection.viewport = p(g->region_requirements_collection, FluidVRole::Stretch);
-	requirements.collection.rowSlots.clear();
-	for (int i = 0; i < generated.rowSlotCount; ++i)
-		requirements.collection.rowSlots.push_back(
-			p(generated.rowSlots[i].rect, FluidVRole::Stretch));
-	requirements.collection.scrollTrack = p(g->region_requirements_collection_scroll_track);
-	requirements.collection.scrollThumb = p(g->region_requirements_collection_scroll_thumb);
+	const int requirementsHeaderHeight =
+		g->region_requirements_collection_row_slot_1.y
+		- g->region_requirements_collection.y;
+	const auto requirementsViewport = p(g->region_requirements_collection,
+		FluidVRole::Stretch);
+	const auto requirementsTrack = p(CalypsoHdOperationsRectf{
+		g->region_requirements_collection_scroll_track.x,
+		g->region_requirements_collection.y + requirementsHeaderHeight,
+		g->region_requirements_collection_scroll_track.w, 0});
+	calypsoHdOperationsResolveCollectionGeometry(requirements.collection,
+		requirementsViewport, p(g->region_requirements_collection_row_slot_1),
+		requirementsTrack, requirementsHeaderHeight,
+		g->region_requirements_collection.w);
 	requirements.collection.emptyTitle = _requirements->_txtRequiredItemsTitle->getText();
 	requirements.collection.emptyBody = tr("STR_NONE");
 	for (int c = 0; c < generated.columnCount; ++c)
@@ -1097,11 +1132,10 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildRequirementsModel() const
 			: c == 1 ? _requirements->_txtUnitRequiredColumn->getText()
 			: _requirements->_txtUnitAvailableColumn->getText();
 		requirements.collection.columns.push_back({
-			generated.columns[c].id, label, p(generated.columns[c].rect), {},
+			generated.columns[c].id, label,
+			p(generated.columns[c].rect, FluidVRole::Fixed), {},
 			generated.columns[c].contentRole});
 	}
-	for (int i = 0; i < generated.rowSlotCount; ++i)
-		requirements.collection.rowSlots.push_back(p(generated.rowSlots[i].rect));
 	const auto &requiredRows = _requirements->_lstRequiredItems->getCellTextsSnapshot();
 	const std::size_t nativeSelected =
 		static_cast<std::size_t>(_requirements->_lstRequiredItems->getSelectedRow());
@@ -1116,9 +1150,10 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildRequirementsModel() const
 		for (std::size_t c = 0; c < generated.columnCount; ++c)
 			row.values.push_back(c < requiredRows[i].size() && requiredRows[i][c]
 				? requiredRows[i][c]->getText() : std::string());
-		const std::size_t slot = generated.rowSlotCount == 0 ? 0
-			: (i >= nativeOffset ? i - nativeOffset : 0) % generated.rowSlotCount;
-		row.rect = generated.rowSlotCount == 0
+		const std::size_t slotCount = requirements.collection.rowSlots.size();
+		const std::size_t slot = slotCount == 0 ? 0
+			: (i >= nativeOffset ? i - nativeOffset : 0) % slotCount;
+		row.rect = slotCount == 0
 			? requirements.collection.viewport
 			: requirements.collection.rowSlots[slot];
 		for (std::size_t c = 0; c < row.values.size(); ++c)
@@ -1127,14 +1162,11 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildRequirementsModel() const
 		row.widget = _requirements->_lstRequiredItems;
 		requirements.collection.rows.push_back(std::move(row));
 	}
-	requirements.collection.visibleRows = generated.rowSlotCount;
-	requirements.collection.rowHeight = generated.rowSlotCount == 0
-		? 0 : requirements.collection.rowSlots.front().h;
 	requirements.collection.selectedIndex = nativeSelected;
 	requirements.collection.scrollOffset = nativeOffset;
 	requirements.collection.count = requiredRows.size();
 	requirements.collection.scroll = {
-		nativeOffset, requiredRows.size(), static_cast<std::size_t>(generated.rowSlotCount),
+		nativeOffset, requiredRows.size(), requirements.collection.visibleRows,
 		requirements.collection.viewport, requirements.collection.scrollTrack,
 		requirements.collection.scrollThumb};
 	model.regions.push_back(std::move(requirements));
@@ -1142,30 +1174,33 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildRequirementsModel() const
 	context.id = "context";
 	context.label = tr("STR_CALYPSO_SELECTED_ITEM");
 	context.kind = CalypsoHdOperationsRegionKind::Preview;
-	context.rect = p(g->region_context);
-	context.labelRect = p(g->region_context_label);
-	context.previewRect = p(g->region_context_content);
+	context.rect = p(g->region_context, FluidVRole::Fixed, FluidAnchor::Right);
+	context.labelRect = p(g->region_context_label, FluidVRole::Fixed, FluidAnchor::Right);
+	context.previewRect = p(g->region_context_content, FluidVRole::Fixed, FluidAnchor::Right);
 	context.previewContent = tr(_requirements->_item->getName());
 	model.regions.push_back(std::move(context));
 	CalypsoHdOperationsRegion facts;
 	facts.id = "facts";
 	facts.label = tr("STR_CALYPSO_SELECTED_ITEM");
-	facts.labelRect = p(g->region_facts_label);
+	facts.rect = p(g->region_facts, FluidVRole::Fixed, FluidAnchor::Right);
+	facts.labelRect = p(g->region_facts_label, FluidVRole::Fixed, FluidAnchor::Right);
 	facts.fields.push_back(metric("hours", tr("STR_CALYPSO_ENGINEER_HOURS"),
 		std::to_string(_requirements->_item->getManufactureTime()),
-		p(g->region_facts_field_hours_value)));
+		p(g->region_facts_field_hours_value, FluidVRole::Fixed, FluidAnchor::Right)));
 	facts.fields.push_back(metric("cost", tr("STR_CALYPSO_COST_PER_UNIT"),
 		Unicode::formatFunding(_requirements->_item->getManufactureCost()),
-		p(g->region_facts_field_cost_value)));
+		p(g->region_facts_field_cost_value, FluidVRole::Fixed, FluidAnchor::Right)));
 	facts.fields.push_back(metric("space", tr("STR_CALYPSO_REQUIRED_WORKSPACE"),
 		std::to_string(_requirements->_item->getRequiredSpace()),
-		p(g->region_facts_field_items_value)));
+		p(g->region_facts_field_space_value, FluidVRole::Fixed, FluidAnchor::Right)));
 	model.regions.push_back(std::move(facts));
-	model.geometry.footerActions = {p(g->action_cancel), p(g->action_start_production)};
+	model.geometry.footerActions = {
+		p(g->action_cancel, FluidVRole::BottomShift),
+		p(g->action_start_production, FluidVRole::BottomShift)};
 	model.footerActions.push_back(action("cancel", _requirements->_btnCancel->getText(),
-		p(g->action_cancel), _requirements->_btnCancel));
+		p(g->action_cancel, FluidVRole::BottomShift), _requirements->_btnCancel));
 	model.footerActions.push_back(action("start-production", _requirements->_btnStart->getText(),
-		p(g->action_start_production), _requirements->_btnStart,
+		p(g->action_start_production, FluidVRole::BottomShift), _requirements->_btnStart,
 		_requirements->_btnStart->getVisible(), "primary"));
 	finishModel(model, _requirements->_game->getMod(),
 		CalypsoF10ProductionRequirementsGen::kPresentationProfile,
@@ -1210,6 +1245,16 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildControlsModel() const
 	if (sellGroup.slotCount < 4) return model;
 	const auto fluid = CalypsoHdOperationsFluidFrame::forReference(
 		g->window.w, g->window.h, g->footer.x, g->footer.w);
+	auto groupAnchor = [&](const auto &parent) {
+		const int contentRight = fluid.policy.contentLeft + fluid.policy.contentWidth;
+		return fluidSameEdge(parent.x + parent.w, contentRight)
+			&& !fluidSameEdge(parent.x, fluid.policy.contentLeft)
+			? FluidAnchor::Right : FluidAnchor::Geometry;
+	};
+	const auto resourcesAnchor = groupAnchor(g->region_resources);
+	const auto resultAnchor = groupAnchor(g->region_result);
+	const auto sellAnchor = wide ? FluidAnchor::Right
+		: groupAnchor(g->region_sell);
 	auto p = [&](const auto &r, FluidVRole vr = FluidVRole::Fixed,
 		FluidAnchor ha = FluidAnchor::Geometry) {
 		const auto css = fluid.cssY(fluid.cssX(
@@ -1244,16 +1289,18 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildControlsModel() const
 	model.geometry.screenHeader = p(g->status);
 	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.controlBar = p(g->controlBar);
-	model.geometry.footer = p(g->footer);
-	model.geometry.detailPanel = p(g->region_result);
-	model.geometry.detailIdentity = p(g->region_result_label);
-	model.geometry.detailIdentityTitle = p(g->region_result_field_produced_label);
-	model.geometry.detailIdentitySubtitle = p(g->region_result_field_produced_value);
+	model.geometry.footer = p(g->footer, FluidVRole::BottomShift);
+	model.geometry.detailPanel = p(g->region_output);
+	model.geometry.detailIdentity = p(g->region_output);
+	model.geometry.detailIdentityTitle = p(g->region_output_content);
+	model.geometry.detailIdentitySubtitle = p(g->region_output_label);
 	model.geometry.detailMetrics = {
-		p(g->region_result_field_produced_value),
-		p(g->region_result_field_assigned_value),
-		p(g->region_result_field_monthly_profit_value)};
-	model.geometry.footerActions = {p(g->action_stop_production), p(g->action_ok)};
+		p(g->region_result_field_produced_value, FluidVRole::Fixed, resultAnchor),
+		p(g->region_result_field_assigned_value, FluidVRole::Fixed, resultAnchor),
+		p(g->region_result_field_monthly_profit_value, FluidVRole::Fixed, resultAnchor)};
+	model.geometry.footerActions = {
+		p(g->action_stop_production, FluidVRole::BottomShift),
+		p(g->action_ok, FluidVRole::BottomShift, FluidAnchor::Right)};
 
 	CalypsoHdOperationsControl engineers;
 	engineers.id = "engineers";
@@ -1308,75 +1355,84 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildControlsModel() const
 	CalypsoHdOperationsRegion result;
 	result.id = "result";
 	result.label = tr("STR_CALYPSO_SELECTED_PRODUCTION");
-	result.rect = p(g->region_result);
-	result.labelRect = p(g->region_result_label);
+	result.rect = p(g->region_result, FluidVRole::Fixed, resultAnchor);
+	result.labelRect = p(g->region_result_label, FluidVRole::Fixed, resultAnchor);
 	result.fields.push_back(metric("produced", tr("STR_CALYPSO_PRODUCED"),
 		productionProgress(_controls->_production),
-		p(g->region_result_field_produced_value)));
+		p(g->region_result_field_produced_value, FluidVRole::Fixed, resultAnchor)));
+	if (const auto ratio = calypsoHdOperationsProgressRatio(
+		_controls->_production->getAmountProduced(),
+		_controls->_production->getAmountTotal(),
+		_controls->_production->getInfiniteAmount()))
+	{
+		result.fields.back().progress = CalypsoHdOperationsProgress{
+			p(g->region_result_field_produced_progressBar, FluidVRole::Fixed, resultAnchor),
+			*ratio};
+	}
 	result.fields.push_back(metric("assigned", tr("STR_CALYPSO_ENGINEERS_ALLOCATED"),
 		std::to_string(_controls->_production->getAssignedEngineers()),
-		p(g->region_result_field_assigned_value)));
+		p(g->region_result_field_assigned_value, FluidVRole::Fixed, resultAnchor)));
 	result.fields.push_back(metric("monthly-profit", tr("STR_CALYPSO_MONTHLY_PROFIT"),
 		Unicode::formatFunding(_controls->getMonthlyNetFunds()),
-		p(g->region_result_field_monthly_profit_value)));
+		p(g->region_result_field_monthly_profit_value, FluidVRole::Fixed, resultAnchor)));
 	model.regions.push_back(std::move(result));
 
 	CalypsoHdOperationsRegion resources;
 	resources.id = "resources";
 	resources.label = tr("STR_CALYPSO_RESOURCES");
 	resources.kind = CalypsoHdOperationsRegionKind::Fields;
-	resources.rect = p(g->region_resources);
-	resources.labelRect = p(g->region_resources_label);
+	resources.rect = p(g->region_resources, FluidVRole::Fixed, resourcesAnchor);
+	resources.labelRect = p(g->region_resources_label, FluidVRole::Fixed, resourcesAnchor);
 	resources.fields.push_back(metric("available-engineers",
 		tr("STR_CALYPSO_ENGINEERS_AVAILABLE"),
 		std::to_string(_controls->_base->getAvailableEngineers()),
-		p(g->region_resources_field_available_engineers_value)));
+		p(g->region_resources_field_available_engineers_value, FluidVRole::Fixed, resourcesAnchor)));
 	resources.fields.push_back(metric("workshop-space",
 		tr("STR_CALYPSO_WORKSHOP_SPACE"),
 		std::to_string(_controls->_base->getFreeWorkshops()),
-		p(g->region_resources_field_workshop_space_value)));
+		p(g->region_resources_field_workshop_space_value, FluidVRole::Fixed, resourcesAnchor)));
 	resources.fields.push_back(metric("hours-per-unit",
 		tr("STR_CALYPSO_ENGINEER_HOURS"),
 		std::to_string(_controls->_production->getRules()->getManufactureTime()),
-		p(g->region_resources_field_hours_per_unit_value)));
+		p(g->region_resources_field_hours_per_unit_value, FluidVRole::Fixed, resourcesAnchor)));
 	model.regions.push_back(std::move(resources));
 
 	CalypsoHdOperationsRegion sell;
 	sell.id = "sell";
 	sell.label = tr("STR_SELL_PRODUCTION");
 	sell.kind = CalypsoHdOperationsRegionKind::Actions;
-	sell.rect = p(g->region_sell);
-	sell.labelRect = p(g->region_sell_label);
-	sell.collection.scrollTrack = p(g->region_sell_scroll_track);
-	sell.collection.scrollThumb = p(g->region_sell_scroll_thumb);
+	sell.rect = p(g->region_sell, FluidVRole::Fixed, sellAnchor);
+	sell.labelRect = p(g->region_sell_label, FluidVRole::Fixed, sellAnchor);
+	sell.collection.scrollTrack = p(g->region_sell_scroll_track, FluidVRole::Fixed, sellAnchor);
+	sell.collection.scrollThumb = p(g->region_sell_scroll_thumb, FluidVRole::Fixed, sellAnchor);
 	auto sellAction = action("sell-production",
 		_controls->_btnSell->getText() + ": "
 			+ std::string(tr(_controls->_btnSell->getPressed() ? "STR_YES" : "STR_NO")),
-		p(sellGroup.slots[0].rect), _controls->_btnSell,
+		p(sellGroup.slots[0].rect, FluidVRole::Fixed, sellAnchor), _controls->_btnSell,
 		_controls->_btnSell->getVisible());
 	sellAction.state.selected = _controls->_btnSell->getPressed();
 	sell.actions.push_back(std::move(sellAction));
 	auto fallbackAction = action("fallback-production",
 		_controls->_btnFallback->getText() + ": "
 			+ std::string(tr(_controls->_btnFallback->getPressed() ? "STR_YES" : "STR_NO")),
-		p(sellGroup.slots[1].rect), _controls->_btnFallback,
+		p(sellGroup.slots[1].rect, FluidVRole::Fixed, sellAnchor), _controls->_btnFallback,
 		_controls->_btnFallback->getVisible());
 	fallbackAction.state.selected = _controls->_btnFallback->getPressed();
 	sell.actions.push_back(std::move(fallbackAction));
 	sell.actions.push_back(action("infinity", tr("STR_CALYPSO_INFINITY"),
-		p(sellGroup.slots[2].rect),
+		p(sellGroup.slots[2].rect, FluidVRole::Fixed, sellAnchor),
 		_controls->_btnUnitInfinity,
 		_controls->_btnUnitInfinity->getVisible()));
 	sell.actions.push_back(action("minimum", tr("STR_CALYPSO_MINIMUM"),
-		p(sellGroup.slots[3].rect),
+		p(sellGroup.slots[3].rect, FluidVRole::Fixed, sellAnchor),
 		_controls->_btnUnitMinimum,
 		_controls->_btnUnitMinimum->getVisible()));
 	model.regions.push_back(std::move(sell));
 
 	model.footerActions.push_back(action("stop-production", _controls->_btnStop->getText(),
-		p(g->action_stop_production), _controls->_btnStop, true, "danger"));
+		p(g->action_stop_production, FluidVRole::BottomShift), _controls->_btnStop, true, "danger"));
 	model.footerActions.push_back(action("ok", _controls->_btnOk->getText(),
-		p(g->action_ok), _controls->_btnOk, true, "primary"));
+		p(g->action_ok, FluidVRole::BottomShift, FluidAnchor::Right), _controls->_btnOk, true, "primary"));
 	finishModel(model, _controls->_game->getMod(),
 		CalypsoF10ProductionControlsGen::kPresentationProfile,
 		CalypsoF10ProductionControlsGen::kProfileId,
@@ -1426,7 +1482,7 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildDependenciesModel() const
 	setBaseCaption(model, "BASES");
 	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.controlBar = p(g->controlBar);
-	model.geometry.footer = p(g->footer);
+	model.geometry.footer = p(g->footer, FluidVRole::BottomShift);
 	model.suppressedWidgets = {
 		_dependencies->_window, _dependencies->_txtTitle, _dependencies->_lstTopics,
 		_dependencies->_btnShowAll, _dependencies->_btnOk};
@@ -1435,25 +1491,26 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildDependenciesModel() const
 	tree.id = "tree";
 	tree.label = tr("STR_TOPIC");
 	tree.kind = CalypsoHdOperationsRegionKind::Collection;
-	tree.rect = p(g->region_tree);
+	tree.rect = p(g->region_tree, FluidVRole::Stretch);
 	tree.collection.emptyTitle = tr("STR_NO_DEPENDENCIES");
 	tree.collection.emptyBody = tr("STR_NONE");
 	tree.labelRect = p(g->region_tree_label);
-	tree.collection.viewport = p(g->region_tree_collection, FluidVRole::Stretch);
-	tree.collection.rowSlots.clear();
-	for (int i = 0; i < generated.rowSlotCount; ++i)
-		tree.collection.rowSlots.push_back(
-			p(generated.rowSlots[i].rect, FluidVRole::Stretch));
-	tree.collection.scrollTrack = p(g->region_tree_collection_scroll_track);
-	tree.collection.scrollThumb = p(g->region_tree_collection_scroll_thumb);
+	const int treeHeaderHeight =
+		g->region_tree_collection_row_slot_1.y - g->region_tree_collection.y;
+	const auto treeViewport = p(g->region_tree_collection, FluidVRole::Stretch);
+	const auto treeTrack = p(CalypsoHdOperationsRectf{
+		g->region_tree_collection_scroll_track.x,
+		g->region_tree_collection.y + treeHeaderHeight,
+		g->region_tree_collection_scroll_track.w, 0});
+	calypsoHdOperationsResolveCollectionGeometry(tree.collection,
+		treeViewport, p(g->region_tree_collection_row_slot_1), treeTrack,
+		treeHeaderHeight, g->region_tree_collection.w);
 	for (int c = 0; c < generated.columnCount; ++c)
 	{
 		tree.collection.columns.push_back({
 			generated.columns[c].id, tr("STR_TOPIC"),
 			p(generated.columns[c].rect), {}, generated.columns[c].contentRole});
 	}
-	for (int i = 0; i < generated.rowSlotCount; ++i)
-		tree.collection.rowSlots.push_back(p(generated.rowSlots[i].rect));
 	// Typed presentation metadata travels with the native rows (R08): the
 	// adapter never re-derives structure from translated text.
 	const auto &presentationRows = _dependencies->calypsoPresentationRows();
@@ -1490,23 +1547,21 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildDependenciesModel() const
 			cell.state.disabled = structural || hidden;
 			row.cells.push_back(std::move(cell));
 		}
-		const std::size_t slot = generated.rowSlotCount == 0 ? 0
-			: (i >= nativeOffset ? i - nativeOffset : 0) % generated.rowSlotCount;
-		row.rect = generated.rowSlotCount == 0
+		const std::size_t slotCount = tree.collection.rowSlots.size();
+		const std::size_t slot = slotCount == 0 ? 0
+			: (i >= nativeOffset ? i - nativeOffset : 0) % slotCount;
+		row.rect = slotCount == 0
 			? tree.collection.viewport : tree.collection.rowSlots[slot];
 		row.state.disabled = structural || hidden;
 		row.state.selected = i == nativeSelected;
 		row.widget = _dependencies->_lstTopics;
 		tree.collection.rows.push_back(std::move(row));
 	}
-	tree.collection.visibleRows = generated.rowSlotCount;
-	tree.collection.rowHeight = generated.rowSlotCount == 0
-		? 0 : tree.collection.rowSlots.front().h;
 	tree.collection.selectedIndex = nativeSelected;
 	tree.collection.scrollOffset = nativeOffset;
 	tree.collection.count = presentationRows.size();
 	tree.collection.scroll = {
-		nativeOffset, presentationRows.size(), static_cast<std::size_t>(generated.rowSlotCount),
+		nativeOffset, presentationRows.size(), tree.collection.visibleRows,
 		tree.collection.viewport, tree.collection.scrollTrack,
 		tree.collection.scrollThumb};
 	model.regions.push_back(std::move(tree));
@@ -1515,9 +1570,9 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildDependenciesModel() const
 	context.id = "context";
 	context.label = tr("STR_TOPIC");
 	context.kind = CalypsoHdOperationsRegionKind::Preview;
-	context.rect = p(g->region_context);
-	context.labelRect = p(g->region_context_label);
-	context.previewRect = p(g->region_context_content);
+	context.rect = p(g->region_context, FluidVRole::Fixed, FluidAnchor::Right);
+	context.labelRect = p(g->region_context_label, FluidVRole::Fixed, FluidAnchor::Right);
+	context.previewRect = p(g->region_context_content, FluidVRole::Fixed, FluidAnchor::Right);
 	context.previewContent = _dependencies->_selectedItem.empty()
 		? tr("STR_NONE") : tr(_dependencies->_selectedItem);
 	model.regions.push_back(std::move(context));
@@ -1525,20 +1580,22 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildDependenciesModel() const
 	CalypsoHdOperationsRegion summaryRegion;
 	summaryRegion.id = "summary";
 	summaryRegion.label = tr("STR_TOPIC");
-	summaryRegion.rect = p(g->region_summary);
-	summaryRegion.labelRect = p(g->region_summary_label);
+	summaryRegion.rect = p(g->region_summary, FluidVRole::Fixed, FluidAnchor::Right);
+	summaryRegion.labelRect = p(g->region_summary_label, FluidVRole::Fixed, FluidAnchor::Right);
 	summaryRegion.fields.push_back(metric("topic", tr("STR_TOPIC"),
 		_dependencies->_selectedItem.empty()
 			? tr("STR_NONE") : tr(_dependencies->_selectedItem),
-		p(g->region_summary_field_topic_value)));
+		p(g->region_summary_field_topic_value, FluidVRole::Fixed, FluidAnchor::Right)));
 	model.regions.push_back(std::move(summaryRegion));
 
-	model.geometry.footerActions = {p(g->action_show_all), p(g->action_ok)};
+	model.geometry.footerActions = {
+		p(g->action_show_all, FluidVRole::BottomShift),
+		p(g->action_ok, FluidVRole::BottomShift)};
 	model.footerActions.push_back(action("show-all", _dependencies->_btnShowAll->getText(),
-		p(g->action_show_all), _dependencies->_btnShowAll,
+		p(g->action_show_all, FluidVRole::BottomShift), _dependencies->_btnShowAll,
 		_dependencies->_btnShowAll->getVisible()));
 	model.footerActions.push_back(action("ok", _dependencies->_btnOk->getText(),
-		p(g->action_ok), _dependencies->_btnOk));
+		p(g->action_ok, FluidVRole::BottomShift), _dependencies->_btnOk));
 	finishModel(model, _dependencies->_game->getMod(),
 		CalypsoF10ProductionDependenciesGen::kPresentationProfile,
 		CalypsoF10ProductionDependenciesGen::kProfileId,

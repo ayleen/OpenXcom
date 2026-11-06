@@ -17,6 +17,16 @@ inline constexpr const char* kSharedChromeVersion = "hd.2026-09-07.1";
 /// One design-space rectangle (design px).
 struct CalypsoF14ResearchDiaryGenRect { int x; int y; int w; int h; };
 
+/// Generated policy for an operations toolbar chooser.
+struct CalypsoF14ResearchDiaryGenToolbarChooser
+{
+	int optionRowHeight;
+	int optionInsetX;
+	int optionInsetY;
+	int maxOptions;
+	CalypsoF14ResearchDiaryGenRect bounds;
+};
+
 /// The complete f14-research-diary.json layout for one class.
 struct CalypsoF14ResearchDiaryGenLayout
 {
@@ -53,14 +63,15 @@ struct CalypsoF14ResearchDiaryGenLayout
 	CalypsoF14ResearchDiaryGenRect detail_selected_entry_action_open_tech_tree;
 	CalypsoF14ResearchDiaryGenRect detail_selected_entry_action_open_ufopaedia;
 	CalypsoF14ResearchDiaryGenRect action_done;
+	CalypsoF14ResearchDiaryGenToolbarChooser toolbarChooser;
 };
 
 inline constexpr CalypsoF14ResearchDiaryGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 360, 78 }, { 130, 119, 480, 36 }, { 1000, 96, 256, 78 }, { 112, 190, 816, 44 }, { 112, 234, 1144, 344 }, { 112, 658, 1144, 44 }, { 92, 158, 414, 44 }, { 514, 158, 414, 44 }, { 338, 190, 190, 44 }, { 538, 190, 190, 44 }, { 738, 190, 190, 44 }, { 1238, 270, 18, 250 }, { 1238, 270, 18, 250 }, { 112, 234, 667, 36 }, { 780, 234, 159, 36 }, { 940, 234, 262, 36 }, { 112, 270, 1090, 50 }, { 112, 586, 1144, 64 }, { 112, 586, 1144, 64 }, { 112, 586, 1144, 64 }, { 124, 590, 260, 16 }, { 124, 606, 260, 20 }, { 124, 626, 260, 20 }, { 396, 590, 174, 56 }, { 582, 590, 174, 56 }, { 768, 590, 174, 56 }, { 956, 596, 140, 44 }, { 1104, 596, 140, 44 }, { 1098, 658, 158, 44 } },
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 360, 78 }, { 130, 119, 480, 36 }, { 1000, 96, 256, 78 }, { 112, 190, 816, 44 }, { 112, 234, 1144, 344 }, { 112, 658, 1144, 44 }, { 92, 158, 414, 44 }, { 514, 158, 414, 44 }, { 338, 190, 190, 44 }, { 538, 190, 190, 44 }, { 738, 190, 190, 44 }, { 1238, 270, 18, 308 }, { 1238, 270, 18, 308 }, { 112, 234, 667, 36 }, { 780, 234, 159, 36 }, { 940, 234, 262, 36 }, { 112, 270, 1090, 44 }, { 112, 586, 1144, 64 }, { 112, 586, 1144, 64 }, { 112, 586, 1144, 64 }, { 124, 590, 260, 16 }, { 124, 606, 260, 20 }, { 124, 626, 260, 20 }, { 396, 590, 174, 56 }, { 582, 590, 174, 56 }, { 768, 590, 174, 56 }, { 956, 596, 140, 44 }, { 1104, 596, 140, 44 }, { 1098, 658, 158, 44 }, { 44, 8, 0, 5, { 112, 234, 1144, 412 } } },
 	// compact
-	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 420, 48, 170, 52 }, { 60, 61, 350, 26 }, { 590, 48, 142, 52 }, { 52, 108, 466, 44 }, { 52, 152, 680, 92 }, { 52, 312, 680, 44 }, { 52, 102, 230, 44 }, { 288, 102, 230, 44 }, { 190, 108, 104, 44 }, { 302, 108, 104, 44 }, { 414, 108, 104, 44 }, { 714, 180, 18, 44 }, { 714, 180, 18, 22 }, { 52, 152, 359, 28 }, { 412, 152, 108, 28 }, { 521, 152, 159, 28 }, { 52, 180, 628, 44 }, { 52, 252, 680, 52 }, { 52, 252, 680, 52 }, { 52, 252, 680, 52 }, { 64, 256, 160, 13 }, { 64, 269, 160, 15 }, { 64, 284, 160, 16 }, { 236, 256, 72, 44 }, { 320, 256, 72, 44 }, { 404, 256, 72, 44 }, { 488, 256, 112, 44 }, { 608, 256, 112, 44 }, { 612, 312, 120, 44 } },
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 420, 48, 100, 52 }, { 60, 61, 350, 26 }, { 520, 48, 212, 52 }, { 52, 108, 466, 44 }, { 52, 152, 680, 92 }, { 52, 312, 680, 44 }, { 52, 102, 230, 44 }, { 288, 102, 230, 44 }, { 190, 108, 104, 44 }, { 302, 108, 104, 44 }, { 414, 108, 104, 44 }, { 714, 180, 18, 44 }, { 714, 180, 18, 22 }, { 52, 152, 359, 28 }, { 412, 152, 108, 28 }, { 521, 152, 159, 28 }, { 52, 180, 628, 44 }, { 52, 252, 680, 52 }, { 52, 252, 680, 52 }, { 52, 252, 680, 52 }, { 64, 256, 160, 13 }, { 64, 269, 160, 15 }, { 64, 284, 160, 16 }, { 236, 256, 72, 44 }, { 320, 256, 72, 44 }, { 404, 256, 72, 44 }, { 488, 256, 112, 44 }, { 608, 256, 112, 44 }, { 612, 312, 120, 44 }, { 44, 8, 0, 5, { 52, 52, 680, 260 } } },
 };
 inline constexpr int kLayoutCount = 2;
 
@@ -86,7 +97,7 @@ inline constexpr CalypsoF14ResearchDiaryGenActionTone kActionTones[] = {
     { "safe", 0x071624FFu, 0x285267FFu, 0xE7F0F3FFu },
     { "primary", 0x81E0B5FFu, 0x81E0B5FFu, 0x03130DFFu },
     { "warning", 0xF2C56DFFu, 0xF2C56DFFu, 0x03130DFFu },
-    { "danger", 0xFF6E72FFu, 0xFF6E72FFu, 0xE7F0F3FFu },
+    { "danger", 0x071624FFu, 0xFF6E72FFu, 0xFF6E72FFu },
 };
 inline constexpr int kActionToneCount = 5;
 
@@ -207,6 +218,7 @@ struct CalypsoF14ResearchDiaryGenCollectionLayout
 	const CalypsoF14ResearchDiaryGenCollectionRowSlot* rowSlots;
 	int rowSlotCount;
 	int count;
+	CalypsoF14ResearchDiaryGenRect rowActionArea;
 	CalypsoF14ResearchDiaryGenCollectionMetrics metrics;
 };
 
@@ -216,39 +228,51 @@ inline constexpr CalypsoF14ResearchDiaryGenCollectionCell kCollectionColumnHeade
     { "date", { 940, 234, 262, 36 }, "date", "data", "right", 72, 2 },
 };
 inline constexpr CalypsoF14ResearchDiaryGenCollectionCell kCollectionRowSlot1CellsWide[] = {
-    { "name", { 112, 270, 667, 50 }, "name", "body", "left", 96, 6 },
-    { "type", { 780, 270, 159, 50 }, "type", "data", "right", 64, 1 },
-    { "date", { 940, 270, 262, 50 }, "date", "data", "right", 72, 2 },
+    { "name", { 112, 270, 667, 44 }, "name", "body", "left", 96, 6 },
+    { "type", { 780, 270, 159, 44 }, "type", "data", "right", 64, 1 },
+    { "date", { 940, 270, 262, 44 }, "date", "data", "right", 72, 2 },
 };
 inline constexpr CalypsoF14ResearchDiaryGenCollectionCell kCollectionRowSlot2CellsWide[] = {
-    { "name", { 112, 320, 667, 50 }, "name", "body", "left", 96, 6 },
-    { "type", { 780, 320, 159, 50 }, "type", "data", "right", 64, 1 },
-    { "date", { 940, 320, 262, 50 }, "date", "data", "right", 72, 2 },
+    { "name", { 112, 314, 667, 44 }, "name", "body", "left", 96, 6 },
+    { "type", { 780, 314, 159, 44 }, "type", "data", "right", 64, 1 },
+    { "date", { 940, 314, 262, 44 }, "date", "data", "right", 72, 2 },
 };
 inline constexpr CalypsoF14ResearchDiaryGenCollectionCell kCollectionRowSlot3CellsWide[] = {
-    { "name", { 112, 370, 667, 50 }, "name", "body", "left", 96, 6 },
-    { "type", { 780, 370, 159, 50 }, "type", "data", "right", 64, 1 },
-    { "date", { 940, 370, 262, 50 }, "date", "data", "right", 72, 2 },
+    { "name", { 112, 358, 667, 44 }, "name", "body", "left", 96, 6 },
+    { "type", { 780, 358, 159, 44 }, "type", "data", "right", 64, 1 },
+    { "date", { 940, 358, 262, 44 }, "date", "data", "right", 72, 2 },
 };
 inline constexpr CalypsoF14ResearchDiaryGenCollectionCell kCollectionRowSlot4CellsWide[] = {
-    { "name", { 112, 420, 667, 50 }, "name", "body", "left", 96, 6 },
-    { "type", { 780, 420, 159, 50 }, "type", "data", "right", 64, 1 },
-    { "date", { 940, 420, 262, 50 }, "date", "data", "right", 72, 2 },
+    { "name", { 112, 402, 667, 44 }, "name", "body", "left", 96, 6 },
+    { "type", { 780, 402, 159, 44 }, "type", "data", "right", 64, 1 },
+    { "date", { 940, 402, 262, 44 }, "date", "data", "right", 72, 2 },
 };
 inline constexpr CalypsoF14ResearchDiaryGenCollectionCell kCollectionRowSlot5CellsWide[] = {
-    { "name", { 112, 470, 667, 50 }, "name", "body", "left", 96, 6 },
-    { "type", { 780, 470, 159, 50 }, "type", "data", "right", 64, 1 },
-    { "date", { 940, 470, 262, 50 }, "date", "data", "right", 72, 2 },
+    { "name", { 112, 446, 667, 44 }, "name", "body", "left", 96, 6 },
+    { "type", { 780, 446, 159, 44 }, "type", "data", "right", 64, 1 },
+    { "date", { 940, 446, 262, 44 }, "date", "data", "right", 72, 2 },
+};
+inline constexpr CalypsoF14ResearchDiaryGenCollectionCell kCollectionRowSlot6CellsWide[] = {
+    { "name", { 112, 490, 667, 44 }, "name", "body", "left", 96, 6 },
+    { "type", { 780, 490, 159, 44 }, "type", "data", "right", 64, 1 },
+    { "date", { 940, 490, 262, 44 }, "date", "data", "right", 72, 2 },
+};
+inline constexpr CalypsoF14ResearchDiaryGenCollectionCell kCollectionRowSlot7CellsWide[] = {
+    { "name", { 112, 534, 667, 44 }, "name", "body", "left", 96, 6 },
+    { "type", { 780, 534, 159, 44 }, "type", "data", "right", 64, 1 },
+    { "date", { 940, 534, 262, 44 }, "date", "data", "right", 72, 2 },
 };
 inline constexpr CalypsoF14ResearchDiaryGenCollectionRowSlot kCollectionRowSlotsWide[] = {
-    { "row-slot-1", { 112, 270, 1090, 50 }, kCollectionRowSlot1CellsWide, 3 },
-    { "row-slot-2", { 112, 320, 1090, 50 }, kCollectionRowSlot2CellsWide, 3 },
-    { "row-slot-3", { 112, 370, 1090, 50 }, kCollectionRowSlot3CellsWide, 3 },
-    { "row-slot-4", { 112, 420, 1090, 50 }, kCollectionRowSlot4CellsWide, 3 },
-    { "row-slot-5", { 112, 470, 1090, 50 }, kCollectionRowSlot5CellsWide, 3 },
+    { "row-slot-1", { 112, 270, 1090, 44 }, kCollectionRowSlot1CellsWide, 3 },
+    { "row-slot-2", { 112, 314, 1090, 44 }, kCollectionRowSlot2CellsWide, 3 },
+    { "row-slot-3", { 112, 358, 1090, 44 }, kCollectionRowSlot3CellsWide, 3 },
+    { "row-slot-4", { 112, 402, 1090, 44 }, kCollectionRowSlot4CellsWide, 3 },
+    { "row-slot-5", { 112, 446, 1090, 44 }, kCollectionRowSlot5CellsWide, 3 },
+    { "row-slot-6", { 112, 490, 1090, 44 }, kCollectionRowSlot6CellsWide, 3 },
+    { "row-slot-7", { 112, 534, 1090, 44 }, kCollectionRowSlot7CellsWide, 3 },
 };
-inline constexpr int kCollectionRowSlotWideCount = 5;
-inline constexpr CalypsoF14ResearchDiaryGenCollectionMetrics kCollectionMetricsWide = { 4, 5, 4, 5, 1, "record", false, 0, { 1238, 270, 18, 250 }, { 1238, 270, 18, 250 }, { 1212, 270, 44, 250 }, { 1212, 270, 44, 250 }, 0 };
+inline constexpr int kCollectionRowSlotWideCount = 7;
+inline constexpr CalypsoF14ResearchDiaryGenCollectionMetrics kCollectionMetricsWide = { 4, 7, 4, 7, 1, "record", false, 0, { 1238, 270, 18, 308 }, { 1238, 270, 18, 308 }, { 1212, 270, 44, 308 }, { 1212, 270, 44, 308 }, 0 };
 
 inline constexpr CalypsoF14ResearchDiaryGenCollectionCell kCollectionColumnHeadersCompact[] = {
     { "name", { 52, 152, 359, 28 }, "name", "body", "left", 96, 6 },
@@ -267,11 +291,11 @@ inline constexpr int kCollectionRowSlotCompactCount = 1;
 inline constexpr CalypsoF14ResearchDiaryGenCollectionMetrics kCollectionMetricsCompact = { 4, 1, 4, 1, 1, "record", true, 3, { 714, 180, 18, 44 }, { 714, 180, 18, 22 }, { 688, 180, 44, 44 }, { 688, 180, 44, 44 }, 22 };
 
 inline constexpr CalypsoF14ResearchDiaryGenCollectionLayout kCollectionsWide[1] = {
-    { "collection", kCollectionColumnHeadersWide, 3, kCollectionRowSlotsWide, 5, 4, kCollectionMetricsWide },
+    { "collection", kCollectionColumnHeadersWide, 3, kCollectionRowSlotsWide, 7, 4, { 0, 0, 0, 0 }, kCollectionMetricsWide },
 };
 inline constexpr int kCollectionLayoutWideCount = 1;
 inline constexpr CalypsoF14ResearchDiaryGenCollectionLayout kCollectionsCompact[1] = {
-    { "collection", kCollectionColumnHeadersCompact, 3, kCollectionRowSlotsCompact, 1, 1, kCollectionMetricsCompact },
+    { "collection", kCollectionColumnHeadersCompact, 3, kCollectionRowSlotsCompact, 1, 1, { 0, 0, 0, 0 }, kCollectionMetricsCompact },
 };
 inline constexpr int kCollectionLayoutCompactCount = 1;
 

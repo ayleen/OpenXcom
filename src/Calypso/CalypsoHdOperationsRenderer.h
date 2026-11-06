@@ -43,6 +43,17 @@ private:
 	std::function<CalypsoHdOperationsModel()> _modelProvider;
 };
 
+/// The current operations renderer is published only for the active
+/// Emscripten harness snapshot. It is diagnostic state, never a gameplay
+/// owner, and may be null during ordinary rendering or teardown.
+const CalypsoHdOperationsRenderer* calypsoHdOperationsActiveRenderer();
+
+/// Serialize the already-emitted shared model without invoking an adapter or
+/// mutating native state. The harness wraps this model payload with the live
+/// save/base snapshot and exposes it through its read-only C export.
+std::string calypsoHdOperationsModelSnapshotJson(
+	const CalypsoHdOperationsModel& model);
+
 } // namespace Calypso
 } // namespace OpenXcom
 

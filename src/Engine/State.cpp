@@ -32,6 +32,7 @@
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoHdHarnessHostState.h"
 #include "../Calypso/CalypsoHdUiOverlay.h"
+#include "../Calypso/CalypsoHdRuntimeDiagnostics.h"
 #include "../Calypso/CalypsoStrategicNavigation.h"
 #endif
 #include "../Engine/Sound.h"
@@ -382,7 +383,15 @@ void State::handle(Action *action)
 void State::blit()
 {
 #ifdef __EMSCRIPTEN__
-	if (Calypso::calypsoHarnessHostUp(Calypso::calypsoHarnessSession())) return;
+	auto& hdOverlay = Calypso::CalypsoHdUiOverlay::instance();
+	const bool registered = hdOverlay.hasRegisteredState(this);
+	if (registered
+		&& !hdOverlay.logicalStateSuppressed(this, hdOverlay.frameId()))
+		++Calypso::calypsoHdRuntimeDiagnostics().registeredVanillaBlits;
+	const bool allowUnregisteredArticle = !registered
+		&& Calypso::calypsoHdHarnessAllowsUnregisteredNativeArticle(this);
+	if (Calypso::calypsoHarnessHostUp(Calypso::calypsoHarnessSession())
+		&& !allowUnregisteredArticle) return;
 	if (Calypso::CalypsoHdUiOverlay::instance().logicalStateSuppressed(this,
 		Calypso::CalypsoHdUiOverlay::instance().frameId())) return;
 #endif

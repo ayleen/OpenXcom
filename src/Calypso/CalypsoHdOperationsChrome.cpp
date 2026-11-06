@@ -23,11 +23,43 @@
 #include <cmath>
 #include <iomanip>
 #include <sstream>
+#include <utility>
 
 namespace OpenXcom
 {
 namespace Calypso
 {
+CalypsoHdOperationsEffectiveViewport calypsoHdOperationsEffectiveViewport()
+{
+	const auto& metrics = CalypsoHdUiOverlay::instance().frozenMetrics();
+	const auto& runtime = calypsoViewportRuntime().current();
+	const bool sideBySide = calypsoHarnessHostUp(calypsoHarnessSession())
+		&& calypsoHarnessSession().sideBySide;
+	const int fullCssWidth = std::max(1, runtime.logicalWidth > 0
+		? runtime.logicalWidth : metrics.logicalWidth);
+	const int fullCssHeight = std::max(1, runtime.logicalHeight > 0
+		? runtime.logicalHeight : metrics.logicalHeight);
+	const int fullLogicalWidth = std::max(1, metrics.logicalWidth > 0
+		? metrics.logicalWidth : fullCssWidth);
+	const int fullLogicalHeight = std::max(1, metrics.logicalHeight > 0
+		? metrics.logicalHeight : fullCssHeight);
+	const int fullPhysicalWidth = std::max(1, metrics.physicalWidth > 0
+		? metrics.physicalWidth : fullCssWidth);
+	const int fullPhysicalHeight = std::max(1, metrics.physicalHeight > 0
+		? metrics.physicalHeight : fullCssHeight);
+	CalypsoHdOperationsEffectiveViewport result;
+	result.sideBySide = sideBySide;
+	result.cssWidth = sideBySide ? std::max(1, fullCssWidth / 2) : fullCssWidth;
+	result.cssHeight = fullCssHeight;
+	result.physicalWidth = sideBySide
+		? std::max(1, fullPhysicalWidth / 2) : fullPhysicalWidth;
+	result.physicalHeight = fullPhysicalHeight;
+	result.projectionLogicalWidth = sideBySide
+		? std::max(1, fullLogicalWidth / 2) : fullLogicalWidth;
+	result.projectionLogicalHeight = fullLogicalHeight;
+	return result;
+}
+
 bool calypsoHdOperationsRouteEnabled(const Game* game, const char* familyId)
 {
 	return game != nullptr && game->getMod() != nullptr
@@ -49,8 +81,10 @@ CalypsoHdOperationsRect calypsoHdOperationsProjectForCurrentPresentation(
 		CalypsoHdUiOverlay::instance().frozenMetrics();
 	if (!metrics.valid() || metrics.scaleX <= 0.0 || metrics.scaleY <= 0.0)
 		return rect;
+	const auto effective = calypsoHdOperationsEffectiveViewport();
 	return calypsoHdOperationsProjectRect(
-		rect, designWidth, designHeight, metrics.logicalWidth, metrics.logicalHeight,
+		rect, designWidth, designHeight,
+		effective.projectionLogicalWidth, effective.projectionLogicalHeight,
 		static_cast<int>(std::llround(metrics.contentOffsetX / metrics.scaleX)),
 		static_cast<int>(std::llround(metrics.contentOffsetY / metrics.scaleY)));
 }
@@ -83,16 +117,18 @@ void CalypsoHdOperationsChrome::applyGeometry() const
 	const CalypsoLayoutMetrics& viewport = calypsoViewportRuntime().current();
 	if (!metrics.valid() || metrics.scaleX <= 0.0 || metrics.scaleY <= 0.0)
 		return;
-	const int cssWidth = std::max(1, viewport.logicalWidth);
-	const int cssHeight = std::max(1, viewport.logicalHeight);
+	const auto effective = calypsoHdOperationsEffectiveViewport();
+	const int cssWidth = effective.cssWidth;
+	const int cssHeight = effective.cssHeight;
 	const CommandCenter::CommandCenterLayout layout = CommandCenter::computeLayout(
 		CommandCenter::Size2{static_cast<float>(cssWidth), static_cast<float>(cssHeight)},
 		false, CommandCenter::InsetsF{
 			static_cast<float>(viewport.safeX), static_cast<float>(viewport.safeY),
-			static_cast<float>(cssWidth - viewport.safeX - viewport.safeWidth),
+			static_cast<float>(cssWidth - viewport.safeX - std::min(viewport.safeWidth,
+				std::max(0, cssWidth - viewport.safeX))),
 			static_cast<float>(cssHeight - viewport.safeY - viewport.safeHeight)});
 	const CalypsoBasescapeHdProjection projection = calypsoBasescapeHdProjection(
-		cssWidth, cssHeight, metrics.physicalWidth, metrics.physicalHeight,
+		cssWidth, cssHeight, effective.physicalWidth, effective.physicalHeight,
 		metrics.scaleX, metrics.scaleY, metrics.contentOffsetX,
 		metrics.contentOffsetY, layout.scale);
 	const auto place = [&](TextButton* button, const CommandCenter::RectF& source)
@@ -118,6 +154,33 @@ void CalypsoHdOperationsChrome::applyGeometry() const
 
 void CalypsoHdOperationsChrome::populateModel(CalypsoHdOperationsModel& model) const
 {
+	const int rdProfile = calypsoHarnessSession().rdActiveProfile;
+	model.navigation.origin = rdProfile == 202 ? "global"
+		: rdProfile == 208 ? "basescape" : "";
+	model.navigation.actions.clear();
+	static constexpr const char* kNavigationIds[] = {
+		"navigation.world", "navigation.bases", "navigation.operations",
+		"navigation.analytics", "navigation.archive", "navigation.settings",
+		"navigation.header-base"
+	};
+	for (std::size_t index = 0; index < _buttons.size(); ++index)
+	{
+		TextButton* button = _buttons[index];
+		if (!button) continue;
+		const CalypsoHdOperationsRect rect{
+			button->getX(), button->getY(), button->getWidth(), button->getHeight()};
+		CalypsoHdOperationsAction action;
+		action.id = kNavigationIds[index];
+		action.label = kNavigationIds[index];
+		action.component = "command-center-rail";
+		action.slotRole = "navigation";
+		action.coordinateSpace = "engine-logical";
+		action.visible = rect;
+		action.hit = rect;
+		action.state.visible = button->getVisible();
+		action.widget = button;
+		model.navigation.actions.push_back(std::move(action));
+	}
 	for (TextButton* button : _buttons)
 		if (button) model.suppressedWidgets.push_back(button);
 	Game* game = getCurrentGame();

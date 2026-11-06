@@ -12,6 +12,22 @@ class TextButton;
 
 namespace Calypso
 {
+/// Effective viewport used by R&D adapters and the shared native chrome.
+/// Side-by-side harness mode owns the left half of the browser canvas; all
+/// other presentation modes retain the full frozen viewport.
+struct CalypsoHdOperationsEffectiveViewport
+{
+	int cssWidth = 1;
+	int cssHeight = 1;
+	int physicalWidth = 1;
+	int physicalHeight = 1;
+	int projectionLogicalWidth = 1;
+	int projectionLogicalHeight = 1;
+	bool sideBySide = false;
+};
+
+CalypsoHdOperationsEffectiveViewport calypsoHdOperationsEffectiveViewport();
+
 CalypsoHdOperationsRect calypsoHdOperationsProjectForCurrentPresentation(
 	const CalypsoHdOperationsRect& rect, int designWidth, int designHeight);
 

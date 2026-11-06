@@ -139,6 +139,36 @@
         }
       }
     ],
+    "toolbarChooser": {
+      "owner": "sort-default",
+      "options": [
+        {
+          "id": "default",
+          "label": "DEFAULT",
+          "labelKey": "STR_SORT_DEFAULT"
+        },
+        {
+          "id": "cost",
+          "label": "COST",
+          "labelKey": "STR_SORT_BY_COST"
+        },
+        {
+          "id": "name",
+          "label": "NAME",
+          "labelKey": "STR_SORT_BY_NAME"
+        },
+        {
+          "id": "show-new",
+          "label": "SHOW ONLY NEW",
+          "labelKey": "STR_SHOW_ONLY_NEW"
+        },
+        {
+          "id": "hidden",
+          "label": "HIDDEN",
+          "labelKey": "STR_FILTER_HIDDEN"
+        }
+      ]
+    },
     "visual": {
       "shell": "base-operations",
       "headerArt": "base-research"
@@ -272,6 +302,36 @@
       "show-only-new": "SHOW ONLY NEW",
       "quick-search": "QUICK SEARCH"
     },
+    "toolbarChooser": {
+      "owner": "sort-default",
+      "options": [
+        {
+          "id": "default",
+          "label": "DEFAULT",
+          "labelKey": "STR_SORT_DEFAULT"
+        },
+        {
+          "id": "cost",
+          "label": "COST",
+          "labelKey": "STR_SORT_BY_COST"
+        },
+        {
+          "id": "name",
+          "label": "NAME",
+          "labelKey": "STR_SORT_BY_NAME"
+        },
+        {
+          "id": "show-new",
+          "label": "SHOW ONLY NEW",
+          "labelKey": "STR_SHOW_ONLY_NEW"
+        },
+        {
+          "id": "hidden",
+          "label": "HIDDEN",
+          "labelKey": "STR_FILTER_HIDDEN"
+        }
+      ]
+    },
     "detail": {
       "id": "selected-project",
       "label": "SELECTED PROJECT",
@@ -402,7 +462,7 @@
               "x": 112,
               "y": 270,
               "width": 762,
-              "height": 50
+              "height": 44
             },
             "cells": [
               {
@@ -411,7 +471,7 @@
                   "x": 112,
                   "y": 270,
                   "width": 547,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "name",
                 "font": "body",
@@ -425,7 +485,7 @@
                   "x": 660,
                   "y": 270,
                   "width": 214,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "status",
                 "font": "body",
@@ -439,18 +499,18 @@
             "id": "row-slot-2",
             "rect": {
               "x": 112,
-              "y": 320,
+              "y": 314,
               "width": 762,
-              "height": 50
+              "height": 44
             },
             "cells": [
               {
                 "id": "project",
                 "rect": {
                   "x": 112,
-                  "y": 320,
+                  "y": 314,
                   "width": 547,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "name",
                 "font": "body",
@@ -462,9 +522,9 @@
                 "id": "status",
                 "rect": {
                   "x": 660,
-                  "y": 320,
+                  "y": 314,
                   "width": 214,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "status",
                 "font": "body",
@@ -478,18 +538,18 @@
             "id": "row-slot-3",
             "rect": {
               "x": 112,
-              "y": 370,
+              "y": 358,
               "width": 762,
-              "height": 50
+              "height": 44
             },
             "cells": [
               {
                 "id": "project",
                 "rect": {
                   "x": 112,
-                  "y": 370,
+                  "y": 358,
                   "width": 547,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "name",
                 "font": "body",
@@ -501,9 +561,9 @@
                 "id": "status",
                 "rect": {
                   "x": 660,
-                  "y": 370,
+                  "y": 358,
                   "width": 214,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "status",
                 "font": "body",
@@ -517,18 +577,18 @@
             "id": "row-slot-4",
             "rect": {
               "x": 112,
-              "y": 420,
+              "y": 402,
               "width": 762,
-              "height": 50
+              "height": 44
             },
             "cells": [
               {
                 "id": "project",
                 "rect": {
                   "x": 112,
-                  "y": 420,
+                  "y": 402,
                   "width": 547,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "name",
                 "font": "body",
@@ -540,9 +600,9 @@
                 "id": "status",
                 "rect": {
                   "x": 660,
-                  "y": 420,
+                  "y": 402,
                   "width": 214,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "status",
                 "font": "body",
@@ -556,18 +616,18 @@
             "id": "row-slot-5",
             "rect": {
               "x": 112,
-              "y": 470,
+              "y": 446,
               "width": 762,
-              "height": 50
+              "height": 44
             },
             "cells": [
               {
                 "id": "project",
                 "rect": {
                   "x": 112,
-                  "y": 470,
+                  "y": 446,
                   "width": 547,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "name",
                 "font": "body",
@@ -579,9 +639,87 @@
                 "id": "status",
                 "rect": {
                   "x": 660,
-                  "y": 470,
+                  "y": 446,
                   "width": 214,
-                  "height": 50
+                  "height": 44
+                },
+                "contentRole": "status",
+                "font": "body",
+                "align": "left",
+                "minWidth": 64,
+                "weight": 2
+              }
+            ]
+          },
+          {
+            "id": "row-slot-6",
+            "rect": {
+              "x": 112,
+              "y": 490,
+              "width": 762,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "project",
+                "rect": {
+                  "x": 112,
+                  "y": 490,
+                  "width": 547,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 660,
+                  "y": 490,
+                  "width": 214,
+                  "height": 44
+                },
+                "contentRole": "status",
+                "font": "body",
+                "align": "left",
+                "minWidth": 64,
+                "weight": 2
+              }
+            ]
+          },
+          {
+            "id": "row-slot-7",
+            "rect": {
+              "x": 112,
+              "y": 534,
+              "width": 762,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "project",
+                "rect": {
+                  "x": 112,
+                  "y": 534,
+                  "width": 547,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 660,
+                  "y": 534,
+                  "width": 214,
+                  "height": 44
                 },
                 "contentRole": "status",
                 "font": "body",
@@ -592,19 +730,19 @@
             ]
           }
         ],
-        "count": 5,
+        "count": 6,
         "scroll": {
           "track": {
             "x": 910,
             "y": 270,
             "width": 18,
-            "height": 250
+            "height": 308
           },
           "thumb": {
             "x": 910,
             "y": 270,
             "width": 18,
-            "height": 208
+            "height": 308
           }
         }
       },
@@ -654,6 +792,18 @@
           "y": 658,
           "width": 158,
           "height": 44
+        }
+      },
+      "toolbarChooser": {
+        "optionRowHeight": 44,
+        "optionInsetX": 8,
+        "optionInsetY": 0,
+        "maxOptions": 5,
+        "bounds": {
+          "x": 112,
+          "y": 234,
+          "width": 816,
+          "height": 412
         }
       },
       "screenHeader": {
@@ -840,13 +990,13 @@
           "x": 910,
           "y": 270,
           "width": 18,
-          "height": 250
+          "height": 308
         },
         "collection.scroll.thumb": {
           "x": 910,
           "y": 270,
           "width": 18,
-          "height": 208
+          "height": 308
         },
         "collection.column.project": {
           "x": 112,
@@ -864,7 +1014,7 @@
           "x": 112,
           "y": 270,
           "width": 762,
-          "height": 50
+          "height": 44
         },
         "detailPanel": {
           "x": 944,
@@ -956,9 +1106,9 @@
         "height": 26
       },
       "summaryBar": {
-        "x": 590,
+        "x": 520,
         "y": 48,
-        "width": 142,
+        "width": 212,
         "height": 52
       },
       "summary": {},
@@ -1116,6 +1266,18 @@
           "height": 44
         }
       },
+      "toolbarChooser": {
+        "optionRowHeight": 44,
+        "optionInsetX": 8,
+        "optionInsetY": 0,
+        "maxOptions": 5,
+        "bounds": {
+          "x": 52,
+          "y": 52,
+          "width": 680,
+          "height": 260
+        }
+      },
       "screenHeader": {
         "x": 52,
         "y": 48,
@@ -1125,7 +1287,7 @@
       "headerArt": {
         "x": 420,
         "y": 48,
-        "width": 170,
+        "width": 100,
         "height": 52
       },
       "detail": {
@@ -1233,7 +1395,7 @@
         "headerArt": {
           "x": 420,
           "y": 48,
-          "width": 170,
+          "width": 100,
           "height": 52
         },
         "title": {
@@ -1243,9 +1405,9 @@
           "height": 26
         },
         "summaryBar": {
-          "x": 590,
+          "x": 520,
           "y": 48,
-          "width": 142,
+          "width": 212,
           "height": 52
         },
         "toolbarBar": {
@@ -1478,9 +1640,9 @@
         "text": "TextOnAccent"
       },
       "danger": {
-        "fill": "Danger",
+        "fill": "BgPanel",
         "border": "Danger",
-        "text": "TextPrimary"
+        "text": "Danger"
       }
     },
     "columnRoles": {
@@ -1632,9 +1794,9 @@
         "text": "03130DFF"
       },
       "danger": {
-        "fill": "FF6E72FF",
+        "fill": "071624FF",
         "border": "FF6E72FF",
-        "text": "E7F0F3FF"
+        "text": "FF6E72FF"
       }
     },
     "resolvedTypography": {
@@ -1717,38 +1879,38 @@
   "collectionMetrics": {
     "wide": {
       "totalItems": 6,
-      "visibleCapacity": 5,
+      "visibleCapacity": 7,
       "totalUnits": 6,
-      "visibleUnits": 5,
+      "visibleUnits": 7,
       "itemsPerUnit": 1,
       "scrollUnit": "record",
-      "overflow": true,
-      "scrollSteps": 1,
+      "overflow": false,
+      "scrollSteps": 0,
       "track": {
         "x": 910,
         "y": 270,
         "width": 18,
-        "height": 250
+        "height": 308
       },
       "thumb": {
         "x": 910,
         "y": 270,
         "width": 18,
-        "height": 208
+        "height": 308
       },
       "trackHitTarget": {
         "x": 884,
         "y": 270,
         "width": 44,
-        "height": 250
+        "height": 308
       },
       "thumbHitTarget": {
         "x": 884,
         "y": 270,
         "width": 44,
-        "height": 208
+        "height": 308
       },
-      "thumbTravelPx": 42
+      "thumbTravelPx": 0
     },
     "compact": {
       "totalItems": 6,

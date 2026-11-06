@@ -247,7 +247,7 @@ void NewResearchListState::onToggleProjectStatus(Action *)
 	}
 #ifdef __EMSCRIPTEN__
 	if (_hdAdapter != nullptr)
-		_hdAdapter->refresh();
+		fillProjectList(false);
 #endif
 }
 
@@ -336,6 +336,20 @@ void NewResearchListState::fillProjectList(bool markAllAsSeen)
 {
 	std::string searchString = _btnQuickSearch->getText();
 	Unicode::upperCase(searchString);
+#ifdef __EMSCRIPTEN__
+	// The list is rebuilt for sorting, filtering and quick-search. Preserve the
+	// selected research identity rather than the old positional index; if that
+	// identity disappears, the HD owner must become unselected instead of
+	// silently targeting the newly inserted row zero.
+	const bool hdSelectionList = _lstResearch->isCalypsoHdSelectionList();
+	std::string selectedRuleName;
+	const unsigned int selectedRow = _lstResearch->getSelectedRow();
+	if (hdSelectionList && selectedRow != static_cast<unsigned int>(-1)
+		&& selectedRow < _projects.size() && _projects[selectedRow])
+	{
+		selectedRuleName = _projects[selectedRow]->getName();
+	}
+#endif
 
 	_projects.clear();
 	_lstResearch->clearList();
@@ -445,6 +459,27 @@ void NewResearchListState::fillProjectList(bool markAllAsSeen)
 			researchRuleIt = _projects.erase(researchRuleIt);
 		}
 	}
+
+#ifdef __EMSCRIPTEN__
+	if (hdSelectionList && !selectedRuleName.empty())
+	{
+		bool restored = false;
+		for (size_t index = 0; index < _projects.size(); ++index)
+		{
+			if (!_projects[index] || _projects[index]->getName() != selectedRuleName) continue;
+			_lstResearch->setSelectedRow(index);
+			restored = true;
+			break;
+		}
+		if (!restored) _lstResearch->invalidateCalypsoHdSelection();
+	}
+	else if (hdSelectionList)
+	{
+		// An already-invalid HD index must stay invalid across a rebuild until a
+		// real owner selection is made; a newly inserted row must not become row 0.
+		_lstResearch->invalidateCalypsoHdSelection();
+	}
+#endif
 
 	std::string label = tr("STR_SHOW_ONLY_NEW");
 	_btnShowOnlyNew->setText((hasUnseen ? "* " : "") + label);

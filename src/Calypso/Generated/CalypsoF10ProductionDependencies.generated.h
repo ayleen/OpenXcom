@@ -53,7 +53,7 @@ inline constexpr CalypsoF10ProductionDependenciesGenLayout kLayouts[] =
 	// wide
 	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 140, 78 }, { 130, 114, 480, 36 }, { 788, 113, 450, 44 }, { 112, 658, 1144, 44 }, { 112, 190, 560, 336 }, { 124, 202, 536, 20 }, { 124, 222, 536, 292 }, { 124, 222, 536, 292 }, { 642, 254, 18, 220 }, { 642, 254, 18, 220 }, { 124, 222, 482, 32 }, { 124, 254, 482, 44 }, { 688, 190, 568, 216 }, { 700, 202, 544, 20 }, { 700, 222, 544, 172 }, { 112, 538, 560, 108 }, { 124, 550, 536, 20 }, { 124, 570, 536, 20 }, { 124, 570, 241, 20 }, { 377, 570, 283, 20 }, { 898, 658, 158, 44 }, { 1066, 658, 158, 44 } },
 	// compact
-	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 400, 48, 100, 52 }, { 62, 58, 330, 24 }, { 500, 52, 220, 44 }, { 52, 312, 680, 44 }, { 52, 108, 360, 104 }, { 60, 116, 344, 16 }, { 60, 132, 344, 72 }, { 60, 132, 344, 72 }, { 386, 156, 18, 44 }, { 386, 156, 18, 22 }, { 60, 132, 292, 24 }, { 60, 156, 292, 44 }, { 420, 196, 312, 108 }, { 428, 204, 296, 16 }, { 428, 220, 296, 76 }, { 420, 108, 312, 80 }, { 428, 116, 296, 16 }, { 428, 132, 296, 16 }, { 428, 132, 177, 16 }, { 613, 132, 111, 16 }, { 492, 312, 110, 44 }, { 614, 312, 110, 44 } },
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 400, 48, 100, 52 }, { 62, 58, 330, 24 }, { 500, 52, 220, 44 }, { 52, 312, 680, 44 }, { 52, 116, 360, 104 }, { 60, 124, 344, 16 }, { 60, 140, 344, 72 }, { 60, 140, 344, 72 }, { 386, 164, 18, 44 }, { 386, 164, 18, 22 }, { 60, 140, 292, 24 }, { 60, 164, 292, 44 }, { 476, 204, 256, 100 }, { 484, 212, 240, 16 }, { 484, 228, 240, 68 }, { 420, 116, 312, 80 }, { 428, 124, 296, 16 }, { 428, 140, 296, 16 }, { 428, 140, 177, 16 }, { 613, 140, 111, 16 }, { 492, 312, 110, 44 }, { 614, 312, 110, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
 
@@ -79,7 +79,7 @@ inline constexpr CalypsoF10ProductionDependenciesGenActionTone kActionTones[] = 
     { "safe", 0x071624FFu, 0x285267FFu, 0xE7F0F3FFu },
     { "primary", 0x81E0B5FFu, 0x81E0B5FFu, 0x03130DFFu },
     { "warning", 0xF2C56DFFu, 0xF2C56DFFu, 0x03130DFFu },
-    { "danger", 0xFF6E72FFu, 0xFF6E72FFu, 0xE7F0F3FFu },
+    { "danger", 0x071624FFu, 0xFF6E72FFu, 0xFF6E72FFu },
 };
 inline constexpr int kActionToneCount = 5;
 
@@ -200,6 +200,7 @@ struct CalypsoF10ProductionDependenciesGenCollectionLayout
 	const CalypsoF10ProductionDependenciesGenCollectionRowSlot* rowSlots;
 	int rowSlotCount;
 	int count;
+	CalypsoF10ProductionDependenciesGenRect rowActionArea;
 	CalypsoF10ProductionDependenciesGenCollectionMetrics metrics;
 };
 
@@ -232,23 +233,23 @@ inline constexpr int kRegionTreeCollectionRowSlotWideCount = 5;
 inline constexpr CalypsoF10ProductionDependenciesGenCollectionMetrics kRegionTreeCollectionMetricsWide = { 4, 5, 4, 5, 1, "record", false, 0, { 642, 254, 18, 220 }, { 642, 254, 18, 220 }, { 616, 254, 44, 220 }, { 616, 254, 44, 220 }, 0 };
 
 inline constexpr CalypsoF10ProductionDependenciesGenCollectionCell kRegionTreeCollectionColumnHeadersCompact[] = {
-    { "topic", { 60, 132, 292, 24 }, "name", "body", "left", 96, 6 },
+    { "topic", { 60, 140, 292, 24 }, "name", "body", "left", 96, 6 },
 };
 inline constexpr CalypsoF10ProductionDependenciesGenCollectionCell kRegionTreeCollectionRowSlot1CellsCompact[] = {
-    { "topic", { 60, 156, 292, 44 }, "name", "body", "left", 96, 6 },
+    { "topic", { 60, 164, 292, 44 }, "name", "body", "left", 96, 6 },
 };
 inline constexpr CalypsoF10ProductionDependenciesGenCollectionRowSlot kRegionTreeCollectionRowSlotsCompact[] = {
-    { "row-slot-1", { 60, 156, 292, 44 }, kRegionTreeCollectionRowSlot1CellsCompact, 1 },
+    { "row-slot-1", { 60, 164, 292, 44 }, kRegionTreeCollectionRowSlot1CellsCompact, 1 },
 };
 inline constexpr int kRegionTreeCollectionRowSlotCompactCount = 1;
-inline constexpr CalypsoF10ProductionDependenciesGenCollectionMetrics kRegionTreeCollectionMetricsCompact = { 4, 1, 4, 1, 1, "record", true, 3, { 386, 156, 18, 44 }, { 386, 156, 18, 22 }, { 360, 156, 44, 44 }, { 360, 156, 44, 44 }, 22 };
+inline constexpr CalypsoF10ProductionDependenciesGenCollectionMetrics kRegionTreeCollectionMetricsCompact = { 4, 1, 4, 1, 1, "record", true, 3, { 386, 164, 18, 44 }, { 386, 164, 18, 22 }, { 360, 164, 44, 44 }, { 360, 164, 44, 44 }, 22 };
 
 inline constexpr CalypsoF10ProductionDependenciesGenCollectionLayout kCollectionsWide[1] = {
-    { "region.tree.collection", kRegionTreeCollectionColumnHeadersWide, 1, kRegionTreeCollectionRowSlotsWide, 5, 4, kRegionTreeCollectionMetricsWide },
+    { "region.tree.collection", kRegionTreeCollectionColumnHeadersWide, 1, kRegionTreeCollectionRowSlotsWide, 5, 4, { 0, 0, 0, 0 }, kRegionTreeCollectionMetricsWide },
 };
 inline constexpr int kCollectionLayoutWideCount = 1;
 inline constexpr CalypsoF10ProductionDependenciesGenCollectionLayout kCollectionsCompact[1] = {
-    { "region.tree.collection", kRegionTreeCollectionColumnHeadersCompact, 1, kRegionTreeCollectionRowSlotsCompact, 1, 1, kRegionTreeCollectionMetricsCompact },
+    { "region.tree.collection", kRegionTreeCollectionColumnHeadersCompact, 1, kRegionTreeCollectionRowSlotsCompact, 1, 1, { 0, 0, 0, 0 }, kRegionTreeCollectionMetricsCompact },
 };
 inline constexpr int kCollectionLayoutCompactCount = 1;
 

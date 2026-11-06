@@ -11,6 +11,16 @@
   "title": "NEW RESEARCH PROJECTS",
   "actions": [{"id": "mark-all-seen", "label": "MARK ALL SEEN", "labelKey": "STR_MARK_ALL_SEEN", "tone": "safe", "action": "mark-all-seen"}, {"id": "done", "label": "DONE", "labelKey": "STR_DONE", "tone": "primary", "action": "done"}],
   "summary": [],
+  "toolbarChooser": {
+    "owner": "sort-default",
+    "options": [
+      {"id": "default", "label": "DEFAULT", "labelKey": "STR_SORT_DEFAULT"},
+      {"id": "cost", "label": "COST", "labelKey": "STR_SORT_BY_COST"},
+      {"id": "name", "label": "NAME", "labelKey": "STR_SORT_BY_NAME"},
+      {"id": "show-new", "label": "SHOW ONLY NEW", "labelKey": "STR_SHOW_ONLY_NEW"},
+      {"id": "hidden", "label": "HIDDEN", "labelKey": "STR_FILTER_HIDDEN"}
+    ]
+  },
   "collection": {"mode": "list", "selectionRole": "research-project", "columns": [{"id": "project", "label": "RESEARCH PROJECT", "contentRole": "name"}, {"id": "status", "label": "STATUS", "contentRole": "status"}], "items": [{"id": "maelstrom-battery", "values": ["Maelstrom Battery", "New"]}, {"id": "cavitation-battery", "values": ["Cavitation Battery", "New"]}, {"id": "reliquary-corpse", "values": ["Reliquary Corpse", "New"]}, {"id": "vector-corpse", "values": ["Vector Corpse", "Normal"]}, {"id": "behemoth-corpse", "values": ["Behemoth Corpse", "Normal"]}, {"id": "shrieker-corpse", "values": ["Shrieker Corpse", "Normal"]}]},
   "controls": [],
   "toolbar": [{"id": "sort-default", "label": "SORT: DEFAULT", "tone": "normal", "action": "sort-default"}, {"id": "show-only-new", "label": "SHOW ONLY NEW", "tone": "normal", "action": "show-only-new"}, {"id": "quick-search", "label": "QUICK SEARCH", "tone": "normal", "action": "quick-search"}],

@@ -5,16 +5,26 @@
 #include <algorithm>
 #include <cstdint>
 #include <cmath>
+#include <iomanip>
+#include <limits>
+#include <sstream>
 #include <string>
+#include <typeinfo>
 #include <utility>
 
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoBasescapeHdLayout.h"
+#include "CalypsoHdHarnessHostState.h"
+#include "CalypsoHdRdVisualStateFixture.h"
 #include "CalypsoHdOperationsChrome.h"
+#include "CalypsoHdOperationsLayout.h"
 #include "CalypsoViewportRuntime.h"
 #include "CommandCenter/CommandCenterLayout.h"
 #include "CommandCenter/CommandCenterRenderer.h"
 #include "CommandCenter/CommandCenterTheme.h"
 #include "../Engine/Game.h"
+#include "../Engine/Surface.h"
+#include "../Engine/InteractiveSurface.h"
 #include "../Mod/Mod.h"
 #include "Generated/CalypsoHdTheme.generated.h"
 
@@ -24,6 +34,381 @@ namespace Calypso
 {
 namespace
 {
+
+CalypsoHdOperationsRenderer* g_activeOperationsRenderer = nullptr;
+
+void applyVisualStateFixture(CalypsoHdOperationsModel& model)
+{
+	const int profile = calypsoHarnessSession().rdActiveProfile;
+	const auto* spec = calypsoHdRdVisualStateProfileSpec(profile);
+	if (!spec || !model.geometry.footer.valid()) return;
+	const auto footer = model.geometry.footer;
+	const int gap = 8;
+	const int width = std::max(44, (footer.w - gap * 3) / 4);
+	model.footerActions.clear();
+	for (int index = 0; index < 4; ++index)
+	{
+		CalypsoHdOperationsAction action;
+		action.id = std::string("l07-state-") + (index == 0 ? "safe" : index == 1 ? "primary" : index == 2 ? "danger" : "warning");
+		action.label = action.id;
+		action.component = "l07-state-fixture";
+		action.slotRole = "visual-state";
+		action.coordinateSpace = "logical";
+		action.tone = index == 0 ? "safe" : index == 1 ? "primary" : index == 2 ? "danger" : "warning";
+		action.visible = {footer.x + index * (width + gap), footer.y, width, footer.h};
+		action.hit = action.visible;
+	action.state.visible = true;
+		if (profile == 325) action.state.hovered = true;
+		if (profile == 326) action.state.focused = true;
+		if (profile == 327) action.state.selected = true;
+		if (profile == 328) action.state.disabled = true;
+		model.footerActions.push_back(std::move(action));
+	}
+}
+
+std::string jsonEscape(const std::string& value)
+{
+	std::string escaped;
+	escaped.reserve(value.size() + 2);
+	for (unsigned char ch : value)
+	{
+		switch (ch)
+		{
+		case '"': escaped += "\\\""; break;
+		case '\\': escaped += "\\\\"; break;
+		case '\b': escaped += "\\b"; break;
+		case '\f': escaped += "\\f"; break;
+		case '\n': escaped += "\\n"; break;
+		case '\r': escaped += "\\r"; break;
+		case '\t': escaped += "\\t"; break;
+		default:
+			if (ch < 0x20)
+			{
+				static const char hex[] = "0123456789abcdef";
+				escaped += "\\u00";
+				escaped += hex[(ch >> 4) & 0xf];
+				escaped += hex[ch & 0xf];
+			}
+			else escaped += static_cast<char>(ch);
+		}
+	}
+	return escaped;
+}
+
+void appendString(std::ostringstream& out, const char* key,
+	const std::string& value, bool& first)
+{
+	if (!first) out << ',';
+	first = false;
+	out << '"' << key << "\":\"" << jsonEscape(value) << '"';
+}
+
+void appendBool(std::ostringstream& out, const char* key, bool value, bool& first)
+{
+	if (!first) out << ',';
+	first = false;
+	out << '"' << key << "\":" << (value ? "true" : "false");
+}
+
+void appendSize(std::ostringstream& out, const char* key, std::size_t value, bool& first)
+{
+	if (!first) out << ',';
+	first = false;
+	out << '"' << key << "\":" << value;
+}
+
+void appendInt(std::ostringstream& out, const char* key, int value, bool& first)
+{
+	if (!first) out << ',';
+	first = false;
+	out << '"' << key << "\":" << value;
+}
+
+void appendRect(std::ostringstream& out, const char* key,
+	const CalypsoHdOperationsRect& rect, bool& first)
+{
+	if (!first) out << ',';
+	first = false;
+	out << '"' << key << "\":{\"x\":" << rect.x << ",\"y\":" << rect.y
+		<< ",\"w\":" << rect.w << ",\"h\":" << rect.h << '}';
+}
+
+void appendRects(std::ostringstream& out, const char* key,
+	const std::vector<CalypsoHdOperationsRect>& rects, bool& first)
+{
+	if (!first) out << ',';
+	first = false;
+	out << '"' << key << "\":[";
+	for (std::size_t i = 0; i < rects.size(); ++i)
+	{
+		if (i) out << ',';
+		const auto& rect = rects[i];
+		out << "{\"x\":" << rect.x << ",\"y\":" << rect.y
+			<< ",\"w\":" << rect.w << ",\"h\":" << rect.h << '}';
+	}
+	out << ']';
+}
+
+void appendState(std::ostringstream& out, const CalypsoHdOperationsState& state)
+{
+	out << "{\"visible\":" << (state.visible ? "true" : "false")
+		<< ",\"hovered\":" << (state.hovered ? "true" : "false")
+		<< ",\"focused\":" << (state.focused ? "true" : "false")
+		<< ",\"selected\":" << (state.selected ? "true" : "false")
+		<< ",\"disabled\":" << (state.disabled ? "true" : "false") << '}';
+}
+
+void appendAction(std::ostringstream& out, const CalypsoHdOperationsAction& action)
+{
+	out << '{';
+	bool first = true;
+	appendString(out, "id", action.id, first);
+	appendString(out, "label", action.label, first);
+	appendString(out, "component", action.component, first);
+	appendString(out, "slotRole", action.slotRole, first);
+	appendString(out, "coordinateSpace", action.coordinateSpace, first);
+	appendString(out, "tone", action.tone, first);
+	appendRect(out, "visible", action.visible, first);
+	appendRect(out, "hit", action.hit, first);
+	appendBool(out, "widget", action.widget != nullptr, first);
+	if (const auto* owner = static_cast<const Surface*>(action.widget))
+	{
+		appendRect(out, "ownerRectEngineLogical", {owner->getX(), owner->getY(),
+			owner->getWidth(), owner->getHeight()}, first);
+		appendBool(out, "ownerVisible", owner->getVisible(), first);
+		appendBool(out, "ownerHidden", owner->getHidden(), first);
+		if (const auto* input = dynamic_cast<const InteractiveSurface*>(owner))
+			appendBool(out, "ownerHovered", input->isHovered(), first);
+	}
+	if (!first) out << ',';
+	out << "\"state\":";
+	appendState(out, action.state);
+	out << '}';
+}
+
+void appendChooser(std::ostringstream& out,
+	const CalypsoHdOperationsChooser& chooser)
+{
+	out << '{';
+	bool first = true;
+	appendBool(out, "open", chooser.open, first);
+	appendRect(out, "panel", chooser.panel, first);
+	appendRect(out, "bounds", chooser.bounds, first);
+	appendInt(out, "optionInsetX", chooser.optionInsetX, first);
+	appendInt(out, "optionInsetY", chooser.optionInsetY, first);
+	appendInt(out, "selectedIndex", chooser.selectedIndex, first);
+	appendInt(out, "hoveredIndex", chooser.hoveredIndex, first);
+	appendBool(out, "owner", chooser.owner != nullptr, first);
+	if (!first) out << ',';
+	out << "\"options\":[";
+	for (std::size_t i = 0; i < chooser.options.size(); ++i)
+	{
+		if (i) out << ',';
+		const auto& option = chooser.options[i];
+		out << '{';
+		bool optionFirst = true;
+		appendString(out, "id", option.id, optionFirst);
+		appendString(out, "label", option.label, optionFirst);
+		appendRect(out, "rect", option.rect, optionFirst);
+		appendBool(out, "widget", option.widget != nullptr, optionFirst);
+		if (!optionFirst) out << ',';
+		out << "\"state\":";
+		appendState(out, option.state);
+		out << '}';
+	}
+	out << "]}";
+}
+
+void appendCollection(std::ostringstream& out,
+	const CalypsoHdOperationsCollection& collection)
+{
+	out << '{';
+	bool first = true;
+	appendString(out, "heading", collection.heading, first);
+	appendString(out, "meta", collection.meta, first);
+	appendString(out, "emptyTitle", collection.emptyTitle, first);
+	appendString(out, "emptyBody", collection.emptyBody, first);
+	appendSize(out, "count", calypsoHdOperationsCollectionCount(collection), first);
+	if (!first) out << ',';
+	first = false;
+	out << "\"selectedIndex\":"
+		<< (collection.selectedIndex == std::numeric_limits<std::size_t>::max()
+			? -1 : static_cast<long long>(collection.selectedIndex));
+	appendSize(out, "scrollOffset", calypsoHdOperationsScrollOffset(collection), first);
+	appendSize(out, "visibleRows", calypsoHdOperationsVisibleRows(collection), first);
+	appendInt(out, "rowHeight", collection.rowHeight, first);
+	appendRect(out, "viewport", collection.scroll.viewport, first);
+	const auto visibleThumb = calypsoHdOperationsVisibleScrollThumb(collection);
+	appendRect(out, "scrollTrack", visibleThumb.valid()
+		? calypsoHdOperationsScrollTrack(collection) : CalypsoHdOperationsRect{}, first);
+	appendRect(out, "scrollThumb", visibleThumb, first);
+	if (!first) out << ',';
+	out << "\"rows\":[";
+	for (std::size_t i = 0; i < collection.rows.size(); ++i)
+	{
+		if (i) out << ',';
+		const auto& row = collection.rows[i];
+		out << '{';
+		bool rowFirst = true;
+		appendString(out, "id", row.id, rowFirst);
+		appendString(out, "kind", row.kind == CalypsoHdOperationsRowKind::GroupHeader
+			? "group-header" : row.kind == CalypsoHdOperationsRowKind::Empty
+			? "empty" : "item", rowFirst);
+		appendRect(out, "rect", row.rect, rowFirst);
+		appendBool(out, "widget", row.widget != nullptr, rowFirst);
+		appendBool(out, "selected", calypsoHdOperationsRowSelected(collection, i), rowFirst);
+		if (!rowFirst) out << ',';
+		out << "\"values\":[";
+		for (std::size_t value = 0; value < row.values.size(); ++value)
+		{
+			if (value) out << ',';
+			out << '"' << jsonEscape(row.values[value]) << '"';
+		}
+		out << ']';
+		if (!rowFirst) out << ',';
+		out << "\"state\":";
+		appendState(out, row.state);
+		out << '}';
+	}
+	out << "],\"rowSlots\":[";
+	for (std::size_t i = 0; i < collection.rowSlots.size(); ++i)
+	{
+		if (i) out << ',';
+		const auto& rect = collection.rowSlots[i];
+		out << "{\"x\":" << rect.x << ",\"y\":" << rect.y
+			<< ",\"w\":" << rect.w << ",\"h\":" << rect.h << '}';
+	}
+	out << "]}";
+}
+
+void appendProgress(std::ostringstream& out,
+	const std::optional<CalypsoHdOperationsProgress>& progress)
+{
+	out << "\"progressBar\":{";
+	if (progress)
+	{
+		out << "\"visible\":true,\"ratio\":"
+			<< std::setprecision(17) << progress->ratio << ",\"rect\":";
+		out << '{' << "\"x\":" << progress->rect.x
+			<< ",\"y\":" << progress->rect.y
+			<< ",\"w\":" << progress->rect.w
+			<< ",\"h\":" << progress->rect.h << '}';
+	}
+	else
+	{
+		out << "\"visible\":false,\"ratio\":null,\"rect\":{";
+		out << "\"x\":0,\"y\":0,\"w\":0,\"h\":0}";
+	}
+	out << '}';
+}
+
+void appendGeometry(std::ostringstream& out, const CalypsoHdOperationsGeometry& geometry,
+	const CalypsoHdOperationsCollection& collection)
+{
+	out << '{';
+	bool first = true;
+	appendInt(out, "designWidth", geometry.designWidth, first);
+	appendInt(out, "designHeight", geometry.designHeight, first);
+	appendRect(out, "window", geometry.window, first);
+	appendRect(out, "screenHeader", geometry.screenHeader, first);
+	appendRect(out, "headerArt", geometry.headerArt, first);
+	appendRect(out, "status", geometry.status, first);
+	appendRect(out, "title", geometry.title, first);
+	appendRect(out, "summaryBar", geometry.summaryBar, first);
+	appendRect(out, "toolbarBar", geometry.toolbarBar, first);
+	appendRect(out, "controlBar", geometry.controlBar, first);
+	appendRect(out, "collectionViewport", geometry.collectionViewport, first);
+	appendRect(out, "detailPanel", geometry.detailPanel, first);
+	appendRect(out, "footer", geometry.footer, first);
+	appendRect(out, "detailIdentity", geometry.detailIdentity, first);
+	appendRect(out, "detailIdentityTitle", geometry.detailIdentityTitle, first);
+	appendRect(out, "detailIdentitySubtitle", geometry.detailIdentitySubtitle, first);
+	const auto visibleThumb = calypsoHdOperationsVisibleScrollThumb(collection,
+		geometry.collectionScrollTrack, geometry.collectionScrollThumb);
+	appendRect(out, "collectionScrollTrack", visibleThumb.valid()
+		? calypsoHdOperationsScrollTrack(collection, geometry.collectionScrollTrack)
+		: CalypsoHdOperationsRect{}, first);
+	appendRect(out, "collectionScrollThumb", visibleThumb, first);
+	appendRects(out, "collectionColumns", geometry.collectionColumns, first);
+	appendRects(out, "detailMetrics", geometry.detailMetrics, first);
+	appendRects(out, "detailActions", geometry.detailActions, first);
+	appendRects(out, "footerActions", geometry.footerActions, first);
+	if (!first) out << ',';
+	out << "\"collectionRows\":[";
+	for (std::size_t i = 0; i < geometry.collectionRows.size(); ++i)
+	{
+		if (i) out << ',';
+		const auto& rect = geometry.collectionRows[i];
+		out << "{\"x\":" << rect.x << ",\"y\":" << rect.y
+			<< ",\"w\":" << rect.w << ",\"h\":" << rect.h << '}';
+	}
+	out << "]}";
+}
+
+void appendControl(std::ostringstream& out, const CalypsoHdOperationsControl& control)
+{
+	out << '{';
+	bool first = true;
+	appendString(out, "id", control.id, first);
+	appendString(out, "label", control.label, first);
+	appendString(out, "displayValue", control.displayValue, first);
+	appendInt(out, "selectedOption", control.selectedOption, first);
+	appendBool(out, "toggled", control.toggled, first);
+	appendRect(out, "rect", control.rect, first);
+	appendRect(out, "valueRect", control.valueRect, first);
+	appendRect(out, "labelRect", control.labelRect, first);
+	appendBool(out, "widget", control.widget != nullptr, first);
+	if (const auto* owner = static_cast<const Surface*>(control.widget))
+		appendRect(out, "ownerRectEngineLogical", {owner->getX(), owner->getY(),
+			owner->getWidth(), owner->getHeight()}, first);
+	if (!first) out << ',';
+	out << "\"decrement\":";
+	appendAction(out, control.decrement);
+	out << ",\"increment\":";
+	appendAction(out, control.increment);
+	out << ",\"state\":";
+	appendState(out, control.state);
+	out << '}';
+}
+
+void appendRegion(std::ostringstream& out, const CalypsoHdOperationsRegion& region)
+{
+	out << '{';
+	bool first = true;
+	appendString(out, "id", region.id, first);
+	appendString(out, "label", region.label, first);
+	appendString(out, "previewContent", region.previewContent, first);
+	appendRect(out, "rect", region.rect, first);
+	appendRect(out, "labelRect", region.labelRect, first);
+	appendRect(out, "previewRect", region.previewRect, first);
+	if (!first) out << ',';
+	out << "\"collection\":";
+	appendCollection(out, region.collection);
+	out << ",\"fields\":[";
+	for (std::size_t i = 0; i < region.fields.size(); ++i)
+	{
+		if (i) out << ',';
+		const auto& field = region.fields[i];
+		out << '{';
+		bool fieldFirst = true;
+		appendString(out, "id", field.id, fieldFirst);
+		appendString(out, "label", field.label, fieldFirst);
+		appendString(out, "value", field.value, fieldFirst);
+		appendRect(out, "rect", field.rect, fieldFirst);
+		if (!fieldFirst) out << ',';
+		appendProgress(out, field.progress);
+		out << '}';
+	}
+	out << "],\"actions\":[";
+	for (std::size_t i = 0; i < region.actions.size(); ++i)
+	{
+		if (i) out << ',';
+		appendAction(out, region.actions[i]);
+	}
+	out << "],\"state\":";
+	appendState(out, region.state);
+	out << '}';
+}
 
 std::uint32_t stableHash(const std::string& value)
 {
@@ -106,7 +491,8 @@ OperationsTypography operationsTypography(const CalypsoHdOperationsModel& model)
 	// Values bound from the generated profile win; the literals below are a
 	// fallback for models built without the generated binding.
 	const auto& metrics = CalypsoHdUiOverlay::instance().frozenMetrics();
-	const bool wide = model.geometry.designWidth >= 1000;
+	const bool wide = classifyCalypsoHdOperationsLayout(model.geometry.designWidth,
+		model.geometry.designHeight) == CalypsoHdOperationsLayoutClass::Wide;
 	auto px = [&](int designPx) {
 		return calypsoHdOperationsPhysicalFontPx(
 			designPx, model.geometry.designHeight, metrics.physicalHeight);
@@ -197,11 +583,45 @@ void addPanel(CalypsoHdFrameBuilder& builder, const CalypsoHdOperationsModel& mo
 	builder.add(item);
 }
 
+// The operations shell is layered over the canonical Basescape chrome.  Its
+// root surface is a coverage quad, not a card: using the shared styled-panel
+// helper here adds a rounded frame around the whole HD screen and changes the
+// pixels behind the canonical rail/header.  Keep this item deliberately plain
+// while retaining the normal panel ownership/ordering metadata.
+void addRootSurface(CalypsoHdFrameBuilder& builder,
+	const CalypsoHdOperationsModel& model, int order,
+	const CalypsoHdOperationsRect& rect)
+{
+	if (!rect.valid()) return;
+	CalypsoHdItem item = baseItem(model, "window", order, rect, nullptr);
+	item.kind = CalypsoHdItemKind::Panel;
+	// Match the canonical F01 flat root pass without reintroducing its
+	// rounded window-card silhouette.
+	item.colorRgba = CommandCenterTheme::packed(CommandCenterTheme::BgRoot);
+	item.panelStyle.styled = false;
+	builder.add(item);
+}
+
+void addProgressBar(CalypsoHdFrameBuilder& builder,
+	const CalypsoHdOperationsModel& model, const std::string& name, int& order,
+	const CalypsoHdOperationsProgress& progress)
+{
+	if (!progress.rect.valid()) return;
+	const double ratio = std::max(0.0, std::min(1.0, progress.ratio));
+	addPanel(builder, model, name + "/track", order++, progress.rect,
+		model.style.panelFillTop, model.style.panelFillBottom);
+	const int fillWidth = static_cast<int>(std::lround(progress.rect.w * ratio));
+	if (fillWidth <= 0) return;
+	addPanel(builder, model, name + "/fill", order++,
+		{progress.rect.x, progress.rect.y, fillWidth, progress.rect.h},
+		model.style.accent, model.style.accent);
+}
+
 void addText(CalypsoHdFrameBuilder& builder, const CalypsoHdOperationsModel& model,
 	const CalypsoTtfSourceDescriptor& source, int physicalPixelHeight,
 	const std::string& name, int order, const CalypsoHdOperationsRect& rect,
 	const std::string& text, std::uint32_t color,
-	CalypsoHdHAlign align, const void* widget = nullptr)
+	CalypsoHdHAlign align, const void* widget = nullptr, bool autoWrap = false)
 {
 	if (!rect.valid() || text.empty()) return;
 	CalypsoHdItem item = baseItem(model, name, order, rect, widget);
@@ -213,11 +633,24 @@ void addText(CalypsoHdFrameBuilder& builder, const CalypsoHdOperationsModel& mod
 	item.rasterKey.physicalPixelHeight = physicalPixelHeight;
 	item.rasterKey.text = text;
 	item.rasterKey.colorRgba = color;
-	item.rasterKey.explicitBreaksOnly = true;
-	const auto& metrics = CalypsoHdUiOverlay::instance().frozenMetrics();
-	item.rasterKey.wrapWidth = metrics.valid()
-		? std::max(1, calypsoHdRoundToInt(rect.w * metrics.scaleX))
-		: rect.w;
+	item.rasterKey.explicitBreaksOnly = !autoWrap;
+	item.rasterKey.guardRows = !autoWrap;
+	if (autoWrap)
+	{
+		const auto& metrics = CalypsoHdUiOverlay::instance().frozenMetrics();
+		item.rasterKey.wrapWidth = metrics.valid()
+			? std::max(1, calypsoHdRoundToInt(rect.w * metrics.scaleX))
+			: rect.w;
+		// Action cells are the approved two-line exception. Use an explicit
+		// skip so the guarded compositor cannot clip the second line.
+		item.rasterKey.lineHeightPx = std::max(1, physicalPixelHeight);
+	}
+	else
+	{
+		// Other generated cells are fixed row bounds: preserve authored '\n'
+		// breaks but never create implicit metric-wrapped lines.
+		item.rasterKey.wrapWidth = 0;
+	}
 	builder.add(item);
 }
 void addImage(CalypsoHdFrameBuilder& builder, const CalypsoHdOperationsModel& model,
@@ -253,20 +686,38 @@ void collectOperationsShell(CalypsoHdFrameBuilder& builder,
 	const OperationsTypography& typography, int& order)
 {
 	const auto& g = model.geometry;
-	const bool wide = g.designWidth >= 1000;
-	const double chromeScale = std::min({1.0,
-		static_cast<double>(g.designWidth) / 1280.0,
-		static_cast<double>(g.designHeight) / 720.0});
-	const int railWidth = static_cast<int>(std::lround(
-		CommandCenterTheme::RailWidth * chromeScale));
-	const int headerHeight = static_cast<int>(std::lround(
-		CommandCenterTheme::HeaderHeight * chromeScale));
-	addPanel(builder, model, "window", order++, g.window,
-		CommandCenterTheme::packed(CommandCenterTheme::BgRoot),
-		CommandCenterTheme::packed(CommandCenterTheme::BgRoot));
+	const bool wide = classifyCalypsoHdOperationsLayout(g.designWidth, g.designHeight)
+		== CalypsoHdOperationsLayoutClass::Wide;
+	addRootSurface(builder, model, order++, g.window);
+	const CalypsoBasescapeHdFitParams fitParams;
+	const auto authored = calypsoBasescapeHdAuthoredSize(
+		g.designWidth, g.designHeight, fitParams);
+	const auto fitted = [&](int value) {
+		return static_cast<int>(std::lround(value * authored.fitScale));
+	};
+	const CalypsoHdOperationsRect canonicalWorkspace{
+		fitted(fitParams.railWidth), fitted(fitParams.headerHeight),
+		fitted(authored.w - fitParams.railWidth),
+		fitted(authored.h - fitParams.headerHeight)};
+	const auto flatBackdrop = [&](const char* name,
+		const CalypsoHdOperationsRect& rect, std::uint32_t color) {
+		CalypsoHdItem item = baseItem(model, name, order++, rect, nullptr);
+		item.kind = CalypsoHdItemKind::Panel;
+		item.colorRgba = color;
+		item.panelStyle.styled = false;
+		builder.add(item);
+	};
+	// Shared chrome edge antialiasing must sample the same plate as F01.
+	addImage(builder, model, "canonical-workspace-background", order++,
+		canonicalWorkspace, "Resources/basescape/background.png");
+	flatBackdrop("canonical-workspace-dim", canonicalWorkspace, 0x0000002Eu);
 	const CalypsoHdOperationsRect workspace{
-		railWidth, headerHeight, g.designWidth - railWidth,
-		g.designHeight - headerHeight};
+		g.screenHeader.x, g.screenHeader.y,
+		g.designWidth - g.screenHeader.x,
+		g.designHeight - g.screenHeader.y};
+	// Replace only the inset Operations interior, preserving its existing tone.
+	flatBackdrop("operations-workspace-root", workspace,
+		CommandCenterTheme::packed(CommandCenterTheme::BgRoot));
 	addImage(builder, model, "workspace-background", order++, workspace,
 		"Resources/basescape/background.png", 0.18f);
 	addPanel(builder, model, "workspace-veil", order++, workspace,
@@ -296,20 +747,22 @@ void collectCanonicalBasescapeChrome(CalypsoHdFrameBuilder& builder,
 	const CalypsoHdPresentationMetrics& metrics =
 		CalypsoHdUiOverlay::instance().frozenMetrics();
 	const CalypsoLayoutMetrics& viewport = calypsoViewportRuntime().current();
-	const int cssWidth = std::max(1, viewport.logicalWidth);
-	const int cssHeight = std::max(1, viewport.logicalHeight);
+	const auto effective = calypsoHdOperationsEffectiveViewport();
+	const int cssWidth = effective.cssWidth;
+	const int cssHeight = effective.cssHeight;
 	const CommandCenter::CommandCenterLayout layout = CommandCenter::computeLayout(
 		CommandCenter::Size2{static_cast<float>(cssWidth), static_cast<float>(cssHeight)},
 		false, CommandCenter::InsetsF{
 			static_cast<float>(viewport.safeX), static_cast<float>(viewport.safeY),
-			static_cast<float>(cssWidth - viewport.safeX - viewport.safeWidth),
+			static_cast<float>(cssWidth - viewport.safeX - std::min(viewport.safeWidth,
+				std::max(0, cssWidth - viewport.safeX))),
 			static_cast<float>(cssHeight - viewport.safeY - viewport.safeHeight)});
-	const double densityX = static_cast<double>(metrics.physicalWidth) / cssWidth;
-	const double densityY = static_cast<double>(metrics.physicalHeight) / cssHeight;
+	const double densityX = static_cast<double>(effective.physicalWidth) / cssWidth;
+	const double densityY = static_cast<double>(effective.physicalHeight) / cssHeight;
 	const double logicalPerCssX = densityX / metrics.scaleX;
 	const double logicalPerCssY = densityY / metrics.scaleY;
 	CalypsoF21Painter painter{builder, model.familyId,
-		reinterpret_cast<std::uintptr_t>(model.ownerState), 0, 1.0f, 1.0,
+		reinterpret_cast<std::uintptr_t>(model.ownerState), order, 1.0f, 1.0,
 		CalypsoF21Rect{
 			static_cast<int>(std::llround(-(metrics.contentOffsetX / metrics.scaleX))),
 			static_cast<int>(std::llround(-(metrics.contentOffsetY / metrics.scaleY))),
@@ -340,7 +793,9 @@ void collectCanonicalBasescapeChrome(CalypsoHdFrameBuilder& builder,
 	snapshot.displayDate = model.clockDate;
 	CommandCenter::calypsoCcPaintHeaderContent(
 		painter, layout, snapshot, fonts, role, false);
-	order = static_cast<int>(role);
+	// F21Painter owns the monotonic item order.  `role` is only the shared
+	// stable visual id passed to CommandCenter; it must not reset draw order.
+	order = painter.ord;
 }
 
 
@@ -354,7 +809,38 @@ void collectAction(CalypsoHdFrameBuilder& builder, const CalypsoHdOperationsMode
 	addPanel(builder, model, "action/" + action.id, order++, action.visible,
 		palette.fill, palette.fill, action.widget, palette.border);
 	addText(builder, model, source, actionPx, "action-label/" + action.id, order++,
-		action.visible, action.label, palette.text, CalypsoHdHAlign::Center, action.widget);
+		action.visible, action.label, palette.text, CalypsoHdHAlign::Center,
+		action.widget, true);
+}
+
+void collectChooser(CalypsoHdFrameBuilder& builder,
+	const CalypsoHdOperationsModel& model, const CalypsoTtfSourceDescriptor& source,
+	int bodyPx, int& order)
+{
+	const auto& chooser = model.chooser;
+	if (!chooser.open || !chooser.panel.valid()) return;
+	addPanel(builder, model, "chooser/panel", order++, chooser.panel,
+		model.style.panelFillTop, model.style.panelFillTop, chooser.owner,
+		model.style.frame);
+	const int insetX = std::max(0, chooser.optionInsetX);
+	const int insetY = std::max(0, chooser.optionInsetY);
+	for (const auto& option : chooser.options)
+	{
+		if (!option.state.visible || !option.rect.valid()) continue;
+		const std::uint32_t fill = option.state.selected || option.state.hovered
+			? model.style.selection : model.style.panelFillTop;
+		addPanel(builder, model, "chooser/option/" + option.id, order++, option.rect,
+			fill, fill, option.widget,
+			option.state.selected ? model.style.accent : model.style.divider);
+		CalypsoHdOperationsRect textRect = insetHorizontal(option.rect, insetX);
+		textRect.y += insetY;
+		textRect.h = std::max(1, textRect.h - insetY * 2);
+		addText(builder, model, source, bodyPx,
+			"chooser/label/" + option.id, order++,
+			textRect, option.label,
+			option.state.disabled ? model.style.disabledText : model.style.text,
+			CalypsoHdHAlign::Left, option.widget);
+	}
 }
 
 void collectControl(CalypsoHdFrameBuilder& builder,
@@ -437,7 +923,8 @@ void collectCollection(CalypsoHdFrameBuilder& builder,
 		int contentTop = viewport.y;
 		for (const auto& rect : columnGeometry)
 			if (rect.valid()) contentTop = std::max(contentTop, rect.y + rect.h);
-		const int requestedInset = model.geometry.designWidth >= 1000 ? 48 : 24;
+		const int requestedInset = classifyCalypsoHdOperationsLayout(model.geometry.designWidth,
+		model.geometry.designHeight) == CalypsoHdOperationsLayoutClass::Wide ? 48 : 24;
 		const int inset = std::min(requestedInset, std::max(0, (viewport.w - 2) / 2));
 		const int width = std::max(1, viewport.w - 2 * inset);
 		const int availableHeight = std::max(1, viewport.y + viewport.h - contentTop);
@@ -521,9 +1008,12 @@ void collectCollection(CalypsoHdFrameBuilder& builder,
 				&& columnGeometry[col].valid() ? columnGeometry[col] : column.rect;
 			cell.y = rowSlot.y;
 			cell.h = rowSlot.h;
+			const CalypsoHdOperationsRect textCell =
+				calypsoHdOperationsCollectionCellTextRect(
+					column, col == 0 ? nullptr : &collection.columns[col - 1], cell);
 			addText(builder, model, data ? model.monoFont : source,
 				data ? dataPx : bodyPx,
-				prefix + "/cell/" + row.id + "/" + column.id, order++, cell, value,
+				prefix + "/cell/" + row.id + "/" + column.id, order++, textCell, value,
 				(typed && typed->state.disabled) || row.state.disabled
 					? model.style.disabledText : model.style.text,
 				data ? CalypsoHdHAlign::Right : CalypsoHdHAlign::Left, row.widget);
@@ -610,7 +1100,11 @@ void collectOperationsWorkspace(CalypsoHdFrameBuilder& builder,
 		const auto& metric = model.detail.metrics[i];
 		const CalypsoHdOperationsRect rect = i < g.detailMetrics.size()
 			&& g.detailMetrics[i].valid() ? g.detailMetrics[i] : metric.rect;
-		const auto textRects = stackedTextRects(rect);
+		if (metric.progress) addProgressBar(builder, model,
+			"metric-progress/" + metric.id, order, *metric.progress);
+		auto textRects = stackedTextRects(rect);
+		if (metric.progress)
+			textRects.second.h = std::max(1, textRects.second.h - metric.progress->rect.h);
 		const std::uint32_t valueColor = metric.state.disabled
 			? model.style.disabled : model.style.text;
 		addText(builder, model, source, typography.labelPx,
@@ -625,6 +1119,7 @@ void collectOperationsWorkspace(CalypsoHdFrameBuilder& builder,
 		collectAction(builder, model, source, typography.actionPx, action, order);
 	for (const auto& action : model.footerActions)
 		collectAction(builder, model, source, typography.actionPx, action, order);
+	collectChooser(builder, model, source, typography.bodyPx, order);
 }
 
 void collectWideDetail(CalypsoHdFrameBuilder& builder,
@@ -662,6 +1157,9 @@ void collectWideDetail(CalypsoHdFrameBuilder& builder,
 		else if (region.kind == CalypsoHdOperationsRegionKind::Fields)
 			for (const auto& field : region.fields)
 			{
+				if (field.progress) addProgressBar(builder, model,
+					"region-field-progress/" + region.id + "/" + field.id,
+					order, *field.progress);
 				const std::uint32_t valueColor = field.state.disabled
 					? model.style.disabled : model.style.text;
 				addText(builder, model, source, typography.bodyPx,
@@ -669,9 +1167,12 @@ void collectWideDetail(CalypsoHdFrameBuilder& builder,
 					regionFieldLabelRect(region, field.rect), field.label,
 					field.state.disabled ? model.style.disabled : model.style.mutedText,
 					CalypsoHdHAlign::Left);
+				CalypsoHdOperationsRect valueRect = field.rect;
+				if (field.progress)
+					valueRect.h = std::max(1, valueRect.h - field.progress->rect.h);
 				addText(builder, model, model.monoFont, typography.dataPx,
 					"region-field-value/" + region.id + "/" + field.id, order++,
-					field.rect, field.value, valueColor, CalypsoHdHAlign::Left);
+					valueRect, field.value, valueColor, CalypsoHdHAlign::Left);
 			}
 		for (const auto& action : region.actions)
 			collectAction(builder, model, source, typography.actionPx, action, order);
@@ -693,6 +1194,7 @@ CalypsoHdOperationsRenderer::CalypsoHdOperationsRenderer(
 
 CalypsoHdOperationsRenderer::~CalypsoHdOperationsRenderer()
 {
+	if (g_activeOperationsRenderer == this) g_activeOperationsRenderer = nullptr;
 	CalypsoHdUiOverlay::instance().clearAdapter(this);
 }
 
@@ -764,14 +1266,172 @@ void CalypsoHdOperationsRenderer::setModelProvider(
 	_modelProvider = std::move(provider);
 }
 
+const CalypsoHdOperationsRenderer* calypsoHdOperationsActiveRenderer()
+{
+	return g_activeOperationsRenderer;
+}
+
+std::string calypsoHdOperationsModelSnapshotJson(
+	const CalypsoHdOperationsModel& model)
+{
+	std::ostringstream out;
+	out << '{';
+	bool first = true;
+	appendString(out, "presentation", model.presentation, first);
+	appendString(out, "profileId", model.profileId, first);
+	appendString(out, "profileVersion", model.profileVersion, first);
+	appendString(out, "provenance", model.provenance, first);
+	appendSize(out, "familyId", model.familyId, first);
+	appendString(out, "title", model.title, first);
+	if (!first) out << ',';
+	first = false;
+	out << "\"shellIdentity\":{";
+	bool shellFirst = true;
+	appendString(out, "baseCaption", model.baseCaption, shellFirst);
+	appendString(out, "baseName", model.baseName, shellFirst);
+	appendString(out, "clockTime", model.clockTime, shellFirst);
+	appendString(out, "clockDate", model.clockDate, shellFirst);
+	appendString(out, "sectionLabel", model.sectionLabel, shellFirst);
+	out << '}';
+	if (!first) out << ',';
+	first = false;
+	out << "\"coordinateSpace\":\"css-fluid\",\"projection\":{";
+	const auto& presentation = CalypsoHdUiOverlay::instance().frozenMetrics();
+	const auto& viewport = calypsoViewportRuntime().current();
+	const auto effective = calypsoHdOperationsEffectiveViewport();
+	out << "\"logicalWidth\":" << effective.projectionLogicalWidth
+		<< ",\"logicalHeight\":" << effective.projectionLogicalHeight
+		<< ",\"physicalWidth\":" << effective.physicalWidth
+		<< ",\"physicalHeight\":" << effective.physicalHeight
+		<< ",\"engineLogicalWidth\":" << effective.projectionLogicalWidth
+		<< ",\"engineLogicalHeight\":" << effective.projectionLogicalHeight
+		<< ",\"effectiveCssWidth\":" << effective.cssWidth
+		<< ",\"effectiveCssHeight\":" << effective.cssHeight
+		<< ",\"sideBySide\":" << (effective.sideBySide ? "true" : "false")
+		<< std::setprecision(17)
+		<< ",\"scaleX\":" << presentation.scaleX
+		<< ",\"scaleY\":" << presentation.scaleY
+		<< ",\"contentOffsetX\":" << presentation.contentOffsetX
+		<< ",\"contentOffsetY\":" << presentation.contentOffsetY
+		<< ",\"dpr\":" << presentation.dpr
+		<< ",\"generation\":" << presentation.generation
+		<< ",\"runtimeLogicalWidth\":" << viewport.logicalWidth
+		<< ",\"runtimeLogicalHeight\":" << viewport.logicalHeight
+		<< ",\"runtimeGeneration\":" << calypsoViewportRuntime().generation()
+		<< "},\"geometry\":";
+	appendGeometry(out, model.geometry, model.collection);
+	out << ",\"collection\":";
+	appendCollection(out, model.collection);
+	out << ",\"summaryFields\":[";
+	for (std::size_t i = 0; i < model.summaryFields.size(); ++i)
+	{
+		if (i) out << ',';
+		const auto& field = model.summaryFields[i];
+		out << '{';
+		bool fieldFirst = true;
+		appendString(out, "id", field.id, fieldFirst);
+		appendString(out, "label", field.label, fieldFirst);
+		appendString(out, "value", field.value, fieldFirst);
+		appendRect(out, "rect", field.rect, fieldFirst);
+		appendBool(out, "widget", field.widget != nullptr, fieldFirst);
+		if (!fieldFirst) out << ',';
+		out << "\"state\":";
+		appendState(out, field.state);
+		out << '}';
+	}
+	out << "],\"toolbarActions\":[";
+	for (std::size_t i = 0; i < model.toolbarActions.size(); ++i)
+	{
+		if (i) out << ',';
+		appendAction(out, model.toolbarActions[i]);
+	}
+	out << "],\"chooser\":";
+	appendChooser(out, model.chooser);
+	out << ",\"footerActions\":[";
+	for (std::size_t i = 0; i < model.footerActions.size(); ++i)
+	{
+		if (i) out << ',';
+		appendAction(out, model.footerActions[i]);
+	}
+	out << "],\"detail\":{";
+	bool detailFirst = true;
+	appendString(out, "id", model.detail.id, detailFirst);
+	appendString(out, "identityId", model.detail.identity.id, detailFirst);
+	appendString(out, "identityTitle", model.detail.identity.title, detailFirst);
+	appendString(out, "identitySubtitle", model.detail.identity.subtitle, detailFirst);
+	appendRect(out, "panel", model.detail.panel, detailFirst);
+	appendBool(out, "identityVisible", model.detail.identity.state.visible, detailFirst);
+	if (!detailFirst) out << ',';
+	out << "\"metrics\":[";
+	for (std::size_t i = 0; i < model.detail.metrics.size(); ++i)
+	{
+		if (i) out << ',';
+		const auto& metric = model.detail.metrics[i];
+		out << '{';
+		bool metricFirst = true;
+		appendString(out, "id", metric.id, metricFirst);
+		appendString(out, "label", metric.label, metricFirst);
+		appendString(out, "value", metric.value, metricFirst);
+		appendRect(out, "rect", metric.rect, metricFirst);
+		if (!metricFirst) out << ',';
+		appendProgress(out, metric.progress);
+		if (!metricFirst) out << ',';
+		out << "\"state\":";
+		appendState(out, metric.state);
+		out << '}';
+	}
+	out << "],\"actions\":[";
+	for (std::size_t i = 0; i < model.detail.actions.size(); ++i)
+	{
+		if (i) out << ',';
+		appendAction(out, model.detail.actions[i]);
+	}
+	out << "]},\"inputOwnerCounts\":{";
+	out << "\"summaryFields\":" << model.summaryFields.size()
+		<< ",\"toolbarActions\":" << model.toolbarActions.size()
+		<< ",\"footerActions\":" << model.footerActions.size()
+		<< ",\"collectionRows\":" << model.collection.rows.size()
+		<< ",\"suppressedWidgets\":" << model.suppressedWidgets.size() << '}';
+	out << ",\"controls\":[";
+	for (std::size_t i = 0; i < model.controls.size(); ++i)
+	{
+		if (i) out << ',';
+		appendControl(out, model.controls[i]);
+	}
+	out << "],\"regions\":[";
+	for (std::size_t i = 0; i < model.regions.size(); ++i)
+	{
+		if (i) out << ',';
+		appendRegion(out, model.regions[i]);
+	}
+	out << "],\"navigation\":{";
+	bool navigationFirst = true;
+	appendString(out, "origin", model.navigation.origin, navigationFirst);
+	if (!navigationFirst) out << ',';
+	out << "\"actions\":[";
+	for (std::size_t i = 0; i < model.navigation.actions.size(); ++i)
+	{
+		if (i) out << ',';
+		appendAction(out, model.navigation.actions[i]);
+	}
+	out << "]}";
+	out << '}';
+	return out.str();
+}
+
 void CalypsoHdOperationsRenderer::collect(CalypsoHdFrameBuilder& builder) const
 {
+	// Publish only the renderer that actually participates in the current
+	// presented frame. Constructor order is not an ownership signal when a
+	// stacked state is popped while an underlay remains alive.
+	g_activeOperationsRenderer = const_cast<CalypsoHdOperationsRenderer*>(this);
 	if (_modelProvider)
 	{
 		auto model = _modelProvider();
 		if (model.ownerState == nullptr) model.ownerState = _state;
 		_model = std::move(model);
 	}
+	applyVisualStateFixture(_model);
 	if (!completeFrameReady()) return;
 	builder.beginSubgroup();
 	int order = 1;

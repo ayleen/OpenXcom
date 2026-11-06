@@ -14,9 +14,9 @@
         "tone": "danger",
         "action": "stop-production",
         "style": {
-          "fill": "FF6E72FF",
+          "fill": "071624FF",
           "border": "FF6E72FF",
-          "text": "E7F0F3FF"
+          "text": "FF6E72FF"
         }
       },
       {
@@ -57,7 +57,9 @@
           {
             "id": "produced",
             "label": "PRODUCED",
-            "value": "22 / 40"
+            "value": "22 / 40",
+            "progressBar": true,
+            "progressRatio": 0.55
           },
           {
             "id": "assigned",
@@ -199,7 +201,9 @@
           {
             "id": "produced",
             "label": "PRODUCED",
-            "value": "22 / 40"
+            "value": "22 / 40",
+            "progressBar": true,
+            "progressRatio": 0.55
           },
           {
             "id": "assigned",
@@ -465,6 +469,12 @@
                 "y": 570,
                 "width": 283,
                 "height": 20
+              },
+              "progressBar": {
+                "x": 377,
+                "y": 586,
+                "width": 283,
+                "height": 4
               }
             },
             "assigned": {
@@ -823,6 +833,12 @@
           "width": 283,
           "height": 20
         },
+        "region.result.field.produced.progressBar": {
+          "x": 377,
+          "y": 586,
+          "width": 283,
+          "height": 4
+        },
         "region.result.field.assigned": {
           "x": 124,
           "y": 590,
@@ -1098,19 +1114,19 @@
         "output": {
           "panel": {
             "x": 52,
-            "y": 108,
+            "y": 116,
             "width": 360,
             "height": 104
           },
           "label": {
             "x": 60,
-            "y": 116,
+            "y": 124,
             "width": 344,
             "height": 16
           },
           "content": {
             "x": 60,
-            "y": 132,
+            "y": 140,
             "width": 344,
             "height": 72
           }
@@ -1118,13 +1134,13 @@
         "result": {
           "panel": {
             "x": 420,
-            "y": 108,
+            "y": 116,
             "width": 312,
             "height": 80
           },
           "label": {
             "x": 428,
-            "y": 116,
+            "y": 124,
             "width": 296,
             "height": 16
           },
@@ -1132,39 +1148,45 @@
             "produced": {
               "row": {
                 "x": 428,
-                "y": 132,
+                "y": 140,
                 "width": 296,
                 "height": 16
               },
               "label": {
                 "x": 428,
-                "y": 132,
+                "y": 140,
                 "width": 177,
                 "height": 16
               },
               "value": {
                 "x": 613,
-                "y": 132,
+                "y": 140,
                 "width": 111,
                 "height": 16
+              },
+              "progressBar": {
+                "x": 613,
+                "y": 152,
+                "width": 111,
+                "height": 4
               }
             },
             "assigned": {
               "row": {
                 "x": 428,
-                "y": 148,
+                "y": 156,
                 "width": 296,
                 "height": 16
               },
               "label": {
                 "x": 428,
-                "y": 148,
+                "y": 156,
                 "width": 177,
                 "height": 16
               },
               "value": {
                 "x": 613,
-                "y": 148,
+                "y": 156,
                 "width": 111,
                 "height": 16
               }
@@ -1172,19 +1194,19 @@
             "monthly-profit": {
               "row": {
                 "x": 428,
-                "y": 164,
+                "y": 172,
                 "width": 296,
                 "height": 16
               },
               "label": {
                 "x": 428,
-                "y": 164,
+                "y": 172,
                 "width": 177,
                 "height": 16
               },
               "value": {
                 "x": 613,
-                "y": 164,
+                "y": 172,
                 "width": 111,
                 "height": 16
               }
@@ -1193,75 +1215,75 @@
         },
         "resources": {
           "panel": {
-            "x": 420,
-            "y": 196,
-            "width": 312,
-            "height": 108
+            "x": 476,
+            "y": 204,
+            "width": 256,
+            "height": 100
           },
           "label": {
-            "x": 428,
-            "y": 204,
-            "width": 296,
+            "x": 484,
+            "y": 212,
+            "width": 240,
             "height": 16
           },
           "fields": {
             "available-engineers": {
               "row": {
-                "x": 428,
-                "y": 220,
-                "width": 296,
+                "x": 484,
+                "y": 228,
+                "width": 240,
                 "height": 16
               },
               "label": {
-                "x": 428,
-                "y": 220,
-                "width": 177,
+                "x": 484,
+                "y": 228,
+                "width": 144,
                 "height": 16
               },
               "value": {
-                "x": 613,
-                "y": 220,
-                "width": 111,
+                "x": 636,
+                "y": 228,
+                "width": 88,
                 "height": 16
               }
             },
             "workshop-space": {
               "row": {
-                "x": 428,
-                "y": 236,
-                "width": 296,
+                "x": 484,
+                "y": 244,
+                "width": 240,
                 "height": 16
               },
               "label": {
-                "x": 428,
-                "y": 236,
-                "width": 177,
+                "x": 484,
+                "y": 244,
+                "width": 144,
                 "height": 16
               },
               "value": {
-                "x": 613,
-                "y": 236,
-                "width": 111,
+                "x": 636,
+                "y": 244,
+                "width": 88,
                 "height": 16
               }
             },
             "hours-per-unit": {
               "row": {
-                "x": 428,
-                "y": 252,
-                "width": 296,
+                "x": 484,
+                "y": 260,
+                "width": 240,
                 "height": 16
               },
               "label": {
-                "x": 428,
-                "y": 252,
-                "width": 177,
+                "x": 484,
+                "y": 260,
+                "width": 144,
                 "height": 16
               },
               "value": {
-                "x": 613,
-                "y": 252,
-                "width": 111,
+                "x": 636,
+                "y": 260,
+                "width": 88,
                 "height": 16
               }
             }
@@ -1270,72 +1292,72 @@
         "sell": {
           "panel": {
             "x": 52,
-            "y": 220,
-            "width": 680,
-            "height": 84
+            "y": 228,
+            "width": 412,
+            "height": 76
           },
           "label": {
             "x": 60,
-            "y": 228,
-            "width": 664,
+            "y": 236,
+            "width": 396,
             "height": 16
           },
           "content": {
             "x": 60,
-            "y": 244,
-            "width": 664,
-            "height": 52
+            "y": 252,
+            "width": 396,
+            "height": 44
           },
           "actionSlots": [
             {
               "id": "action-slot-1",
               "rect": {
                 "x": 60,
-                "y": 244,
-                "width": 150,
+                "y": 252,
+                "width": 83,
                 "height": 44
               }
             },
             {
               "id": "action-slot-2",
               "rect": {
-                "x": 214,
-                "y": 244,
-                "width": 150,
+                "x": 147,
+                "y": 252,
+                "width": 83,
                 "height": 44
               }
             },
             {
               "id": "action-slot-3",
               "rect": {
-                "x": 368,
-                "y": 244,
-                "width": 150,
+                "x": 234,
+                "y": 252,
+                "width": 83,
                 "height": 44
               }
             },
             {
               "id": "action-slot-4",
               "rect": {
-                "x": 522,
-                "y": 244,
-                "width": 150,
+                "x": 321,
+                "y": 252,
+                "width": 83,
                 "height": 44
               }
             }
           ],
           "scroll": {
             "track": {
-              "x": 706,
-              "y": 244,
+              "x": 438,
+              "y": 252,
               "width": 18,
-              "height": 52
+              "height": 44
             },
             "thumb": {
-              "x": 706,
-              "y": 244,
+              "x": 438,
+              "y": 252,
               "width": 18,
-              "height": 52
+              "height": 44
             }
           }
         }
@@ -1459,206 +1481,212 @@
         },
         "region.output": {
           "x": 52,
-          "y": 108,
+          "y": 116,
           "width": 360,
           "height": 104
         },
         "region.output.label": {
           "x": 60,
-          "y": 116,
+          "y": 124,
           "width": 344,
           "height": 16
         },
         "region.output.content": {
           "x": 60,
-          "y": 132,
+          "y": 140,
           "width": 344,
           "height": 72
         },
         "region.result": {
           "x": 420,
-          "y": 108,
+          "y": 116,
           "width": 312,
           "height": 80
         },
         "region.result.label": {
           "x": 428,
-          "y": 116,
+          "y": 124,
           "width": 296,
           "height": 16
         },
         "region.result.field.produced": {
           "x": 428,
-          "y": 132,
+          "y": 140,
           "width": 296,
           "height": 16
         },
         "region.result.field.produced.label": {
           "x": 428,
-          "y": 132,
+          "y": 140,
           "width": 177,
           "height": 16
         },
         "region.result.field.produced.value": {
           "x": 613,
-          "y": 132,
+          "y": 140,
           "width": 111,
           "height": 16
         },
+        "region.result.field.produced.progressBar": {
+          "x": 613,
+          "y": 152,
+          "width": 111,
+          "height": 4
+        },
         "region.result.field.assigned": {
           "x": 428,
-          "y": 148,
+          "y": 156,
           "width": 296,
           "height": 16
         },
         "region.result.field.assigned.label": {
           "x": 428,
-          "y": 148,
+          "y": 156,
           "width": 177,
           "height": 16
         },
         "region.result.field.assigned.value": {
           "x": 613,
-          "y": 148,
+          "y": 156,
           "width": 111,
           "height": 16
         },
         "region.result.field.monthly-profit": {
           "x": 428,
-          "y": 164,
+          "y": 172,
           "width": 296,
           "height": 16
         },
         "region.result.field.monthly-profit.label": {
           "x": 428,
-          "y": 164,
+          "y": 172,
           "width": 177,
           "height": 16
         },
         "region.result.field.monthly-profit.value": {
           "x": 613,
-          "y": 164,
+          "y": 172,
           "width": 111,
           "height": 16
         },
         "region.resources": {
-          "x": 420,
-          "y": 196,
-          "width": 312,
-          "height": 108
+          "x": 476,
+          "y": 204,
+          "width": 256,
+          "height": 100
         },
         "region.resources.label": {
-          "x": 428,
-          "y": 204,
-          "width": 296,
+          "x": 484,
+          "y": 212,
+          "width": 240,
           "height": 16
         },
         "region.resources.field.available-engineers": {
-          "x": 428,
-          "y": 220,
-          "width": 296,
+          "x": 484,
+          "y": 228,
+          "width": 240,
           "height": 16
         },
         "region.resources.field.available-engineers.label": {
-          "x": 428,
-          "y": 220,
-          "width": 177,
+          "x": 484,
+          "y": 228,
+          "width": 144,
           "height": 16
         },
         "region.resources.field.available-engineers.value": {
-          "x": 613,
-          "y": 220,
-          "width": 111,
+          "x": 636,
+          "y": 228,
+          "width": 88,
           "height": 16
         },
         "region.resources.field.workshop-space": {
-          "x": 428,
-          "y": 236,
-          "width": 296,
+          "x": 484,
+          "y": 244,
+          "width": 240,
           "height": 16
         },
         "region.resources.field.workshop-space.label": {
-          "x": 428,
-          "y": 236,
-          "width": 177,
+          "x": 484,
+          "y": 244,
+          "width": 144,
           "height": 16
         },
         "region.resources.field.workshop-space.value": {
-          "x": 613,
-          "y": 236,
-          "width": 111,
+          "x": 636,
+          "y": 244,
+          "width": 88,
           "height": 16
         },
         "region.resources.field.hours-per-unit": {
-          "x": 428,
-          "y": 252,
-          "width": 296,
+          "x": 484,
+          "y": 260,
+          "width": 240,
           "height": 16
         },
         "region.resources.field.hours-per-unit.label": {
-          "x": 428,
-          "y": 252,
-          "width": 177,
+          "x": 484,
+          "y": 260,
+          "width": 144,
           "height": 16
         },
         "region.resources.field.hours-per-unit.value": {
-          "x": 613,
-          "y": 252,
-          "width": 111,
+          "x": 636,
+          "y": 260,
+          "width": 88,
           "height": 16
         },
         "region.sell": {
           "x": 52,
-          "y": 220,
-          "width": 680,
-          "height": 84
+          "y": 228,
+          "width": 412,
+          "height": 76
         },
         "region.sell.label": {
           "x": 60,
-          "y": 228,
-          "width": 664,
+          "y": 236,
+          "width": 396,
           "height": 16
         },
         "region.sell.content": {
           "x": 60,
-          "y": 244,
-          "width": 664,
-          "height": 52
+          "y": 252,
+          "width": 396,
+          "height": 44
         },
         "region.sell.scroll.track": {
-          "x": 706,
-          "y": 244,
+          "x": 438,
+          "y": 252,
           "width": 18,
-          "height": 52
+          "height": 44
         },
         "region.sell.scroll.thumb": {
-          "x": 706,
-          "y": 244,
+          "x": 438,
+          "y": 252,
           "width": 18,
-          "height": 52
+          "height": 44
         },
         "region.sell.action-slot-1": {
           "x": 60,
-          "y": 244,
-          "width": 150,
+          "y": 252,
+          "width": 83,
           "height": 44
         },
         "region.sell.action-slot-2": {
-          "x": 214,
-          "y": 244,
-          "width": 150,
+          "x": 147,
+          "y": 252,
+          "width": 83,
           "height": 44
         },
         "region.sell.action-slot-3": {
-          "x": 368,
-          "y": 244,
-          "width": 150,
+          "x": 234,
+          "y": 252,
+          "width": 83,
           "height": 44
         },
         "region.sell.action-slot-4": {
-          "x": 522,
-          "y": 244,
-          "width": 150,
+          "x": 321,
+          "y": 252,
+          "width": 83,
           "height": 44
         },
         "action.stop-production": {
@@ -1753,9 +1781,9 @@
         "text": "TextOnAccent"
       },
       "danger": {
-        "fill": "Danger",
+        "fill": "BgPanel",
         "border": "Danger",
-        "text": "TextPrimary"
+        "text": "Danger"
       }
     },
     "columnRoles": {
@@ -1907,9 +1935,9 @@
         "text": "03130DFF"
       },
       "danger": {
-        "fill": "FF6E72FF",
+        "fill": "071624FF",
         "border": "FF6E72FF",
-        "text": "E7F0F3FF"
+        "text": "FF6E72FF"
       }
     },
     "resolvedTypography": {
@@ -2038,28 +2066,28 @@
         "overflow": false,
         "scrollSteps": 0,
         "track": {
-          "x": 706,
-          "y": 244,
+          "x": 438,
+          "y": 252,
           "width": 18,
-          "height": 52
+          "height": 44
         },
         "thumb": {
-          "x": 706,
-          "y": 244,
+          "x": 438,
+          "y": 252,
           "width": 18,
-          "height": 52
+          "height": 44
         },
         "trackHitTarget": {
-          "x": 680,
-          "y": 244,
+          "x": 412,
+          "y": 252,
           "width": 44,
-          "height": 52
+          "height": 44
         },
         "thumbHitTarget": {
-          "x": 680,
-          "y": 244,
+          "x": 412,
+          "y": 252,
           "width": 44,
-          "height": 52
+          "height": 44
         },
         "thumbTravelPx": 0
       }
@@ -2085,7 +2113,7 @@
       "second": "region.output",
       "axis": "vertical",
       "wide": 40,
-      "compact": 26
+      "compact": 34
     },
     {
       "id": "title-control",
@@ -2103,7 +2131,7 @@
       "second": "region.output",
       "axis": "vertical",
       "wide": 33,
-      "compact": 12
+      "compact": 20
     },
     {
       "id": "region-inset-output",
@@ -2164,7 +2192,7 @@
       "second": "region.resources",
       "axis": "horizontal",
       "wide": 16,
-      "compact": 8
+      "compact": 64
     },
     {
       "id": "primary-summary",
@@ -2182,7 +2210,7 @@
       "second": "region.sell",
       "axis": "vertical",
       "wide": 12,
-      "compact": -84
+      "compact": -76
     },
     {
       "id": "footer-action-inset",
@@ -2225,6 +2253,7 @@
     "region.result.field.produced",
     "region.result.field.produced.label",
     "region.result.field.produced.value",
+    "region.result.field.produced.progressBar",
     "region.result.field.assigned",
     "region.result.field.assigned.label",
     "region.result.field.assigned.value",

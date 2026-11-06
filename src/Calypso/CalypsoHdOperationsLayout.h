@@ -12,7 +12,12 @@
 // inspector/dock), while fixed-size things — 44px targets, typography, row
 // height, bars — keep their authored CSS size. The two reference viewports
 // resolve to exactly the approved geometry (zero surplus ⇒ identity).
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
 #include <cstdint>
+
+#include "CommandCenter/CommandCenterTheme.h"
 
 namespace OpenXcom
 {
@@ -76,6 +81,8 @@ struct CalypsoHdOperationsFluidPolicy
 	int referenceHeight = 0;
 	int contentLeft = 0;
 	int contentWidth = 0;
+	int originDx = 0;
+	int originDy = 0;
 
 	static CalypsoHdOperationsFluidPolicy forReference(int referenceWidth,
 		int referenceHeight, int contentLeft, int contentWidth)
@@ -86,6 +93,23 @@ struct CalypsoHdOperationsFluidPolicy
 		policy.contentLeft = contentLeft;
 		policy.contentWidth = contentWidth;
 		return policy;
+	}
+
+	/// Preserve the authored inset from the unchanged F01 rail/header when
+	/// desktop-fit chrome grows between the canonical viewport endpoints.
+	CalypsoHdOperationsFluidPolicy withViewport(int width, int height) const
+	{
+		auto result = *this;
+		const auto scale = [](int w, int h) {
+			return std::min({1.0, w / 1280.0, h / 720.0});
+		};
+		const double current = scale(width, height);
+		const double authored = scale(referenceWidth, referenceHeight);
+		result.originDx = static_cast<int>(std::lround(CommandCenterTheme::RailWidth * current)
+			- std::lround(CommandCenterTheme::RailWidth * authored));
+		result.originDy = static_cast<int>(std::lround(CommandCenterTheme::HeaderHeight * current)
+			- std::lround(CommandCenterTheme::HeaderHeight * authored));
+		return result;
 	}
 
 	int widthSurplus(int actualLogicalWidth) const
@@ -105,16 +129,23 @@ struct CalypsoHdOperationsFluidPolicy
 	{
 		CalypsoHdOperationsRectf out = rect;
 		const int dx = widthSurplus(actualLogicalWidth);
-		if (dx == 0) return out;
+		if (rect.x == 0 && rect.w == referenceWidth)
+		{
+			out.w = actualLogicalWidth;
+			return out; // root window, not workspace content
+		}
+		if (dx == 0 && originDx == 0) return out;
 		switch (anchor)
 		{
 		case Anchor::Left:
+			out.x += originDx;
 			return out;
 		case Anchor::Right:
-			out.x = rect.x + dx;
+			out.x += dx;
 			return out;
 		case Anchor::Stretch:
-			out.w = rect.w + dx;
+			out.x += originDx;
+			out.w += dx - originDx;
 			return out;
 		case Anchor::Geometry:
 			break;
@@ -122,12 +153,14 @@ struct CalypsoHdOperationsFluidPolicy
 		if (fluidSameEdge(rect.x, contentLeft)
 			&& fluidSameEdge(rect.x + rect.w, contentLeft + contentWidth))
 		{
-			out.w = rect.w + dx; // full-content-width band stretches
+			out.x += originDx;
+			out.w += dx - originDx;
 		}
 		else if (fluidSameEdge(rect.x + rect.w, contentLeft + contentWidth))
 		{
-			out.x = rect.x + dx; // right-pinned panel shifts as a unit
+			out.x += dx;
 		}
+		else out.x += originDx;
 		return out;
 	}
 
@@ -136,8 +169,8 @@ struct CalypsoHdOperationsFluidPolicy
 	void mapXStretchGroup(CalypsoHdOperationsRectf *rects, std::size_t count,
 		int actualLogicalWidth) const
 	{
-		const int dx = widthSurplus(actualLogicalWidth);
-		if (dx == 0 || count == 0) return;
+		const int dx = widthSurplus(actualLogicalWidth) - originDx;
+		if ((dx == 0 && originDx == 0) || count == 0) return;
 		long long total = 0;
 		for (std::size_t i = 0; i < count; ++i) total += rects[i].w;
 		if (total <= 0) return;
@@ -146,7 +179,7 @@ struct CalypsoHdOperationsFluidPolicy
 		{
 			const long long extra = static_cast<long long>(dx) * rects[i].w / total;
 			rects[i].w += static_cast<int>(extra);
-			rects[i].x += static_cast<int>(distributed);
+			rects[i].x += originDx + static_cast<int>(distributed);
 			distributed += extra;
 		}
 		// Rounding remainder extends the LAST rect so the group still ends
@@ -170,15 +203,18 @@ struct CalypsoHdOperationsFluidPolicy
 	{
 		CalypsoHdOperationsRectf out = rect;
 		const int dy = heightSurplus(actualLogicalHeight);
-		if (dy == 0) return out;
+		if (rect.y == 0 && rect.h == referenceHeight)
+		{
+			out.h = actualLogicalHeight;
+			return out;
+		}
 		if (role == VerticalRole::Stretch)
 		{
-			out.h = rect.h + dy;
+			out.y += originDy;
+			out.h += dy - originDy;
 		}
-		else if (role == VerticalRole::BottomShift)
-		{
-			out.y = rect.y + dy;
-		}
+		else if (role == VerticalRole::BottomShift) out.y += dy;
+		else out.y += originDy;
 		return out;
 	}
 

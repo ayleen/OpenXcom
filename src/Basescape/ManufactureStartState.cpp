@@ -29,6 +29,9 @@
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Options.h"
 #include "../Menu/ErrorMessageState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoRdErrorForm.h"
+#endif
 #include "../Engine/Unicode.h"
 #include "../Mod/Mod.h"
 #include "../Mod/RuleItem.h"
@@ -261,7 +264,12 @@ void ManufactureStartState::btnStartClick(Action *)
 {
 	if (_item->getProducedCraft() && _base->getAvailableHangars() - _base->getUsedHangars() <= 0)
 	{
-		_game->pushState(new ErrorMessageState(tr("STR_NO_FREE_HANGARS_FOR_CRAFT_PRODUCTION"), _palette, _game->getMod()->getInterface("basescape")->getElement("errorMessage")->color, "BACK17.SCR", _game->getMod()->getInterface("basescape")->getElement("errorPalette")->color));
+		_game->pushState(new ErrorMessageState(tr("STR_NO_FREE_HANGARS_FOR_CRAFT_PRODUCTION"), _palette, _game->getMod()->getInterface("basescape")->getElement("errorMessage")->color, "BACK17.SCR", _game->getMod()->getInterface("basescape")->getElement("errorPalette")->color
+#ifdef __EMSCRIPTEN__
+			, 0, nullptr, Calypso::calypsoRdErrorForm(this, tr("STR_PRODUCTION"),
+				tr("STR_CALYPSO_RD_NO_PENS"), tr("STR_CALYPSO_RD_PENS_REMEDY"), tr("STR_OK"))
+#endif
+			));
 	}
 	//else if (_item->getRequiredSpace() > _base->getFreeWorkshops())
 	//{

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 #include <vector>
 
 #include "../Engine/Action.h"
@@ -175,6 +176,48 @@ void TextList::calypsoHdNormalizeRowHeights(std::vector<Text*> &row, int rowHeig
 	}
 }
 
+void TextList::calypsoHdNormalizeRowMap()
+{
+	if (_hdFixedStride) return;
+	_hdPhysicalRows = _rows;
+	const std::size_t rawScroll = _scroll;
+	const std::size_t rawSelection = _selRow;
+	_rows = Calypso::calypsoSelectionListNormalizeRows(_hdPhysicalRows);
+	if (_hdPhysicalRows.empty())
+	{
+		_scroll = 0;
+		_selRow = 0;
+		return;
+	}
+	const std::size_t scrollPhysical = std::min(rawScroll, _hdPhysicalRows.size() - 1);
+	_scroll = _hdPhysicalRows[scrollPhysical];
+	if (rawSelection < _hdPhysicalRows.size())
+		_selRow = _hdPhysicalRows[rawSelection];
+	else
+		_selRow = _rows.size();
+}
+
+void TextList::calypsoHdRestoreRowMap()
+{
+	if (!_hdFixedStride) return;
+	const std::size_t logicalScroll = _scroll;
+	const std::size_t logicalSelection = _selRow;
+	_rows = std::move(_hdPhysicalRows);
+	_hdPhysicalRows.clear();
+	if (_rows.empty())
+	{
+		_scroll = 0;
+		_selRow = 0;
+		return;
+	}
+	const std::size_t rawScroll = Calypso::calypsoSelectionListFirstPhysicalRow(
+		_rows, logicalScroll);
+	_scroll = rawScroll < _rows.size() ? rawScroll : 0;
+	const std::size_t rawSelection = Calypso::calypsoSelectionListFirstPhysicalRow(
+		_rows, logicalSelection);
+	_selRow = rawSelection < _rows.size() ? rawSelection : _rows.size();
+}
+
 /**
  * Calypso: HD — resize the scroll arrows AND scrollbar at the scaled size, then
  * re-run setY to reposition them.
@@ -247,10 +290,29 @@ void TextList::setTTFFont(TTFFont* font, float fillFrac)
 void TextList::configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbHeight,
 	int rowStride, int rowOriginY, int dataViewportH, size_t visibleRows)
 {
+	// A descriptor without a fixed row stride is not an HD selection-list
+	// configuration. Disable the seam completely so the native list keeps its
+	// ordinary row hit/scroll behavior instead of leaving _hdSelList active with
+	// an unusable row-hit descriptor.
+	if (rowStride <= 0 || visibleRows == 0)
+	{
+		clearCalypsoHdSelectionList();
+		return;
+	}
 	const int cachedStride = rowStride > 0 ? rowStride : 0;
 	const int cachedOrigin = rowOriginY > 0 ? rowOriginY : 0;
 	const int cachedViewportH = dataViewportH > 0 ? dataViewportH : 0;
 	const size_t cachedVisible = visibleRows;
+	const bool fixedStride = cachedStride > 0 && cachedVisible > 0;
+	if (fixedStride && !_hdFixedStride)
+	{
+		calypsoHdNormalizeRowMap();
+	}
+	else if (!fixedStride && _hdFixedStride)
+	{
+		calypsoHdRestoreRowMap();
+	}
+	_hdFixedStride = fixedStride;
 	const bool changed = !_hdSelList || _hdScrollBarWidth != scrollBarWidth || _hdMinThumb != minThumbHeight ||
 		_hdRowStride != cachedStride || _hdRowOriginY != cachedOrigin ||
 		_hdDataViewportH != cachedViewportH || _hdVisibleRows != cachedVisible;
@@ -271,12 +333,19 @@ void TextList::configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbH
 		_scrollbar->setCalypsoHdMinThumb(_hdMinThumb);
 	}
 	updateVisible();
+	_scroll = Calypso::calypsoSelectionListClampScroll(_scroll, _rows.size(), _visibleRows);
+	if (_selRow > _rows.size()) _selRow = _rows.size();
 	positionCalypsoHdScrollbar();
 }
 
 void TextList::clearCalypsoHdSelectionList()
 {
 	if (!_hdSelList) return;
+	if (_hdFixedStride)
+	{
+		calypsoHdRestoreRowMap();
+		_hdFixedStride = false;
+	}
 	_hdSelList = false;
 	_hdScrollBarWidth = 0;
 	_hdMinThumb = 0;
@@ -287,6 +356,26 @@ void TextList::clearCalypsoHdSelectionList()
 	_hdLastHoverX = 1e30;
 	_hdLastHoverY = 1e30;
 	_scrollbar->clearCalypsoHd();
+	if (_font)
+	{
+		updateVisible();
+		_scroll = Calypso::calypsoSelectionListClampScroll(_scroll, _rows.size(), _visibleRows);
+		if (_selRow > _rows.size()) _selRow = _rows.size();
+		updateArrows();
+	}
+}
+
+void TextList::invalidateCalypsoHdSelection()
+{
+	if (!_hdSelList) return;
+	// _selRow is an index into _rows, not a gameplay row identity. After a
+	// filtered rebuild, retaining it would silently select the newly inserted
+	// row zero when the old row disappeared.
+	_selRow = _rows.size();
+	if (_selector) _selector->setVisible(false);
+	_hdLastHoverX = 1e30;
+	_hdLastHoverY = 1e30;
+	_redraw = true;
 }
 
 bool TextList::isCalypsoHdSelectionList() const

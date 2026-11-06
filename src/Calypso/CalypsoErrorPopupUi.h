@@ -48,6 +48,8 @@ class ErrorMessageState;
 namespace Calypso
 {
 
+class CalypsoHdOperationsChrome;
+
 class CalypsoErrorPopupUi : public CalypsoHdFamilyAdapter
 {
 public:
@@ -71,10 +73,16 @@ public:
 	/// class from the current base resolution. Returns true iff HD handled it.
 	static bool resize(ErrorMessageState& state);
 
+	/// Read-only access to the native shared rail owned by this popup. The
+	/// harness uses this only for a live top-state diagnostic snapshot; the
+	/// popup remains the owner of every button and callback.
+	const CalypsoHdOperationsChrome* strategicChrome() const { return _strategicChrome; }
+
 private:
 	static void applyRects(ErrorMessageState& state, const CalypsoF34ErrorLayout& layout);
 
 	ErrorMessageState* _state = nullptr;
+	CalypsoHdOperationsChrome* _strategicChrome = nullptr;
 	mutable CalypsoSmallConfirmationMotion _motion;
 };
 

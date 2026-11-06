@@ -145,6 +145,21 @@ items:
     invHeight: 3
     battleType: 11
     recover: false
+  - type: STR_MAELSTROM_TORPEDOES
+    size: 1
+    costBuy: 1000
+    costSell: 500
+    transferTime: 24
+  - type: STR_MANTIS_PROJECTOR
+    size: 2
+    costBuy: 2000
+    costSell: 1000
+    transferTime: 24
+  - type: STR_ICHOR
+    size: 1
+    costBuy: 400
+    costSell: 200
+    transferTime: 24
 
 # The normal save loader asks the active master for the ground inventory even
 # when this synthetic battle contains no equipment.
@@ -154,6 +169,80 @@ invs:
     y: 152
     type: 2
 
+# Small, fully redistributable ruleset fixture for the operations harness.
+# Names match the native scenario selectors; no proprietary TFTD rules/assets
+# are referenced.
+research:
+  - name: STR_MAELSTROM_BATTERY
+    cost: 120
+    points: 12
+  - name: STR_DECANTED_CORPSE
+    cost: 180
+    points: 18
+  - name: STR_CALYPSO_RD_LAB
+    cost: 240
+    points: 24
+  - name: STR_CALYPSO_RD_FIELDWORK
+    cost: 300
+    points: 30
+
+manufacture:
+  - name: STR_MAELSTROM_TORPEDOES
+    category: STR_EQUIPMENT
+    space: 4
+    time: 120
+    cost: 1200
+    requiredItems:
+      STR_ICHOR: 1
+  - name: STR_MANTIS_PROJECTOR
+    category: STR_EQUIPMENT
+    space: 6
+    time: 180
+    cost: 2400
+    requiredItems:
+      STR_ICHOR: 2
+
+# Keep the GPL fixture self-contained when the native HD renderer resolves
+# labels for the synthetic operations rules.  These keys deliberately live in
+# the fixture rather than loading the production HD-pack ruleset.
+extraStrings:
+  - type: en-US
+    strings:
+      STR_CALYPSO_LABORATORY: "LABORATORY"
+      STR_CALYPSO_RD_LAB: "CALYPSO LAB"
+      STR_CALYPSO_RD_FIELDWORK: "FIELDWORK"
+      STR_MAELSTROM_BATTERY: "MAELSTROM BATTERY"
+      STR_DECANTED_CORPSE: "DECANTED CORPSE"
+      STR_MAELSTROM_TORPEDOES: "MAELSTROM TORPEDOES"
+      STR_MANTIS_PROJECTOR: "MANTIS PROJECTOR"
+      STR_EQUIPMENT: "EQUIPMENT"
+      STR_CALYPSO_RESEARCH_SCIENTISTS_AVAILABLE: "SCIENTISTS AVAILABLE"
+      STR_CALYPSO_RESEARCH_SCIENTISTS_ALLOCATED: "SCIENTISTS ALLOCATED"
+      STR_CALYPSO_RESEARCH_LABORATORY_SPACE_AVAILABLE: "LABORATORY SPACE AVAILABLE"
+      STR_CALYPSO_RESEARCH_SCIENTISTS_ALLOCATED_UC: "SCIENTISTS ALLOCATED"
+      STR_CALYPSO_RESEARCH_PROJECTS: "RESEARCH PROJECTS"
+      STR_CALYPSO_ACTIVE_PROJECT_COUNT: "{0} ACTIVE"
+      STR_CALYPSO_NO_ACTIVE_RESEARCH: "NO ACTIVE RESEARCH PROJECTS"
+      STR_CALYPSO_START_RESEARCH_PROMPT: "Start a new project to use available laboratory capacity."
+      STR_CALYPSO_RESEARCH_SELECTED_PROJECT: "SELECTED PROJECT"
+      STR_NONE: "NONE"
+      STR_BASES: "BASES"
+      STR_SCIENTISTS_AVAILABLE: "SCIENTISTS AVAILABLE"
+      STR_SCIENTISTS_ALLOCATED: "SCIENTISTS ALLOCATED"
+      STR_LABORATORY_SPACE_AVAILABLE: "LABORATORY SPACE AVAILABLE"
+
+facilities:
+  - type: STR_CALYPSO_LABORATORY
+    spriteShape: 1
+    spriteFacility: 19
+    buildCost: 1000
+    buildTime: 0
+    monthlyCost: 10
+    labs: 10
+    fireSound: -1
+    hitSound: -1
+    mapName: XBASES02
+
 interfaces:
   - type: geoscape
     palette: PAL_GEOSCAPE
@@ -161,12 +250,74 @@ interfaces:
       - {id: textLoad, color: 15}
       - {id: slackingIndicator, color: 15}
       - {id: trainingIndicator, color: 15}
+  # Strategic navigation opens these ordinary GPL states from the real
+  # Geoscape. Keep their interfaces local to the synthetic master: the HD
+  # chrome owns the registered R&D forms, while these definitions only keep
+  # the destination constructors from falling through to missing interfaces.
+  - type: intercept
+    backgroundImage: BACK01.SCR
+    elements:
+      - {id: palette, color: 0}
+      - {id: window, color: 133}
+      - {id: text1, color: 138, color2: 208}
+      - {id: text2, color: 138, color2: 208}
+      - {id: list, color: 133, color2: 208, border: 138}
+      - {id: disabled, color: 133}
+      - {id: button, color: 133}
+  - type: graphs
+    backgroundImage: BACK01.SCR
+    elements:
+      - {id: text, color: 138}
+      - {id: scale, color: 133}
+      - {id: graph, color: 208}
+      - {id: button, color: 133}
+      - {id: regionTotal, color: 133, color2: 208}
+      - {id: countryTotal, color: 133, color2: 208}
+  - type: ufopaedia
+    backgroundImage: BACK01.SCR
+    elements:
+      - {id: palette, color: 0}
+      - {id: window, color: 133}
+      - {id: text, color: 138}
+      - {id: list, color: 133, color2: 208, border: 138}
+      - {id: listExtended, color: 133, color2: 208, border: 138}
+      - {id: button1, color: 133}
+      - {id: button2, color: 133}
+  - type: optionsMenu
+    backgroundImage: BACK01.SCR
+    elements:
+      - {id: palette, color: 0}
+      - {id: window, color: 133}
+      - {id: tooltip, color: 133, color2: 208}
+      - {id: button, color: 133}
+      - {id: confirmDefaults, color: 133}
+      - {id: confirmVideo, color: 133}
+  - type: pauseMenu
+    backgroundImage: BACK01.SCR
+    elements:
+      - {id: palette, color: 0}
+      - {id: window, color: 133}
+      - {id: text, color: 138}
+      - {id: button, color: 133}
   - type: errorMessages
     elements:
       - {id: geoscapePalette, color: 6}
       - {id: battlescapePalette, color: -1}
       - {id: geoscapeColor, color: 138}
       - {id: battlescapeColor, color: 0}
+  # N05's nested ErrorMessageState keeps the real Basescape error palette and
+  # color owner.  This is intentionally a tiny GPL fixture interface: the HD
+  # form owns the visible presentation, while the hidden native owner still
+  # needs these rule-backed elements to construct safely.
+  - type: basescape
+    backgroundImage: BACK01.SCR
+    elements:
+      - {id: palette, color: 0}
+      - {id: window, color: 133}
+      - {id: text, color: 138}
+      - {id: button, color: 133}
+      - {id: errorMessage, color: 138}
+      - {id: errorPalette, color: 6}
   - type: saveMenus
     backgroundImage: BACK01.SCR
     elements:
@@ -245,6 +396,128 @@ interfaces:
       - {id: medikitOrange, color: 6}
       - {id: twoHandedRed, color: 36}
       - {id: twoHandedGreen, color: 52}
+
+# Minimal GPL-only base/research interfaces required by the R&D harness
+# constructors. The HD renderer owns the registered presentation; these
+# widgets remain hidden input owners.
+  - type: researchMenu
+    backgroundImage: BACK01.SCR
+    elements:
+      - {id: palette, color: 0}
+      - {id: window, color: 133}
+      - {id: text, color: 138, color2: 208}
+      - {id: list, color: 133, border: 138}
+      - {id: button, color: 133}
+  - type: globalResearchMenu
+    parent: researchMenu
+    elements:
+      - {id: window, color: 133}
+      - {id: text, color: 138, color2: 208}
+      - {id: list, color: 133, color2: 208, border: 138}
+      - {id: button, color: 133}
+  - type: globalResearchDiary
+    parent: researchMenu
+    elements:
+      - {id: window, color: 133}
+      - {id: text, color: 138, color2: 208}
+      - {id: list, color: 133, color2: 208, border: 138}
+      - {id: button, color: 133}
+  - type: selectNewResearch
+    parent: researchMenu
+    elements:
+      - {id: window, color: 133}
+      - {id: text, color: 138}
+      - {id: list, color: 208, color2: 133, border: 138}
+      - {id: listExtended, color: 133, color2: 213}
+      - {id: button, color: 133}
+      - {id: button2, color: 213}
+      - {id: touchButton, color: 213}
+  # BuildFacilitiesState constructs this hidden native owner before the F03
+  # HD adapter is registered. Keep the required GPL interface in the synthetic
+  # master so setWindowBackground() cannot fail before HD readiness runs.
+  - type: selectFacility
+    backgroundImage: BACK01.SCR
+    elements:
+      - {id: palette, color: 0}
+      - {id: window, color: 133}
+      - {id: button, color: 133}
+      - {id: text, color: 138}
+      - {id: list, color: 133, color2: 208, border: 138}
+  - type: allocateResearch
+    parent: researchMenu
+    elements:
+      - {id: window, color: 213}
+      - {id: text, color: 213, color2: 208}
+      - {id: button1, color: 213}
+      - {id: button2, color: 133}
+  - type: manufactureMenu
+    backgroundImage: BACK01.SCR
+    elements:
+      - {id: palette, color: 0}
+      - {id: window, color: 133}
+      - {id: text1, color: 133, color2: 208}
+      - {id: text2, color: 138}
+      - {id: list, color: 133, border: 138}
+      - {id: button, color: 133}
+  - type: globalManufactureMenu
+    parent: manufactureMenu
+    elements:
+      - {id: window, color: 133}
+      - {id: text1, color: 133, color2: 208}
+      - {id: text2, color: 138}
+      - {id: list, color: 133, color2: 208, border: 138}
+      - {id: button, color: 133}
+  - type: selectNewManufacture
+    parent: manufactureMenu
+    elements:
+      - {id: window, color: 133}
+      - {id: text, color: 138}
+      - {id: list, color: 208, color2: 133, border: 138}
+      - {id: listExtended, color: 133, color2: 213}
+      - {id: button, color: 133}
+      - {id: button2, color: 213}
+      - {id: touchButton, color: 213}
+      - {id: catBox, color: 138}
+  - type: allocateManufacture
+    parent: manufactureMenu
+    elements:
+      - {id: window, color: 133}
+      - {id: text, color: 133, color2: 208}
+      - {id: list, color: 133, color2: 208}
+      - {id: button, color: 133}
+  - type: manufactureInfo
+    parent: manufactureMenu
+    elements:
+      - {id: window, color: 138}
+      - {id: text, color: 138, color2: 208}
+      - {id: list, color: 133, color2: 208}
+      - {id: button1, color: 138}
+      - {id: button2, color: 133}
+  # ManufactureDependenciesTreeState owns these hidden widgets before the
+  # Calypso F10 HD adapter takes over. Keep the interface GPL-only and reuse
+  # the fixture's BACK01.SCR instead of pulling the TFTD BACK13 asset.
+  - type: dependencyTree
+    backgroundImage: BACK01.SCR
+    elements:
+      - {id: window, color: 133}
+      - {id: text, color: 138, color2: 208}
+      - {id: list, color: 133, color2: 208, border: 138}
+      - {id: button, color: 133}
+  - type: techTreeViewer
+    parent: researchMenu
+    elements:
+      - {id: window, color: 133}
+      - {id: text, color: 138, color2: 208}
+      - {id: list, color: 133, color2: 138, border: 133}
+      - {id: listExtended, color: 208, color2: 213, border: 70}
+      - {id: button, color: 133}
+  - type: techTreeSelect
+    parent: techTreeViewer
+    elements:
+      - {id: window, color: 213}
+      - {id: text, color: 213, color2: 208}
+      - {id: list, color: 133, color2: 138, border: 133}
+      - {id: button, color: 133}
 
 calypso_hud_overlay: true
 

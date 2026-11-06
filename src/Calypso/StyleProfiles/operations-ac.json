@@ -44,9 +44,9 @@
       "text": "TextOnAccent"
     },
     "danger": {
-      "fill": "Danger",
+      "fill": "BgPanel",
       "border": "Danger",
-      "text": "TextPrimary"
+      "text": "Danger"
     }
   },
   "columnRoles": {

@@ -431,7 +431,18 @@ void ComboBox::handle(Action *action, State *state)
 	if (!_visible || _hidden)
 		return;
 
+	#ifdef __EMSCRIPTEN__
+	// A compact HD popup is repositioned below the toolbar owner. If the
+	// button opens it during this same SDL event, forwarding that event into
+	// the newly-visible legacy TextList lets the original button click select
+	// option zero and immediately close the popup. Consume the opening event;
+	// subsequent events still reach the live native TextList owner.
+	const bool popupWasVisible = _window->getVisible();
+	#endif
 	_button->handle(action, state);
+	#ifdef __EMSCRIPTEN__
+	if (!popupWasVisible && _window->getVisible()) return;
+	#endif
 	_list->handle(action, state);
 	InteractiveSurface::handle(action, state);
 	int topY = std::min(getY(), _window->getY());
@@ -599,6 +610,83 @@ void ComboBox::setTTFFont(TTFFont* font, float fillFrac)
 {
 	_button->setTTFFont(font, fillFrac);
 	if (_list) _list->setTTFFont(font, fillFrac);
+}
+
+bool ComboBox::calypsoHdPopupVisible() const
+{
+	return _window != nullptr && _list != nullptr
+		&& _window->getVisible() && _list->getVisible();
+}
+
+const TextList* ComboBox::calypsoHdPopupList() const
+{
+	return _list;
+}
+
+void ComboBox::calypsoHdPopupWindowRect(int& x, int& y, int& width, int& height) const
+{
+	if (!_window)
+	{
+		x = y = width = height = 0;
+		return;
+	}
+	x = _window->getX();
+	y = _window->getY();
+	width = _window->getWidth();
+	height = _window->getHeight();
+}
+
+void ComboBox::calypsoHdConfigurePopupSelection(int rowHeight, int optionInsetX,
+	int optionInsetY, int boundsX, int boundsY, int boundsW, int boundsH)
+{
+	if (!_window || !_list) return;
+	const int stride = std::max(1, rowHeight);
+	const std::size_t count = _list->getTexts();
+	const int insetX = std::max(0, optionInsetX);
+	const int insetY = std::max(0, optionInsetY);
+	const int safeW = std::max(1, boundsW);
+	const int safeH = std::max(1, boundsH);
+	// The generated toolbar owner is the popup's outer width. The legacy list
+	// width is deliberately narrower (it reserves the old arrow/border), so
+	// using it here made Engine and Reference diverge by 33px at the wide
+	// endpoint. The generated inset is the only inner reservation in HD mode.
+	const int panelWidth = std::max(1, std::min(getWidth(), safeW));
+	const int listWidth = std::max(1, panelWidth - 2 * insetX);
+	const int listHeight = std::max(1, static_cast<int>(count) * stride);
+	const int popupHeight = listHeight + insetY * 2;
+	const int desiredY = getY() - popupHeight >= boundsY
+		? getY() - popupHeight : getY() + getHeight();
+	const int panelX = std::max(boundsX,
+		std::min(getX(), boundsX + safeW - panelWidth));
+	const int popupY = std::max(boundsY,
+		std::min(desiredY, boundsY + safeH - popupHeight));
+	const int listX = panelX + insetX;
+	_window->setX(panelX);
+	_window->setWidth(panelWidth);
+	_window->setY(popupY);
+	_window->setHeight(popupHeight);
+	_list->setX(listX);
+	// Keep the live TextList hit owner on the generated inner width. The
+	// legacy relayout leaves a narrower list (reserving its vanilla arrow),
+	// which made native chooser option rects diverge from the shared Reference
+	// chooser even though the outer popup already used the generated width.
+	_list->setWidth(listWidth);
+	_list->rebaseNativeSize(listWidth, stride);
+	_list->setMinimumRowHeight(stride);
+	_list->setY(popupY + VERTICAL_MARGIN + insetY);
+	_list->setHeight(listHeight);
+	_list->configureCalypsoHdSelectionList(
+		0, 0, stride, 0, listHeight, count);
+}
+
+void ComboBox::calypsoHdSuppressPopupWidgets(std::vector<const void*>& widgets) const
+{
+	const void* owned[] = {this, _button, _arrow, _window, _list};
+	for (const void* widget : owned)
+	{
+		if (widget && std::find(widgets.begin(), widgets.end(), widget) == widgets.end())
+			widgets.push_back(widget);
+	}
 }
 #endif
 

@@ -399,7 +399,7 @@
               "x": 112,
               "y": 270,
               "width": 1090,
-              "height": 50
+              "height": 44
             },
             "cells": [
               {
@@ -408,7 +408,7 @@
                   "x": 112,
                   "y": 270,
                   "width": 667,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "name",
                 "font": "body",
@@ -422,7 +422,7 @@
                   "x": 780,
                   "y": 270,
                   "width": 159,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "type",
                 "font": "data",
@@ -436,7 +436,7 @@
                   "x": 940,
                   "y": 270,
                   "width": 262,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "date",
                 "font": "data",
@@ -450,18 +450,18 @@
             "id": "row-slot-2",
             "rect": {
               "x": 112,
-              "y": 320,
+              "y": 314,
               "width": 1090,
-              "height": 50
+              "height": 44
             },
             "cells": [
               {
                 "id": "name",
                 "rect": {
                   "x": 112,
-                  "y": 320,
+                  "y": 314,
                   "width": 667,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "name",
                 "font": "body",
@@ -473,9 +473,9 @@
                 "id": "type",
                 "rect": {
                   "x": 780,
-                  "y": 320,
+                  "y": 314,
                   "width": 159,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "type",
                 "font": "data",
@@ -487,9 +487,9 @@
                 "id": "date",
                 "rect": {
                   "x": 940,
-                  "y": 320,
+                  "y": 314,
                   "width": 262,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "date",
                 "font": "data",
@@ -503,18 +503,18 @@
             "id": "row-slot-3",
             "rect": {
               "x": 112,
-              "y": 370,
+              "y": 358,
               "width": 1090,
-              "height": 50
+              "height": 44
             },
             "cells": [
               {
                 "id": "name",
                 "rect": {
                   "x": 112,
-                  "y": 370,
+                  "y": 358,
                   "width": 667,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "name",
                 "font": "body",
@@ -526,9 +526,9 @@
                 "id": "type",
                 "rect": {
                   "x": 780,
-                  "y": 370,
+                  "y": 358,
                   "width": 159,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "type",
                 "font": "data",
@@ -540,9 +540,9 @@
                 "id": "date",
                 "rect": {
                   "x": 940,
-                  "y": 370,
+                  "y": 358,
                   "width": 262,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "date",
                 "font": "data",
@@ -556,18 +556,18 @@
             "id": "row-slot-4",
             "rect": {
               "x": 112,
-              "y": 420,
+              "y": 402,
               "width": 1090,
-              "height": 50
+              "height": 44
             },
             "cells": [
               {
                 "id": "name",
                 "rect": {
                   "x": 112,
-                  "y": 420,
+                  "y": 402,
                   "width": 667,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "name",
                 "font": "body",
@@ -579,9 +579,9 @@
                 "id": "type",
                 "rect": {
                   "x": 780,
-                  "y": 420,
+                  "y": 402,
                   "width": 159,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "type",
                 "font": "data",
@@ -593,9 +593,9 @@
                 "id": "date",
                 "rect": {
                   "x": 940,
-                  "y": 420,
+                  "y": 402,
                   "width": 262,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "date",
                 "font": "data",
@@ -609,18 +609,18 @@
             "id": "row-slot-5",
             "rect": {
               "x": 112,
-              "y": 470,
+              "y": 446,
               "width": 1090,
-              "height": 50
+              "height": 44
             },
             "cells": [
               {
                 "id": "name",
                 "rect": {
                   "x": 112,
-                  "y": 470,
+                  "y": 446,
                   "width": 667,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "name",
                 "font": "body",
@@ -632,9 +632,9 @@
                 "id": "type",
                 "rect": {
                   "x": 780,
-                  "y": 470,
+                  "y": 446,
                   "width": 159,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "type",
                 "font": "data",
@@ -646,9 +646,115 @@
                 "id": "date",
                 "rect": {
                   "x": 940,
-                  "y": 470,
+                  "y": 446,
                   "width": 262,
-                  "height": 50
+                  "height": 44
+                },
+                "contentRole": "date",
+                "font": "data",
+                "align": "right",
+                "minWidth": 72,
+                "weight": 2
+              }
+            ]
+          },
+          {
+            "id": "row-slot-6",
+            "rect": {
+              "x": 112,
+              "y": 490,
+              "width": 1090,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "name",
+                "rect": {
+                  "x": 112,
+                  "y": 490,
+                  "width": 667,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "type",
+                "rect": {
+                  "x": 780,
+                  "y": 490,
+                  "width": 159,
+                  "height": 44
+                },
+                "contentRole": "type",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "date",
+                "rect": {
+                  "x": 940,
+                  "y": 490,
+                  "width": 262,
+                  "height": 44
+                },
+                "contentRole": "date",
+                "font": "data",
+                "align": "right",
+                "minWidth": 72,
+                "weight": 2
+              }
+            ]
+          },
+          {
+            "id": "row-slot-7",
+            "rect": {
+              "x": 112,
+              "y": 534,
+              "width": 1090,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "name",
+                "rect": {
+                  "x": 112,
+                  "y": 534,
+                  "width": 667,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "type",
+                "rect": {
+                  "x": 780,
+                  "y": 534,
+                  "width": 159,
+                  "height": 44
+                },
+                "contentRole": "type",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "date",
+                "rect": {
+                  "x": 940,
+                  "y": 534,
+                  "width": 262,
+                  "height": 44
                 },
                 "contentRole": "date",
                 "font": "data",
@@ -665,13 +771,13 @@
             "x": 1238,
             "y": 270,
             "width": 18,
-            "height": 250
+            "height": 308
           },
           "thumb": {
             "x": 1238,
             "y": 270,
             "width": 18,
-            "height": 250
+            "height": 308
           }
         }
       },
@@ -715,6 +821,18 @@
           "y": 658,
           "width": 158,
           "height": 44
+        }
+      },
+      "toolbarChooser": {
+        "optionRowHeight": 44,
+        "optionInsetX": 8,
+        "optionInsetY": 0,
+        "maxOptions": 5,
+        "bounds": {
+          "x": 112,
+          "y": 234,
+          "width": 1144,
+          "height": 412
         }
       },
       "screenHeader": {
@@ -932,13 +1050,13 @@
           "x": 1238,
           "y": 270,
           "width": 18,
-          "height": 250
+          "height": 308
         },
         "collection.scroll.thumb": {
           "x": 1238,
           "y": 270,
           "width": 18,
-          "height": 250
+          "height": 308
         },
         "collection.column.name": {
           "x": 112,
@@ -962,7 +1080,7 @@
           "x": 112,
           "y": 270,
           "width": 1090,
-          "height": 50
+          "height": 44
         },
         "detailPanel": {
           "x": 112,
@@ -1054,9 +1172,9 @@
         "height": 26
       },
       "summaryBar": {
-        "x": 590,
+        "x": 520,
         "y": 48,
-        "width": 142,
+        "width": 212,
         "height": 52
       },
       "summary": {},
@@ -1236,6 +1354,18 @@
           "height": 44
         }
       },
+      "toolbarChooser": {
+        "optionRowHeight": 44,
+        "optionInsetX": 8,
+        "optionInsetY": 0,
+        "maxOptions": 5,
+        "bounds": {
+          "x": 52,
+          "y": 52,
+          "width": 680,
+          "height": 260
+        }
+      },
       "screenHeader": {
         "x": 52,
         "y": 48,
@@ -1245,7 +1375,7 @@
       "headerArt": {
         "x": 420,
         "y": 48,
-        "width": 170,
+        "width": 100,
         "height": 52
       },
       "detail": {
@@ -1384,7 +1514,7 @@
         "headerArt": {
           "x": 420,
           "y": 48,
-          "width": 170,
+          "width": 100,
           "height": 52
         },
         "title": {
@@ -1394,9 +1524,9 @@
           "height": 26
         },
         "summaryBar": {
-          "x": 590,
+          "x": 520,
           "y": 48,
-          "width": 142,
+          "width": 212,
           "height": 52
         },
         "toolbarBar": {
@@ -1635,9 +1765,9 @@
         "text": "TextOnAccent"
       },
       "danger": {
-        "fill": "Danger",
+        "fill": "BgPanel",
         "border": "Danger",
-        "text": "TextPrimary"
+        "text": "Danger"
       }
     },
     "columnRoles": {
@@ -1789,9 +1919,9 @@
         "text": "03130DFF"
       },
       "danger": {
-        "fill": "FF6E72FF",
+        "fill": "071624FF",
         "border": "FF6E72FF",
-        "text": "E7F0F3FF"
+        "text": "FF6E72FF"
       }
     },
     "resolvedTypography": {
@@ -1874,9 +2004,9 @@
   "collectionMetrics": {
     "wide": {
       "totalItems": 4,
-      "visibleCapacity": 5,
+      "visibleCapacity": 7,
       "totalUnits": 4,
-      "visibleUnits": 5,
+      "visibleUnits": 7,
       "itemsPerUnit": 1,
       "scrollUnit": "record",
       "overflow": false,
@@ -1885,25 +2015,25 @@
         "x": 1238,
         "y": 270,
         "width": 18,
-        "height": 250
+        "height": 308
       },
       "thumb": {
         "x": 1238,
         "y": 270,
         "width": 18,
-        "height": 250
+        "height": 308
       },
       "trackHitTarget": {
         "x": 1212,
         "y": 270,
         "width": 44,
-        "height": 250
+        "height": 308
       },
       "thumbHitTarget": {
         "x": 1212,
         "y": 270,
         "width": 44,
-        "height": 250
+        "height": 308
       },
       "thumbTravelPx": 0
     },

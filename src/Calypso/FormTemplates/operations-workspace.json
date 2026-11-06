@@ -37,9 +37,9 @@
       "text": "TextOnAccent"
     },
     "danger": {
-      "fill": "Danger",
+      "fill": "BgPanel",
       "border": "Danger",
-      "text": "TextPrimary"
+      "text": "Danger"
     }
   },
   "style": {
@@ -100,6 +100,18 @@
         "width": 816,
         "height": 44
       },
+      "toolbarChooser": {
+        "optionRowHeight": 44,
+        "optionInsetX": 8,
+        "optionInsetY": 0,
+        "maxOptions": 5,
+        "bounds": {
+          "x": 112,
+          "y": 234,
+          "width": 816,
+          "height": 412
+        }
+      },
       "collectionViewport": {
         "x": 112,
         "y": 234,
@@ -134,8 +146,8 @@
       "detailNoteVisible": 1,
       "detailActionGap": 8,
       "headerHeight": 36,
-      "rowHeight": 50,
-      "visibleRows": 5,
+      "rowHeight": 44,
+      "visibleRows": 7,
       "gridColumns": 5,
       "gridRows": 3,
       "gridGap": 8,
@@ -168,7 +180,7 @@
       "headerArt": {
         "x": 420,
         "y": 48,
-        "width": 170,
+        "width": 100,
         "height": 52
       },
       "title": {
@@ -178,9 +190,9 @@
         "height": 26
       },
       "summaryBar": {
-        "x": 590,
+        "x": 520,
         "y": 48,
-        "width": 142,
+        "width": 212,
         "height": 52
       },
       "toolbarBar": {
@@ -188,6 +200,18 @@
         "y": 108,
         "width": 466,
         "height": 44
+      },
+      "toolbarChooser": {
+        "optionRowHeight": 44,
+        "optionInsetX": 8,
+        "optionInsetY": 0,
+        "maxOptions": 5,
+        "bounds": {
+          "x": 52,
+          "y": 52,
+          "width": 466,
+          "height": 260
+        }
       },
       "collectionViewport": {
         "x": 52,

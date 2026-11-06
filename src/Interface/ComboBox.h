@@ -83,6 +83,16 @@ public:
 	void setHeight(int height) override;
 	/// Calypso: HD — forward TTF to button and list.
 	void setTTFFont(TTFFont* font, float fillFrac);
+	/// Calypso: HD — expose the live popup owner without exposing its legacy
+	/// presentation. The popup remains selected by the native TextList.
+	bool calypsoHdPopupVisible() const;
+	const TextList* calypsoHdPopupList() const;
+	/// The generated HD popup panel (the outer Window), distinct from the
+	/// inset TextList that owns option input.
+	void calypsoHdPopupWindowRect(int& x, int& y, int& width, int& height) const;
+	void calypsoHdConfigurePopupSelection(int rowHeight, int optionInsetX,
+		int optionInsetY, int boundsX, int boundsY, int boundsW, int boundsH);
+	void calypsoHdSuppressPopupWidgets(std::vector<const void*>& widgets) const;
 #endif
 	/// Sets the palette of the text list.
 	void setPalette(const SDL_Color *colors, int firstcolor = 0, int ncolors = 256) override;

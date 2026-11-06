@@ -30,6 +30,9 @@
 #include "../Engine/Options.h"
 #include "../Engine/Logger.h"
 #include "../Engine/ShaderManager.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#include "../Calypso/CalypsoCanvasCoordinateMapping.h"
+#include "../Calypso/CalypsoViewportRuntime.h"
 #endif
 
 namespace OpenXcom
@@ -294,9 +297,19 @@ void Cursor::drawGPUPass(Screen* screen)
 	const int    tbb    = screen->getCursorTopBlackBand();
 	const int    dW     = Options::displayWidth;
 	const int    dH     = Options::displayHeight;
+	const auto& hdMetrics = Calypso::CalypsoHdUiOverlay::instance().frozenMetrics();
+	const auto& runtime = Calypso::calypsoViewportRuntime();
+	const int canvasW = runtime.hasPhysicalSize() ? runtime.physicalWidth() : dW;
+	const int canvasH = runtime.hasPhysicalSize() ? runtime.physicalHeight() : dH;
+	const float contentOffsetX = hdMetrics.valid()
+		? static_cast<float>(Calypso::calypsoCanvasToDisplayCoordinate(
+			hdMetrics.contentOffsetX, canvasW, dW)) : 0.0f;
+	const float contentOffsetY = hdMetrics.valid()
+		? static_cast<float>(Calypso::calypsoCanvasToDisplayCoordinate(
+			hdMetrics.contentOffsetY, canvasH, dH)) : 0.0f;
 
-	const float dispX = static_cast<float>(getX() * xScale) + lbb;
-	const float dispY = static_cast<float>(getY() * yScale) + tbb;
+	const float dispX = static_cast<float>(getX() * xScale) + lbb + contentOffsetX;
+	const float dispY = static_cast<float>(getY() * yScale) + tbb + contentOffsetY;
 	const float dispW = static_cast<float>(getWidth()  * xScale);
 	const float dispH = static_cast<float>(getHeight() * yScale);
 

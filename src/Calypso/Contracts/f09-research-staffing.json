@@ -14,9 +14,9 @@
         "tone": "danger",
         "action": "cancel",
         "style": {
-          "fill": "FF6E72FF",
+          "fill": "071624FF",
           "border": "FF6E72FF",
-          "text": "E7F0F3FF"
+          "text": "FF6E72FF"
         }
       },
       {
@@ -761,19 +761,19 @@
         "staffing": {
           "panel": {
             "x": 52,
-            "y": 108,
+            "y": 116,
             "width": 360,
             "height": 104
           },
           "label": {
             "x": 60,
-            "y": 116,
+            "y": 124,
             "width": 344,
             "height": 16
           },
           "content": {
             "x": 60,
-            "y": 132,
+            "y": 140,
             "width": 344,
             "height": 72
           }
@@ -781,13 +781,13 @@
         "capacity": {
           "panel": {
             "x": 420,
-            "y": 108,
+            "y": 116,
             "width": 312,
             "height": 80
           },
           "label": {
             "x": 428,
-            "y": 116,
+            "y": 124,
             "width": 296,
             "height": 16
           },
@@ -795,19 +795,19 @@
             "available": {
               "row": {
                 "x": 428,
-                "y": 132,
+                "y": 140,
                 "width": 296,
                 "height": 16
               },
               "label": {
                 "x": 428,
-                "y": 132,
+                "y": 140,
                 "width": 177,
                 "height": 16
               },
               "value": {
                 "x": 613,
-                "y": 132,
+                "y": 140,
                 "width": 111,
                 "height": 16
               }
@@ -815,19 +815,19 @@
             "labs": {
               "row": {
                 "x": 428,
-                "y": 148,
+                "y": 156,
                 "width": 296,
                 "height": 16
               },
               "label": {
                 "x": 428,
-                "y": 148,
+                "y": 156,
                 "width": 177,
                 "height": 16
               },
               "value": {
                 "x": 613,
-                "y": 148,
+                "y": 156,
                 "width": 111,
                 "height": 16
               }
@@ -835,19 +835,19 @@
             "allocated": {
               "row": {
                 "x": 428,
-                "y": 164,
+                "y": 172,
                 "width": 296,
                 "height": 16
               },
               "label": {
                 "x": 428,
-                "y": 164,
+                "y": 172,
                 "width": 177,
                 "height": 16
               },
               "value": {
                 "x": 613,
-                "y": 164,
+                "y": 172,
                 "width": 111,
                 "height": 16
               }
@@ -857,72 +857,72 @@
         "staffing-actions": {
           "panel": {
             "x": 52,
-            "y": 220,
-            "width": 680,
-            "height": 84
+            "y": 228,
+            "width": 412,
+            "height": 76
           },
           "label": {
             "x": 60,
-            "y": 228,
-            "width": 664,
+            "y": 236,
+            "width": 396,
             "height": 16
           },
           "content": {
             "x": 60,
-            "y": 244,
-            "width": 664,
-            "height": 52
+            "y": 252,
+            "width": 396,
+            "height": 44
           },
           "actionSlots": [
             {
               "id": "action-slot-1",
               "rect": {
                 "x": 60,
-                "y": 244,
-                "width": 150,
+                "y": 252,
+                "width": 83,
                 "height": 44
               }
             },
             {
               "id": "action-slot-2",
               "rect": {
-                "x": 214,
-                "y": 244,
-                "width": 150,
+                "x": 147,
+                "y": 252,
+                "width": 83,
                 "height": 44
               }
             },
             {
               "id": "action-slot-3",
               "rect": {
-                "x": 368,
-                "y": 244,
-                "width": 150,
+                "x": 234,
+                "y": 252,
+                "width": 83,
                 "height": 44
               }
             },
             {
               "id": "action-slot-4",
               "rect": {
-                "x": 522,
-                "y": 244,
-                "width": 150,
+                "x": 321,
+                "y": 252,
+                "width": 83,
                 "height": 44
               }
             }
           ],
           "scroll": {
             "track": {
-              "x": 706,
-              "y": 244,
+              "x": 438,
+              "y": 252,
               "width": 18,
-              "height": 52
+              "height": 44
             },
             "thumb": {
-              "x": 706,
-              "y": 244,
+              "x": 438,
+              "y": 252,
               "width": 18,
-              "height": 52
+              "height": 44
             }
           }
         }
@@ -1016,140 +1016,140 @@
         },
         "region.staffing": {
           "x": 52,
-          "y": 108,
+          "y": 116,
           "width": 360,
           "height": 104
         },
         "region.staffing.label": {
           "x": 60,
-          "y": 116,
+          "y": 124,
           "width": 344,
           "height": 16
         },
         "region.staffing.content": {
           "x": 60,
-          "y": 132,
+          "y": 140,
           "width": 344,
           "height": 72
         },
         "region.capacity": {
           "x": 420,
-          "y": 108,
+          "y": 116,
           "width": 312,
           "height": 80
         },
         "region.capacity.label": {
           "x": 428,
-          "y": 116,
+          "y": 124,
           "width": 296,
           "height": 16
         },
         "region.capacity.field.available": {
           "x": 428,
-          "y": 132,
+          "y": 140,
           "width": 296,
           "height": 16
         },
         "region.capacity.field.available.label": {
           "x": 428,
-          "y": 132,
+          "y": 140,
           "width": 177,
           "height": 16
         },
         "region.capacity.field.available.value": {
           "x": 613,
-          "y": 132,
+          "y": 140,
           "width": 111,
           "height": 16
         },
         "region.capacity.field.labs": {
           "x": 428,
-          "y": 148,
+          "y": 156,
           "width": 296,
           "height": 16
         },
         "region.capacity.field.labs.label": {
           "x": 428,
-          "y": 148,
+          "y": 156,
           "width": 177,
           "height": 16
         },
         "region.capacity.field.labs.value": {
           "x": 613,
-          "y": 148,
+          "y": 156,
           "width": 111,
           "height": 16
         },
         "region.capacity.field.allocated": {
           "x": 428,
-          "y": 164,
+          "y": 172,
           "width": 296,
           "height": 16
         },
         "region.capacity.field.allocated.label": {
           "x": 428,
-          "y": 164,
+          "y": 172,
           "width": 177,
           "height": 16
         },
         "region.capacity.field.allocated.value": {
           "x": 613,
-          "y": 164,
+          "y": 172,
           "width": 111,
           "height": 16
         },
         "region.staffing-actions": {
           "x": 52,
-          "y": 220,
-          "width": 680,
-          "height": 84
+          "y": 228,
+          "width": 412,
+          "height": 76
         },
         "region.staffing-actions.label": {
           "x": 60,
-          "y": 228,
-          "width": 664,
+          "y": 236,
+          "width": 396,
           "height": 16
         },
         "region.staffing-actions.content": {
           "x": 60,
-          "y": 244,
-          "width": 664,
-          "height": 52
+          "y": 252,
+          "width": 396,
+          "height": 44
         },
         "region.staffing-actions.scroll.track": {
-          "x": 706,
-          "y": 244,
+          "x": 438,
+          "y": 252,
           "width": 18,
-          "height": 52
+          "height": 44
         },
         "region.staffing-actions.scroll.thumb": {
-          "x": 706,
-          "y": 244,
+          "x": 438,
+          "y": 252,
           "width": 18,
-          "height": 52
+          "height": 44
         },
         "region.staffing-actions.action-slot-1": {
           "x": 60,
-          "y": 244,
-          "width": 150,
+          "y": 252,
+          "width": 83,
           "height": 44
         },
         "region.staffing-actions.action-slot-2": {
-          "x": 214,
-          "y": 244,
-          "width": 150,
+          "x": 147,
+          "y": 252,
+          "width": 83,
           "height": 44
         },
         "region.staffing-actions.action-slot-3": {
-          "x": 368,
-          "y": 244,
-          "width": 150,
+          "x": 234,
+          "y": 252,
+          "width": 83,
           "height": 44
         },
         "region.staffing-actions.action-slot-4": {
-          "x": 522,
-          "y": 244,
-          "width": 150,
+          "x": 321,
+          "y": 252,
+          "width": 83,
           "height": 44
         },
         "action.cancel": {
@@ -1244,9 +1244,9 @@
         "text": "TextOnAccent"
       },
       "danger": {
-        "fill": "Danger",
+        "fill": "BgPanel",
         "border": "Danger",
-        "text": "TextPrimary"
+        "text": "Danger"
       }
     },
     "columnRoles": {
@@ -1398,9 +1398,9 @@
         "text": "03130DFF"
       },
       "danger": {
-        "fill": "FF6E72FF",
+        "fill": "071624FF",
         "border": "FF6E72FF",
-        "text": "E7F0F3FF"
+        "text": "FF6E72FF"
       }
     },
     "resolvedTypography": {
@@ -1529,28 +1529,28 @@
         "overflow": false,
         "scrollSteps": 0,
         "track": {
-          "x": 706,
-          "y": 244,
+          "x": 438,
+          "y": 252,
           "width": 18,
-          "height": 52
+          "height": 44
         },
         "thumb": {
-          "x": 706,
-          "y": 244,
+          "x": 438,
+          "y": 252,
           "width": 18,
-          "height": 52
+          "height": 44
         },
         "trackHitTarget": {
-          "x": 680,
-          "y": 244,
+          "x": 412,
+          "y": 252,
           "width": 44,
-          "height": 52
+          "height": 44
         },
         "thumbHitTarget": {
-          "x": 680,
-          "y": 244,
+          "x": 412,
+          "y": 252,
           "width": 44,
-          "height": 52
+          "height": 44
         },
         "thumbTravelPx": 0
       }
@@ -1576,7 +1576,7 @@
       "second": "region.staffing",
       "axis": "vertical",
       "wide": 40,
-      "compact": 26
+      "compact": 34
     },
     {
       "id": "title-control",
@@ -1594,7 +1594,7 @@
       "second": "region.staffing",
       "axis": "vertical",
       "wide": 33,
-      "compact": 12
+      "compact": 20
     },
     {
       "id": "region-inset-staffing",

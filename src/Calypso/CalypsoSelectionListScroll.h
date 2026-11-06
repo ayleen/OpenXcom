@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <vector>
 namespace OpenXcom
 {
 namespace Calypso
@@ -42,6 +43,30 @@ inline std::size_t calypsoSelectionListMaxScroll(std::size_t total, std::size_t 
 inline std::size_t calypsoSelectionListClampScroll(std::size_t scroll, std::size_t total, std::size_t visible)
 {
 	return std::min(scroll, calypsoSelectionListMaxScroll(total, visible));
+}
+
+/// Collapse TextList's vanilla physical row map (which repeats a logical row
+/// once per wrapped line) to the one-row-per-item map required by the fixed
+/// stride HD owner. The input values are logical row indices; preserving their
+/// first occurrence keeps this helper independent from TextList storage.
+inline std::vector<std::size_t> calypsoSelectionListNormalizeRows(
+	const std::vector<std::size_t>& physicalRows)
+{
+	std::vector<std::size_t> logicalRows;
+	for (const std::size_t row : physicalRows)
+		if (logicalRows.empty() || logicalRows.back() != row)
+			logicalRows.push_back(row);
+	return logicalRows;
+}
+
+/// Return the first vanilla physical line belonging to a logical row. The
+/// end position is an explicit invalid result for stale selections.
+inline std::size_t calypsoSelectionListFirstPhysicalRow(
+	const std::vector<std::size_t>& physicalRows, std::size_t logicalRow)
+{
+	for (std::size_t index = 0; index < physicalRows.size(); ++index)
+		if (physicalRows[index] == logicalRow) return index;
+	return physicalRows.size();
 }
 
 /// Min-clamped thumb height for a scrollable list; 0 when there is nothing

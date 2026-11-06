@@ -433,12 +433,10 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 			static_cast<float>(ccCssWidth - viewportMetrics.safeX - viewportMetrics.safeWidth),
 			static_cast<float>(ccCssHeight - viewportMetrics.safeY - viewportMetrics.safeHeight)});
 	const CalypsoBasescapeHdFitParams fitParams;
-	// Live frames derive the composition at the authored CSS size; the
-	// harness fixture keeps its canonical model design size.
-	const CalypsoBasescapeHdAuthoredSize authored = live
-		? calypsoBasescapeHdAuthoredSize(ccCssWidth, ccCssHeight, fitParams)
-		: CalypsoBasescapeHdAuthoredSize{1.0f,
-			std::max(1, model.designWidth), std::max(1, model.designHeight)};
+	// Fixture and live frames share the real viewport composition. Keeping a
+	// fixed fixture width leaves uncovered backdrop at compact aspect ratios.
+	const CalypsoBasescapeHdAuthoredSize authored =
+		calypsoBasescapeHdAuthoredSize(ccCssWidth, ccCssHeight, fitParams);
 	const CalypsoBasescapeHdDerivedLayout derived =
 		calypsoBasescapeHdDerivedLayout(authored.w, authored.h, fitParams);
 	const double densityX = static_cast<double>(metrics.physicalWidth) / ccCssWidth;

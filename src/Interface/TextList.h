@@ -75,6 +75,11 @@ private:
 	/// When enabled the inset track/thumb geometry is shared with the HD
 	/// painter and the ScrollBar owns track/drag input exclusively.
 	bool _hdSelList = false;
+	/// Fixed-stride HD uses one logical entry per TextList item. Vanilla keeps
+	/// one physical entry per wrapped line, so retain that exact map while the
+	/// opt-in seam is active and restore it on clear.
+	std::vector<size_t> _hdPhysicalRows;
+	bool _hdFixedStride = false;
 	int _hdScrollBarWidth = 0;
 	int _hdMinThumb = 0;
 	int _hdRowStride = 0;
@@ -105,6 +110,8 @@ private:
 	bool calypsoHdSuppressClick(Action *action) const;
 	void calypsoHdMaybeApplyTtf(Text *txt);
 	void calypsoHdNormalizeRowHeights(std::vector<Text*> &row, int rowHeight, int cols);
+	void calypsoHdNormalizeRowMap();
+	void calypsoHdRestoreRowMap();
 	/// Repositions the native scrollbar onto the inset HD track (change-guarded).
 	void positionCalypsoHdScrollbar();
 	/// True when the absolute point hits the inset HD track.
@@ -199,7 +206,14 @@ public:
 	void configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbHeight,
 		int rowStride, int rowOriginY, int dataViewportH, size_t visibleRows);
 	void clearCalypsoHdSelectionList();
+	/// Invalidate the HD owner selection after a filtered list rebuild. This
+	/// keeps stale action rectangles from activating the new row zero; vanilla
+	/// TextList selection behavior is intentionally unchanged.
+	void invalidateCalypsoHdSelection();
 	bool isCalypsoHdSelectionList() const;
+	/// Read-only projected HD row stride used by paint, hit-testing and pointer
+	/// warp. Zero means that this list has no active HD selection-list seam.
+	int getCalypsoHdRowStride() const { return _hdRowStride; }
 	/// Read-only native track/thumb in the list's logical space, valid before
 	/// input even when native draw never runs. Thumb h is 0 when nothing scrolls.
 	SDL_Rect getCalypsoHdTrackRect() const;

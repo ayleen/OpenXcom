@@ -36,6 +36,7 @@
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoF14GlobalOperationsUi.h"
 #include "../Calypso/CalypsoHdUiOverlay.h"
+#include "../Calypso/CalypsoHdHarnessHostState.h"
 #endif
 
 namespace OpenXcom
@@ -153,6 +154,13 @@ void GlobalManufactureState::onSelectBase(Action *)
 
 	if (base)
 	{
+		#ifdef __EMSCRIPTEN__
+		// The acceptance fixture keeps its real destination parent and save
+		// lease alive until this native transition has been observed.  The
+		// regular gameplay path has no navigation destination and is unchanged.
+		if (Calypso::calypsoHarnessSession().navigationDestinationActive)
+			Calypso::calypsoHdHarnessClose();
+		#endif
 		// close this window
 		_game->popState();
 

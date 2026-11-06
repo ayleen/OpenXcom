@@ -37,9 +37,9 @@
       "text": "TextOnAccent"
     },
     "danger": {
-      "fill": "Danger",
+      "fill": "BgPanel",
       "border": "Danger",
-      "text": "TextPrimary"
+      "text": "Danger"
     }
   },
   "limits": {
@@ -195,27 +195,27 @@
       "regionSlots": {
         "primary": {
           "x": 52,
-          "y": 108,
+          "y": 116,
           "width": 360,
           "height": 104
         },
         "secondary": {
-          "x": 420,
-          "y": 196,
-          "width": 312,
-          "height": 108
+          "x": 476,
+          "y": 204,
+          "width": 256,
+          "height": 100
         },
         "summary": {
           "x": 420,
-          "y": 108,
+          "y": 116,
           "width": 312,
           "height": 80
         },
         "navigation": {
           "x": 52,
-          "y": 220,
-          "width": 680,
-          "height": 84
+          "y": 228,
+          "width": 412,
+          "height": 76
         }
       },
       "regionInset": 8,

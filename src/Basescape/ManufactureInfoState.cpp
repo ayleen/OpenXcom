@@ -38,6 +38,9 @@
 #include "../Savegame/ItemContainer.h"
 #include "../Engine/Timer.h"
 #include "../Menu/ErrorMessageState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoRdErrorForm.h"
+#endif
 #include "../Mod/RuleInterface.h"
 #include <climits>
 #ifdef __EMSCRIPTEN__
@@ -477,7 +480,12 @@ void ManufactureInfoState::moreEngineer(int change)
 			_palette,
 			_game->getMod()->getInterface("basescape")->getElement("errorMessage")->color,
 			"BACK17.SCR",
-			_game->getMod()->getInterface("basescape")->getElement("errorPalette")->color)
+			_game->getMod()->getInterface("basescape")->getElement("errorPalette")->color
+#ifdef __EMSCRIPTEN__
+			, 0, nullptr, Calypso::calypsoRdErrorForm(this, tr("STR_PRODUCTION"),
+				tr("STR_CALYPSO_RD_NO_WORKSPACE"), tr("STR_CALYPSO_RD_WORKSPACE_REMEDY"), tr("STR_OK"))
+#endif
+			)
 		);
 	}
 }
@@ -573,7 +581,12 @@ void ManufactureInfoState::moreUnit(int change)
 	if (_production->getRules()->getProducedCraft() && _base->getAvailableHangars() - _base->getUsedHangars() <= 0)
 	{
 		_timerMoreUnit->stop();
-		_game->pushState(new ErrorMessageState(tr("STR_NO_FREE_HANGARS_FOR_CRAFT_PRODUCTION"), _palette, _game->getMod()->getInterface("basescape")->getElement("errorMessage")->color, "BACK17.SCR", _game->getMod()->getInterface("basescape")->getElement("errorPalette")->color));
+		_game->pushState(new ErrorMessageState(tr("STR_NO_FREE_HANGARS_FOR_CRAFT_PRODUCTION"), _palette, _game->getMod()->getInterface("basescape")->getElement("errorMessage")->color, "BACK17.SCR", _game->getMod()->getInterface("basescape")->getElement("errorPalette")->color
+#ifdef __EMSCRIPTEN__
+			, 0, nullptr, Calypso::calypsoRdErrorForm(this, tr("STR_PRODUCTION"),
+				tr("STR_CALYPSO_RD_NO_PENS"), tr("STR_CALYPSO_RD_PENS_REMEDY"), tr("STR_OK"))
+#endif
+			));
 	}
 	else
 	{

@@ -70,7 +70,9 @@
         {
           "id": "produced",
           "label": "PRODUCED",
-          "value": "22 / 40"
+          "value": "22 / 40",
+          "progressBar": true,
+          "progressRatio": 0.55
         },
         {
           "id": "assigned",

@@ -74,6 +74,10 @@ public:
 	/// (or there was none). An HD family adapter waits for this before drawing
 	/// the physical replacement, so the logical popup animation plays first.
 	bool isPopupDone() const { return _popupStep >= 1.0; }
+	/// Complete the legacy popup atomically when a registered HD adapter takes
+	/// ownership, releasing temporary input locks without changing ordinary
+	/// non-HD popup behavior.
+	void finishPopupForHd();
 #endif
 	/// Draws the window.
 	void draw() override;

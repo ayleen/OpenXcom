@@ -35,11 +35,22 @@ namespace OpenXcom
 	public:
 		ArticleStateCraftWeapon(ArticleDefinitionCraftWeapon *article_defs, std::shared_ptr<ArticleCommonState> state);
 		virtual ~ArticleStateCraftWeapon();
+#ifdef __EMSCRIPTEN__
+		/// Read-only native QA evidence for the GPL G04 article fixture.
+		std::string calypsoArticleTitle() const;
+		std::string calypsoArticleBody() const;
+		const std::string& calypsoArticleImageId() const { return _calypsoImageId; }
+		bool calypsoArticleImageReady() const;
+#endif
 
 	protected:
 		Text *_txtTitle;
 		Text *_txtInfo;
 		TextList *_lstInfo;
+#ifdef __EMSCRIPTEN__
+		std::string _calypsoImageId;
+		bool _calypsoImageDecoded = false;
+#endif
 		Uint8 _buttonColor, _textColor, _textColor2, _listColor1, _listColor2;
 	};
 }

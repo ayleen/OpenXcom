@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "version": "hd-basescape-1",
+  "generation": 1,
+  "background": "Resources/basescape/background.png",
+  "emptyCell": "Resources/basescape/background.png",
+  "construction": "Resources/basescape/background.png",
+  "connectorH": "Resources/basescape/background.png",
+  "connectorV": "Resources/basescape/background.png",
+  "genericFacility": "Resources/basescape/background.png",
+  "facilities": {},
+  "cards": {
+    "logistics-group": "Resources/basescape/cards/base-manufacture.png",
+    "base.divers": "Resources/basescape/cards/base-research.png",
+    "base.research": "Resources/basescape/cards/base-research.png",
+    "base.manufacture": "Resources/basescape/cards/base-manufacture.png",
+    "base.crafts": "Resources/basescape/cards/base-research.png",
+    "base.build": "Resources/basescape/cards/base-manufacture.png"
+  },
+  "crafts": {
+    "STR_BARRACUDA": "Resources/basescape/crafts/barracuda.png"
+  }
+}

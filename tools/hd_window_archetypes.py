@@ -106,6 +106,7 @@ LAYOUT_FIELDS = {
         "title",
         "summaryBar",
         "toolbarBar",
+        "toolbarChooser",
         "collectionViewport",
         "detailPanel",
         "footer",
@@ -744,7 +745,7 @@ def _validate_template(template):
         non_rect_fields = (
             layout_fields
             - set(_layout_rect_fields(template["generatorKind"]))
-            - {"designWidth", "designHeight", "regionSlots", "headerArt"}
+            - {"designWidth", "designHeight", "regionSlots", "headerArt", "toolbarChooser"}
         )
         for field in non_rect_fields:
             minimum = 0 if field in ZERO_CAPABLE_LAYOUT_FIELDS else 1
@@ -788,6 +789,47 @@ def _validate_template(template):
                     "template.layouts." + name + "." + field + " escaped the window"
                 )
             owned_rects.append((field, layout[field]))
+        if template["generatorKind"] == "operations":
+            chooser = layout.get("toolbarChooser")
+            _strict(
+                chooser,
+                {"optionRowHeight", "optionInsetX", "optionInsetY", "maxOptions", "bounds"},
+                set(),
+                "template.layouts." + name + ".toolbarChooser",
+            )
+            for field in ("optionRowHeight", "maxOptions"):
+                _positive_int(
+                    chooser[field],
+                    "template.layouts." + name + ".toolbarChooser." + field,
+                    1,
+                )
+            for field in ("optionInsetX", "optionInsetY"):
+                _positive_int(
+                    chooser[field],
+                    "template.layouts." + name + ".toolbarChooser." + field,
+                    0,
+                )
+            _rect(
+                chooser["bounds"],
+                "template.layouts." + name + ".toolbarChooser.bounds",
+            )
+            if not _contained_by(chooser["bounds"], layout["window"]):
+                raise ArchetypeError(
+                    "template.layouts." + name + ".toolbarChooser.bounds escaped the window"
+                )
+            if chooser["optionRowHeight"] < 44:
+                raise ArchetypeError(
+                    "template.layouts." + name + ".toolbarChooser.optionRowHeight violates the 44px minimum"
+                )
+            minimum_height = (
+                chooser["maxOptions"] * chooser["optionRowHeight"]
+                + 2 * chooser["optionInsetY"]
+            )
+            if chooser["bounds"]["height"] < minimum_height:
+                raise ArchetypeError(
+                    "template.layouts." + name + ".toolbarChooser.bounds.height "
+                    "cannot fit maxOptions at optionRowHeight"
+                )
         if template["generatorKind"] == "detail":
             _strict(
                 layout["regionSlots"],
@@ -1125,7 +1167,8 @@ def _ensure_unique_interactions(groups):
 
 
 def _validate_collection_value(
-    collection, limits, label, allow_bands=False, column_roles=None
+    collection, limits, label, allow_bands=False, column_roles=None,
+    allow_row_actions=False,
 ):
     if not isinstance(collection, dict):
         raise ArchetypeError(label + " must be an object")
@@ -1136,7 +1179,20 @@ def _validate_collection_value(
     if mode != "grid":
         fields.add("columns")
     optional = {"heading", "meta"} if allow_bands else set()
+    if allow_row_actions:
+        optional.add("rowActions")
     _strict(collection, fields, optional, label)
+    if "rowActions" in collection:
+        row_actions = collection["rowActions"]
+        if mode != "table":
+            raise ArchetypeError(label + ".rowActions is supported only for table collections")
+        if (not isinstance(row_actions, list) or not 1 <= len(row_actions) <= 4
+                or any(not isinstance(action, str) or not ID_RE.fullmatch(action)
+                       for action in row_actions)
+                or len(set(row_actions)) != len(row_actions)):
+            raise ArchetypeError(
+                label + ".rowActions must contain one to four unique action IDs"
+            )
     if "heading" in collection:
         _one_line(collection["heading"], label + ".heading", limits["maxCellCharacters"])
     if "meta" in collection:
@@ -1210,6 +1266,7 @@ def _validate_collection(config, template):
     _validate_collection_value(
         config["collection"], template["limits"], "config.collection",
         column_roles=roles,
+        allow_row_actions=template["generatorKind"] == "operations",
     )
     controls = _validate_controls(config["controls"], template, "config.controls")
     _ensure_unique_interactions(
@@ -1289,7 +1346,7 @@ def _validate_tabbed(config, template):
             "controls",
             "toolbar",
         },
-        {"detail", "visual"},
+        {"detail", "visual", "toolbarChooser"},
     )
     if template["generatorKind"] == "operations":
         visual = config.get("visual")
@@ -1316,6 +1373,7 @@ def _validate_tabbed(config, template):
         config["collection"], template["limits"], "config.collection",
         template["generatorKind"] == "operations",
         collection_roles,
+        allow_row_actions=template["generatorKind"] == "operations",
     )
     summary = config["summary"]
     if (
@@ -1390,6 +1448,34 @@ def _validate_tabbed(config, template):
             "config toolbar and footer actions must use unique IDs and behavior actions"
         )
     controls = _validate_controls(config["controls"], template, "config.controls")
+    toolbar_chooser = config.get("toolbarChooser")
+    if toolbar_chooser is not None:
+        if template["generatorKind"] != "operations":
+            raise ArchetypeError("config.toolbarChooser is only supported by operations")
+        _strict(
+            toolbar_chooser,
+            {"owner", "options"},
+            set(),
+            "config.toolbarChooser",
+        )
+        if toolbar_chooser["owner"] not in toolbar_ids:
+            raise ArchetypeError("config.toolbarChooser.owner must name a toolbar action")
+        options = toolbar_chooser["options"]
+        if not isinstance(options, list) or not options:
+            raise ArchetypeError("config.toolbarChooser.options must be non-empty")
+        chooser_policy = template["layouts"]["wide"]["toolbarChooser"]
+        if len(options) > chooser_policy["maxOptions"]:
+            raise ArchetypeError("config.toolbarChooser.options exceeds the generated limit")
+        option_ids = set()
+        for index, option in enumerate(options):
+            label = "config.toolbarChooser.options[" + str(index) + "]"
+            _strict(option, {"id", "label"}, {"labelKey"}, label)
+            _stable_id(option["id"], label + ".id")
+            _one_line(option["label"], label + ".label", 32)
+            _validate_optional_label_key(option, label)
+            if option["id"] in option_ids:
+                raise ArchetypeError("config.toolbarChooser option IDs must be unique")
+            option_ids.add(option["id"])
     detail = (
         _validate_tabbed_detail(config["detail"], template)
         if "detail" in config
@@ -1403,7 +1489,7 @@ def _validate_tabbed(config, template):
     if detail is not None:
         interaction_groups.append(("config.detail.actions", detail["actions"]))
     _ensure_unique_interactions(interaction_groups)
-    return actions, toolbar_actions, controls, detail
+    return actions, toolbar_actions, controls, detail, toolbar_chooser
 
 def _validate_detail(config, template):
     is_operations_detail = template["id"] == "operations-detail"
@@ -1494,10 +1580,18 @@ def _validate_detail(config, template):
             field_ids = set()
             for field_index, field in enumerate(fields):
                 field_label = region_label + ".fields[" + str(field_index) + "]"
-                _strict(field, {"id", "label", "value"}, set(), field_label)
+                _strict(field, {"id", "label", "value"}, {"progressBar", "progressRatio"}, field_label)
                 _stable_id(field["id"], field_label + ".id")
                 _one_line(field["label"], field_label + ".label", 32)
                 _one_line(field["value"], field_label + ".value", 48)
+                if "progressBar" in field and not isinstance(field["progressBar"], bool):
+                    raise ArchetypeError(field_label + ".progressBar must be boolean")
+                if "progressRatio" in field and (
+                    not isinstance(field["progressRatio"], (int, float))
+                    or isinstance(field["progressRatio"], bool)
+                    or not 0 <= field["progressRatio"] <= 1
+                ):
+                    raise ArchetypeError(field_label + ".progressRatio must be a number between 0 and 1")
                 if field["id"] in field_ids:
                     raise ArchetypeError(region_label + " field IDs must be unique")
                 field_ids.add(field["id"])
@@ -2098,6 +2192,11 @@ def _build_collection_fragment(collection, authored, viewport, name,
     if data_width <= 0:
         raise ArchetypeError(name + " scrollbar rail leaves no collection width")
     if mode in {"list", "table"}:
+        row_actions = collection.get("rowActions", [])
+        row_action_width = 44 * len(row_actions)
+        row_data_width = data_width - row_action_width
+        if row_data_width <= 0:
+            raise ArchetypeError(name + " row actions leave no collection data width")
         columns = collection["columns"]
         layout_roles = column_roles
         if column_roles is not None:
@@ -2115,7 +2214,7 @@ def _build_collection_fragment(collection, authored, viewport, name,
                     layout_roles[role]["minWidth"], semantic_minimum
                 )
         header = _make_rect(
-            viewport["x"], viewport["y"], data_width, authored["headerHeight"]
+            viewport["x"], viewport["y"], row_data_width, authored["headerHeight"]
         )
         header_rects = _collection_column_rects(header, columns, 1, layout_roles)
         header_cells = [
@@ -2150,7 +2249,10 @@ def _build_collection_fragment(collection, authored, viewport, name,
                 data_width,
                 authored["rowHeight"],
             )
-            row_rects = _collection_column_rects(row, columns, 1, layout_roles)
+            row_data = _make_rect(
+                row["x"], row["y"], row_data_width, row["height"]
+            )
+            row_rects = _collection_column_rects(row_data, columns, 1, layout_roles)
             cells = [
                 _collection_column_cell(rect, column, layout_roles)
                 for rect, column in zip(row_rects, columns)
@@ -2161,6 +2263,13 @@ def _build_collection_fragment(collection, authored, viewport, name,
                     "rect": row,
                     "cells": cells,
                 }
+            )
+        if row_actions:
+            fragment["rowActionArea"] = _make_rect(
+                viewport["x"] + row_data_width,
+                _bottom(header),
+                row_action_width,
+                authored["rowHeight"],
             )
         capacity = authored["visibleRows"]
         total_units = total
@@ -2764,7 +2873,7 @@ def _build_tabbed_detail_fragment(detail, authored, name):
 
 
 def _build_tabbed(config, template, source_name, template_name):
-    actions, toolbar_actions, controls, detail = _validate_tabbed(config, template)
+    actions, toolbar_actions, controls, detail, toolbar_chooser = _validate_tabbed(config, template)
     out = _base_contract(config, template, source_name, template_name, actions)
     out["form"]["tabs"] = copy.deepcopy(config["tabs"])
     out["form"]["selectedTab"] = config["selectedTab"]
@@ -2772,6 +2881,8 @@ def _build_tabbed(config, template, source_name, template_name):
     out["form"]["collection"] = copy.deepcopy(config["collection"])
     out["form"]["controls"] = controls
     out["form"]["toolbar"] = toolbar_actions
+    if toolbar_chooser is not None:
+        out["form"]["toolbarChooser"] = copy.deepcopy(toolbar_chooser)
     if "visual" in config:
         out["form"]["visual"] = copy.deepcopy(config["visual"])
     if "sharedChrome" in template:
@@ -2781,6 +2892,8 @@ def _build_tabbed(config, template, source_name, template_name):
     out["copy"]["collection"] = copy.deepcopy(config["collection"])
     out["copy"]["controls"] = copy.deepcopy(config["controls"])
     out["copy"]["toolbar"] = {item["id"]: item["label"] for item in config["toolbar"]}
+    if toolbar_chooser is not None:
+        out["copy"]["toolbarChooser"] = copy.deepcopy(toolbar_chooser)
     if detail is not None:
         out["form"]["detail"] = detail
         out["copy"]["detail"] = copy.deepcopy(config["detail"])
@@ -2969,6 +3082,17 @@ def _build_tabbed(config, template, source_name, template_name):
             "toolbar": toolbar_rects,
             "actions": action_rects,
         }
+        if template["generatorKind"] == "operations":
+            # The chooser's safe bounds follow the generated workspace data
+            # width. The policy values and vertical safe band remain
+            # template-owned so a compact dock does not collapse a five-row
+            # popup into the shortened collection viewport.
+            if "toolbarChooser" in authored:
+                generated_layout["toolbarChooser"] = copy.deepcopy(
+                    authored["toolbarChooser"])
+                chooser_bounds = generated_layout["toolbarChooser"]["bounds"]
+                chooser_bounds["x"] = collection_viewport["x"]
+                chooser_bounds["width"] = collection_viewport["width"]
         if template["generatorKind"] == "operations":
             for shell_part in ("screenHeader", "headerArt"):
                 generated_layout[shell_part] = copy.deepcopy(authored[shell_part])
@@ -3215,6 +3339,8 @@ def _detail_region_parts(region, template):
             parts.extend(
                 (field_prefix, field_prefix + ".label", field_prefix + ".value")
             )
+            if field.get("progressBar") is True:
+                parts.append(field_prefix + ".progressBar")
     else:
         # scrollable action region exposes physical slots and scroll geometry,
         # not semantic actions (which have no rect and multiplex via scrolling)
@@ -3344,6 +3470,15 @@ def _build_detail_regions(config, template, source_name, template_name):
                             authored["fieldRowHeight"],
                         ),
                     }
+                    if field.get("progressBar") is True:
+                        value_rect = generated["fields"][field["id"]]["value"]
+                        bar_height = max(2, min(4, authored["fieldRowHeight"] // 4))
+                        generated["fields"][field["id"]]["progressBar"] = _make_rect(
+                            value_rect["x"],
+                            value_rect["y"] + value_rect["height"] - bar_height,
+                            value_rect["width"],
+                            bar_height,
+                        )
                     _ensure_text_fits(
                         field["label"],
                         generated["fields"][field["id"]]["label"],

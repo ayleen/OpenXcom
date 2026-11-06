@@ -188,6 +188,21 @@ Game *getCurrentGame() { return ::game; }
  */
 bool Game::iterate()
 {
+#ifdef __EMSCRIPTEN__
+	// A fatal registered HD failure leaves its explicit error visible. Do not
+	// resume gameplay on the next browser tick or replay queued input after a
+	// deliberate harness teardown. This is not a native presentation fallback.
+	if (!_states.empty() && Calypso::CalypsoHdUiOverlay::instance().routeFailedForState(_states.back()))
+	{
+		_fastMainLoopRequester = nullptr;
+		SDL_Event discarded;
+		while (SDL_PollEvent(&discarded))
+		{
+			if (discarded.type == SDL_QUIT) return false;
+		}
+		return true;
+	}
+#endif
 	static const ApplicationState kbFocusRun[4] = { RUNNING, RUNNING, SLOWED, PAUSED };
 	static const ApplicationState stateRun[4] = { SLOWED, PAUSED, PAUSED, PAUSED };
 #ifdef __EMSCRIPTEN__

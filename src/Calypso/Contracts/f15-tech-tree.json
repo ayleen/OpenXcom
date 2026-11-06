@@ -763,19 +763,19 @@
         "left": {
           "panel": {
             "x": 52,
-            "y": 108,
+            "y": 116,
             "width": 360,
             "height": 104
           },
           "label": {
             "x": 60,
-            "y": 116,
+            "y": 124,
             "width": 344,
             "height": 16
           },
           "content": {
             "x": 60,
-            "y": 132,
+            "y": 140,
             "width": 344,
             "height": 72
           },
@@ -785,7 +785,7 @@
                 "id": "topic",
                 "rect": {
                   "x": 60,
-                  "y": 132,
+                  "y": 140,
                   "width": 292,
                   "height": 24
                 },
@@ -801,7 +801,7 @@
                 "id": "row-slot-1",
                 "rect": {
                   "x": 60,
-                  "y": 156,
+                  "y": 164,
                   "width": 292,
                   "height": 44
                 },
@@ -810,7 +810,7 @@
                     "id": "topic",
                     "rect": {
                       "x": 60,
-                      "y": 156,
+                      "y": 164,
                       "width": 292,
                       "height": 44
                     },
@@ -827,13 +827,13 @@
             "scroll": {
               "track": {
                 "x": 386,
-                "y": 156,
+                "y": 164,
                 "width": 18,
                 "height": 44
               },
               "thumb": {
                 "x": 386,
-                "y": 156,
+                "y": 164,
                 "width": 18,
                 "height": 22
               }
@@ -842,31 +842,31 @@
         },
         "right": {
           "panel": {
-            "x": 420,
-            "y": 196,
-            "width": 312,
-            "height": 108
+            "x": 476,
+            "y": 204,
+            "width": 256,
+            "height": 100
           },
           "label": {
-            "x": 428,
-            "y": 204,
-            "width": 296,
+            "x": 484,
+            "y": 212,
+            "width": 240,
             "height": 16
           },
           "content": {
-            "x": 428,
-            "y": 220,
-            "width": 296,
-            "height": 76
+            "x": 484,
+            "y": 228,
+            "width": 240,
+            "height": 68
           },
           "collection": {
             "columnHeaders": [
               {
                 "id": "topic",
                 "rect": {
-                  "x": 428,
-                  "y": 220,
-                  "width": 244,
+                  "x": 484,
+                  "y": 228,
+                  "width": 188,
                   "height": 24
                 },
                 "contentRole": "name",
@@ -880,18 +880,18 @@
               {
                 "id": "row-slot-1",
                 "rect": {
-                  "x": 428,
-                  "y": 244,
-                  "width": 244,
+                  "x": 484,
+                  "y": 252,
+                  "width": 188,
                   "height": 44
                 },
                 "cells": [
                   {
                     "id": "topic",
                     "rect": {
-                      "x": 428,
-                      "y": 244,
-                      "width": 244,
+                      "x": 484,
+                      "y": 252,
+                      "width": 188,
                       "height": 44
                     },
                     "contentRole": "name",
@@ -907,13 +907,13 @@
             "scroll": {
               "track": {
                 "x": 706,
-                "y": 244,
+                "y": 252,
                 "width": 18,
                 "height": 44
               },
               "thumb": {
                 "x": 706,
-                "y": 244,
+                "y": 252,
                 "width": 18,
                 "height": 22
               }
@@ -980,98 +980,98 @@
         },
         "region.left": {
           "x": 52,
-          "y": 108,
+          "y": 116,
           "width": 360,
           "height": 104
         },
         "region.left.label": {
           "x": 60,
-          "y": 116,
+          "y": 124,
           "width": 344,
           "height": 16
         },
         "region.left.content": {
           "x": 60,
-          "y": 132,
+          "y": 140,
           "width": 344,
           "height": 72
         },
         "region.left.collection": {
           "x": 60,
-          "y": 132,
+          "y": 140,
           "width": 344,
           "height": 72
         },
         "region.left.collection.scroll.track": {
           "x": 386,
-          "y": 156,
+          "y": 164,
           "width": 18,
           "height": 44
         },
         "region.left.collection.scroll.thumb": {
           "x": 386,
-          "y": 156,
+          "y": 164,
           "width": 18,
           "height": 22
         },
         "region.left.collection.column.topic": {
           "x": 60,
-          "y": 132,
+          "y": 140,
           "width": 292,
           "height": 24
         },
         "region.left.collection.row-slot.1": {
           "x": 60,
-          "y": 156,
+          "y": 164,
           "width": 292,
           "height": 44
         },
         "region.right": {
-          "x": 420,
-          "y": 196,
-          "width": 312,
-          "height": 108
+          "x": 476,
+          "y": 204,
+          "width": 256,
+          "height": 100
         },
         "region.right.label": {
-          "x": 428,
-          "y": 204,
-          "width": 296,
+          "x": 484,
+          "y": 212,
+          "width": 240,
           "height": 16
         },
         "region.right.content": {
-          "x": 428,
-          "y": 220,
-          "width": 296,
-          "height": 76
+          "x": 484,
+          "y": 228,
+          "width": 240,
+          "height": 68
         },
         "region.right.collection": {
-          "x": 428,
-          "y": 220,
-          "width": 296,
-          "height": 76
+          "x": 484,
+          "y": 228,
+          "width": 240,
+          "height": 68
         },
         "region.right.collection.scroll.track": {
           "x": 706,
-          "y": 244,
+          "y": 252,
           "width": 18,
           "height": 44
         },
         "region.right.collection.scroll.thumb": {
           "x": 706,
-          "y": 244,
+          "y": 252,
           "width": 18,
           "height": 22
         },
         "region.right.collection.column.topic": {
-          "x": 428,
-          "y": 220,
-          "width": 244,
+          "x": 484,
+          "y": 228,
+          "width": 188,
           "height": 24
         },
         "region.right.collection.row-slot.1": {
-          "x": 428,
-          "y": 244,
-          "width": 244,
+          "x": 484,
+          "y": 252,
+          "width": 188,
           "height": 44
         },
         "action.select-topic": {
@@ -1166,9 +1166,9 @@
         "text": "TextOnAccent"
       },
       "danger": {
-        "fill": "Danger",
+        "fill": "BgPanel",
         "border": "Danger",
-        "text": "TextPrimary"
+        "text": "Danger"
       }
     },
     "columnRoles": {
@@ -1320,9 +1320,9 @@
         "text": "03130DFF"
       },
       "danger": {
-        "fill": "FF6E72FF",
+        "fill": "071624FF",
         "border": "FF6E72FF",
-        "text": "E7F0F3FF"
+        "text": "FF6E72FF"
       }
     },
     "resolvedTypography": {
@@ -1487,25 +1487,25 @@
         "scrollSteps": 2,
         "track": {
           "x": 386,
-          "y": 156,
+          "y": 164,
           "width": 18,
           "height": 44
         },
         "thumb": {
           "x": 386,
-          "y": 156,
+          "y": 164,
           "width": 18,
           "height": 22
         },
         "trackHitTarget": {
           "x": 360,
-          "y": 156,
+          "y": 164,
           "width": 44,
           "height": 44
         },
         "thumbHitTarget": {
           "x": 360,
-          "y": 156,
+          "y": 164,
           "width": 44,
           "height": 44
         },
@@ -1522,25 +1522,25 @@
         "scrollSteps": 1,
         "track": {
           "x": 706,
-          "y": 244,
+          "y": 252,
           "width": 18,
           "height": 44
         },
         "thumb": {
           "x": 706,
-          "y": 244,
+          "y": 252,
           "width": 18,
           "height": 22
         },
         "trackHitTarget": {
           "x": 680,
-          "y": 244,
+          "y": 252,
           "width": 44,
           "height": 44
         },
         "thumbHitTarget": {
           "x": 680,
-          "y": 244,
+          "y": 252,
           "width": 44,
           "height": 44
         },
@@ -1568,7 +1568,7 @@
       "second": "region.left",
       "axis": "vertical",
       "wide": 40,
-      "compact": 26
+      "compact": 34
     },
     {
       "id": "title-control",
@@ -1586,7 +1586,7 @@
       "second": "region.left",
       "axis": "vertical",
       "wide": 33,
-      "compact": 12
+      "compact": 20
     },
     {
       "id": "region-inset-left",
@@ -1621,7 +1621,7 @@
       "second": "region.right",
       "axis": "horizontal",
       "wide": 16,
-      "compact": 8
+      "compact": 64
     },
     {
       "id": "footer-action-inset",

@@ -331,7 +331,45 @@
         }
       },
       "scrollbarWidth": 18,
-      "minThumbHeight": 44
+      "minThumbHeight": 44,
+      "partRects": {
+        "window": {
+          "x": 340,
+          "y": 130,
+          "width": 600,
+          "height": 448
+        },
+        "status": {
+          "x": 340,
+          "y": 130,
+          "width": 600,
+          "height": 38
+        },
+        "title": {
+          "x": 372,
+          "y": 176,
+          "width": 536,
+          "height": 44
+        },
+        "list": {
+          "x": 372,
+          "y": 228,
+          "width": 536,
+          "height": 264
+        },
+        "footer": {
+          "x": 340,
+          "y": 508,
+          "width": 600,
+          "height": 70
+        },
+        "actionCancel": {
+          "x": 750,
+          "y": 521,
+          "width": 158,
+          "height": 44
+        }
+      }
     },
     "compact": {
       "designWidth": 740,
@@ -421,7 +459,45 @@
         }
       },
       "scrollbarWidth": 18,
-      "minThumbHeight": 44
+      "minThumbHeight": 44,
+      "partRects": {
+        "window": {
+          "x": 70,
+          "y": 20,
+          "width": 600,
+          "height": 320
+        },
+        "status": {
+          "x": 70,
+          "y": 20,
+          "width": 600,
+          "height": 34
+        },
+        "title": {
+          "x": 102,
+          "y": 60,
+          "width": 536,
+          "height": 38
+        },
+        "list": {
+          "x": 102,
+          "y": 104,
+          "width": 536,
+          "height": 176
+        },
+        "footer": {
+          "x": 70,
+          "y": 286,
+          "width": 600,
+          "height": 54
+        },
+        "actionCancel": {
+          "x": 490,
+          "y": 291,
+          "width": 148,
+          "height": 44
+        }
+      }
     }
   },
   "motion": {
@@ -512,15 +588,15 @@
       "thumbTravelPx": 132
     }
   },
+  "actions": [
+    "actionCancel"
+  ],
   "parts": [
     "window",
     "status",
     "title",
     "list",
     "footer",
-    "actionCancel"
-  ],
-  "actions": [
     "actionCancel"
   ]
 }

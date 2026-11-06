@@ -35,6 +35,9 @@ namespace OpenXcom
 
 	ArticleStateCraftWeapon::ArticleStateCraftWeapon(ArticleDefinitionCraftWeapon *defs, std::shared_ptr<ArticleCommonState> state) : ArticleState(defs->id, std::move(state))
 	{
+#ifdef __EMSCRIPTEN__
+		_calypsoImageId = defs->image_id;
+#endif
 		RuleCraftWeapon *weapon = _game->getMod()->getCraftWeapon(defs->id, true);
 
 		CraftWeaponCategory category = CWC_WEAPON;
@@ -78,7 +81,14 @@ namespace OpenXcom
 		add(_txtTitle);
 
 		// Set up objects
+#ifdef __EMSCRIPTEN__
+		Surface *articleImage = _game->getMod()->getSurface(defs->image_id);
+		_calypsoImageDecoded = articleImage != nullptr && articleImage->getSurface() != nullptr
+			&& articleImage->getWidth() > 0 && articleImage->getHeight() > 0;
+		if (articleImage) articleImage->blitNShade(_bg, 0, 0);
+#else
 		_game->getMod()->getSurface(defs->image_id)->blitNShade(_bg, 0, 0);
+#endif
 		_btnOk->setColor(_buttonColor);
 		_btnPrev->setColor(_buttonColor);
 		_btnNext->setColor(_buttonColor);
@@ -139,5 +149,23 @@ namespace OpenXcom
 
 	ArticleStateCraftWeapon::~ArticleStateCraftWeapon()
 	{}
+
+#ifdef __EMSCRIPTEN__
+std::string ArticleStateCraftWeapon::calypsoArticleTitle() const
+{
+	return _txtTitle ? _txtTitle->getText() : std::string();
+}
+
+std::string ArticleStateCraftWeapon::calypsoArticleBody() const
+{
+	return _txtInfo ? _txtInfo->getText() : std::string();
+}
+
+bool ArticleStateCraftWeapon::calypsoArticleImageReady() const
+{
+	return _calypsoImageDecoded && _bg != nullptr && _bg->getSurface() != nullptr
+		&& _bg->getWidth() > 0 && _bg->getHeight() > 0;
+}
+#endif
 
 }

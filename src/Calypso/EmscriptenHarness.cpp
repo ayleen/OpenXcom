@@ -71,6 +71,7 @@
 // used by the pointer bridge and the DOM text-overlay focus bridge.
 #include "CalypsoViewportRuntime.h"
 #include "CalypsoCanvasCoordinateMapping.h"
+#include "CalypsoHdUiOverlay.h"
 #include <GLES3/gl3.h>
 
 using namespace OpenXcom;
@@ -1340,6 +1341,26 @@ static inline void calypsoNormalizeCanvasPoint(int backingX, int backingY, OpenX
 	outDisplayY = Calypso::calypsoCanvasToDisplayCoordinate(backingY, canvasH, screen->getHeight());
 }
 
+/* The QA letterbox probe stores its offset in physical canvas pixels.  The
+ * overlay painter adds that offset after logical->physical projection, while
+ * native hit owners receive content-local display coordinates.  Undo it only
+ * for absolute pointer positions; relative motion remains a delta and must
+ * never be shifted.  With the normal production offset (0, 0) this is an
+ * exact no-op. */
+static inline void calypsoRemoveHarnessContentOffset(OpenXcom::Screen *screen,
+	double &displayX, double &displayY)
+{
+	const auto &metrics = Calypso::CalypsoHdUiOverlay::instance().frozenMetrics();
+	if (!metrics.valid() || metrics.scaleX <= 0.0 || metrics.scaleY <= 0.0) return;
+	const Calypso::CalypsoViewportRuntime &runtime = Calypso::calypsoViewportRuntime();
+	const int canvasW = runtime.hasPhysicalSize() ? runtime.physicalWidth() : screen->getWidth();
+	const int canvasH = runtime.hasPhysicalSize() ? runtime.physicalHeight() : screen->getHeight();
+	displayX -= Calypso::calypsoCanvasToDisplayCoordinate(
+		metrics.contentOffsetX, canvasW, screen->getWidth());
+	displayY -= Calypso::calypsoCanvasToDisplayCoordinate(
+		metrics.contentOffsetY, canvasH, screen->getHeight());
+}
+
 static inline void calypsoApplyCursorDisplayPoint(OpenXcom::Game *game, OpenXcom::Screen *screen, double displayX, double displayY)
 {
 	OpenXcom::Cursor *cursor = game->getCursor();
@@ -1363,6 +1384,7 @@ void calypso_push_mouse_motion(int backingX, int backingY, int backingXrel, int 
 	double dxrel = 0.0, dyrel = 0.0;
 	calypsoNormalizeCanvasPoint(backingX, backingY, s, dx, dy);
 	calypsoNormalizeCanvasPoint(backingXrel, backingYrel, s, dxrel, dyrel);
+	calypsoRemoveHarnessContentOffset(s, dx, dy);
 	calypsoApplyCursorDisplayPoint(g, s, dx, dy);
 	g->dispatchCalypsoMouseMotion((int)dx, (int)dy, (int)dxrel, (int)dyrel);
 }
@@ -1389,6 +1411,7 @@ int calypso_push_mouse_button(int backingX, int backingY, int sdlButton, int pre
 	if (!s) return 0;
 	double dxD = 0.0, dyD = 0.0;
 	calypsoNormalizeCanvasPoint(backingX, backingY, s, dxD, dyD);
+	calypsoRemoveHarnessContentOffset(s, dxD, dyD);
 	calypsoApplyCursorDisplayPoint(g, s, dxD, dyD);
 	const int dx = (int)dxD;
 	const int dy = (int)dyD;
@@ -1419,9 +1442,14 @@ static int calypsoQaCursorBackingCoordinate(OpenXcom::Cursor *c,
 	const int canvasH = haveCachedCanvas ? runtime.physicalHeight() : displayH;
 	double sx = s->getXScale(); if (sx <= 0.0) sx = 1.0;
 	double sy = s->getYScale(); if (sy <= 0.0) sy = 1.0;
+	const auto &hdMetrics = Calypso::CalypsoHdUiOverlay::instance().frozenMetrics();
+	const double contentOffset = hdMetrics.valid()
+		? Calypso::calypsoCanvasToDisplayCoordinate(
+			xAxis ? hdMetrics.contentOffsetX : hdMetrics.contentOffsetY,
+			xAxis ? canvasW : canvasH, xAxis ? displayW : displayH) : 0.0;
 	const double presented = xAxis
-		? c->getX() * sx + s->getCursorLeftBlackBand()
-		: c->getY() * sy + s->getCursorTopBlackBand();
+		? c->getX() * sx + s->getCursorLeftBlackBand() + contentOffset
+		: c->getY() * sy + s->getCursorTopBlackBand() + contentOffset;
 	return (int)llround(Calypso::calypsoDisplayToCanvasCoordinate(presented,
 		xAxis ? displayW : displayH, xAxis ? canvasW : canvasH));
 }

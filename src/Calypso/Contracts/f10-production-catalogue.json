@@ -38,7 +38,7 @@
       "title": "STR_PRODUCTION_ITEMS",
       "markAllSeen": "STR_MARK_ALL_SEEN",
       "done": "STR_DONE",
-      "review": "STR_REVIEW_PRODUCTION",
+      "review": "STR_REVIEW_ITEM",
       "techTree": "STR_TECH_TREE",
       "ufopaedia": "STR_UFOPAEDIA"
     },
@@ -184,8 +184,8 @@
       "actions": [
         {
           "id": "review-production",
-          "label": "REVIEW PRODUCTION",
-          "labelKey": "STR_REVIEW_PRODUCTION",
+          "label": "REVIEW ITEM",
+          "labelKey": "STR_REVIEW_ITEM",
           "tone": "primary",
           "action": "review-production",
           "style": {
@@ -321,8 +321,8 @@
       "actions": [
         {
           "id": "review-production",
-          "label": "REVIEW PRODUCTION",
-          "labelKey": "STR_REVIEW_PRODUCTION",
+          "label": "REVIEW ITEM",
+          "labelKey": "STR_REVIEW_ITEM",
           "tone": "primary",
           "action": "review-production"
         },
@@ -450,7 +450,7 @@
               "x": 112,
               "y": 270,
               "width": 762,
-              "height": 50
+              "height": 44
             },
             "cells": [
               {
@@ -459,7 +459,7 @@
                   "x": 112,
                   "y": 270,
                   "width": 384,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "name",
                 "font": "body",
@@ -473,7 +473,7 @@
                   "x": 497,
                   "y": 270,
                   "width": 216,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "category",
                 "font": "body",
@@ -487,7 +487,7 @@
                   "x": 714,
                   "y": 270,
                   "width": 160,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "status",
                 "font": "body",
@@ -501,18 +501,18 @@
             "id": "row-slot-2",
             "rect": {
               "x": 112,
-              "y": 320,
+              "y": 314,
               "width": 762,
-              "height": 50
+              "height": 44
             },
             "cells": [
               {
                 "id": "item",
                 "rect": {
                   "x": 112,
-                  "y": 320,
+                  "y": 314,
                   "width": 384,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "name",
                 "font": "body",
@@ -524,9 +524,9 @@
                 "id": "category",
                 "rect": {
                   "x": 497,
-                  "y": 320,
+                  "y": 314,
                   "width": 216,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "category",
                 "font": "body",
@@ -538,9 +538,9 @@
                 "id": "status",
                 "rect": {
                   "x": 714,
-                  "y": 320,
+                  "y": 314,
                   "width": 160,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "status",
                 "font": "body",
@@ -554,18 +554,18 @@
             "id": "row-slot-3",
             "rect": {
               "x": 112,
-              "y": 370,
+              "y": 358,
               "width": 762,
-              "height": 50
+              "height": 44
             },
             "cells": [
               {
                 "id": "item",
                 "rect": {
                   "x": 112,
-                  "y": 370,
+                  "y": 358,
                   "width": 384,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "name",
                 "font": "body",
@@ -577,9 +577,9 @@
                 "id": "category",
                 "rect": {
                   "x": 497,
-                  "y": 370,
+                  "y": 358,
                   "width": 216,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "category",
                 "font": "body",
@@ -591,9 +591,9 @@
                 "id": "status",
                 "rect": {
                   "x": 714,
-                  "y": 370,
+                  "y": 358,
                   "width": 160,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "status",
                 "font": "body",
@@ -607,18 +607,18 @@
             "id": "row-slot-4",
             "rect": {
               "x": 112,
-              "y": 420,
+              "y": 402,
               "width": 762,
-              "height": 50
+              "height": 44
             },
             "cells": [
               {
                 "id": "item",
                 "rect": {
                   "x": 112,
-                  "y": 420,
+                  "y": 402,
                   "width": 384,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "name",
                 "font": "body",
@@ -630,9 +630,9 @@
                 "id": "category",
                 "rect": {
                   "x": 497,
-                  "y": 420,
+                  "y": 402,
                   "width": 216,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "category",
                 "font": "body",
@@ -644,9 +644,9 @@
                 "id": "status",
                 "rect": {
                   "x": 714,
-                  "y": 420,
+                  "y": 402,
                   "width": 160,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "status",
                 "font": "body",
@@ -660,18 +660,18 @@
             "id": "row-slot-5",
             "rect": {
               "x": 112,
-              "y": 470,
+              "y": 446,
               "width": 762,
-              "height": 50
+              "height": 44
             },
             "cells": [
               {
                 "id": "item",
                 "rect": {
                   "x": 112,
-                  "y": 470,
+                  "y": 446,
                   "width": 384,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "name",
                 "font": "body",
@@ -683,9 +683,9 @@
                 "id": "category",
                 "rect": {
                   "x": 497,
-                  "y": 470,
+                  "y": 446,
                   "width": 216,
-                  "height": 50
+                  "height": 44
                 },
                 "contentRole": "category",
                 "font": "body",
@@ -697,9 +697,115 @@
                 "id": "status",
                 "rect": {
                   "x": 714,
-                  "y": 470,
+                  "y": 446,
                   "width": 160,
-                  "height": 50
+                  "height": 44
+                },
+                "contentRole": "status",
+                "font": "body",
+                "align": "left",
+                "minWidth": 64,
+                "weight": 2
+              }
+            ]
+          },
+          {
+            "id": "row-slot-6",
+            "rect": {
+              "x": 112,
+              "y": 490,
+              "width": 762,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 112,
+                  "y": 490,
+                  "width": 384,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "category",
+                "rect": {
+                  "x": 497,
+                  "y": 490,
+                  "width": 216,
+                  "height": 44
+                },
+                "contentRole": "category",
+                "font": "body",
+                "align": "left",
+                "minWidth": 72,
+                "weight": 3
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 714,
+                  "y": 490,
+                  "width": 160,
+                  "height": 44
+                },
+                "contentRole": "status",
+                "font": "body",
+                "align": "left",
+                "minWidth": 64,
+                "weight": 2
+              }
+            ]
+          },
+          {
+            "id": "row-slot-7",
+            "rect": {
+              "x": 112,
+              "y": 534,
+              "width": 762,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 112,
+                  "y": 534,
+                  "width": 384,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "category",
+                "rect": {
+                  "x": 497,
+                  "y": 534,
+                  "width": 216,
+                  "height": 44
+                },
+                "contentRole": "category",
+                "font": "body",
+                "align": "left",
+                "minWidth": 72,
+                "weight": 3
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 714,
+                  "y": 534,
+                  "width": 160,
+                  "height": 44
                 },
                 "contentRole": "status",
                 "font": "body",
@@ -710,19 +816,19 @@
             ]
           }
         ],
-        "count": 5,
+        "count": 6,
         "scroll": {
           "track": {
             "x": 910,
             "y": 270,
             "width": 18,
-            "height": 250
+            "height": 308
           },
           "thumb": {
             "x": 910,
             "y": 270,
             "width": 18,
-            "height": 208
+            "height": 308
           }
         }
       },
@@ -778,6 +884,18 @@
           "y": 658,
           "width": 158,
           "height": 44
+        }
+      },
+      "toolbarChooser": {
+        "optionRowHeight": 44,
+        "optionInsetX": 8,
+        "optionInsetY": 0,
+        "maxOptions": 5,
+        "bounds": {
+          "x": 112,
+          "y": 234,
+          "width": 816,
+          "height": 412
         }
       },
       "screenHeader": {
@@ -970,13 +1088,13 @@
           "x": 910,
           "y": 270,
           "width": 18,
-          "height": 250
+          "height": 308
         },
         "collection.scroll.thumb": {
           "x": 910,
           "y": 270,
           "width": 18,
-          "height": 208
+          "height": 308
         },
         "collection.column.item": {
           "x": 112,
@@ -1000,7 +1118,7 @@
           "x": 112,
           "y": 270,
           "width": 762,
-          "height": 50
+          "height": 44
         },
         "detailPanel": {
           "x": 944,
@@ -1092,9 +1210,9 @@
         "height": 26
       },
       "summaryBar": {
-        "x": 590,
+        "x": 520,
         "y": 48,
-        "width": 142,
+        "width": 212,
         "height": 52
       },
       "summary": {},
@@ -1286,6 +1404,18 @@
           "height": 44
         }
       },
+      "toolbarChooser": {
+        "optionRowHeight": 44,
+        "optionInsetX": 8,
+        "optionInsetY": 0,
+        "maxOptions": 5,
+        "bounds": {
+          "x": 52,
+          "y": 52,
+          "width": 680,
+          "height": 260
+        }
+      },
       "screenHeader": {
         "x": 52,
         "y": 48,
@@ -1295,7 +1425,7 @@
       "headerArt": {
         "x": 420,
         "y": 48,
-        "width": 170,
+        "width": 100,
         "height": 52
       },
       "detail": {
@@ -1403,7 +1533,7 @@
         "headerArt": {
           "x": 420,
           "y": 48,
-          "width": 170,
+          "width": 100,
           "height": 52
         },
         "title": {
@@ -1413,9 +1543,9 @@
           "height": 26
         },
         "summaryBar": {
-          "x": 590,
+          "x": 520,
           "y": 48,
-          "width": 142,
+          "width": 212,
           "height": 52
         },
         "toolbarBar": {
@@ -1660,9 +1790,9 @@
         "text": "TextOnAccent"
       },
       "danger": {
-        "fill": "Danger",
+        "fill": "BgPanel",
         "border": "Danger",
-        "text": "TextPrimary"
+        "text": "Danger"
       }
     },
     "columnRoles": {
@@ -1814,9 +1944,9 @@
         "text": "03130DFF"
       },
       "danger": {
-        "fill": "FF6E72FF",
+        "fill": "071624FF",
         "border": "FF6E72FF",
-        "text": "E7F0F3FF"
+        "text": "FF6E72FF"
       }
     },
     "resolvedTypography": {
@@ -1899,38 +2029,38 @@
   "collectionMetrics": {
     "wide": {
       "totalItems": 6,
-      "visibleCapacity": 5,
+      "visibleCapacity": 7,
       "totalUnits": 6,
-      "visibleUnits": 5,
+      "visibleUnits": 7,
       "itemsPerUnit": 1,
       "scrollUnit": "record",
-      "overflow": true,
-      "scrollSteps": 1,
+      "overflow": false,
+      "scrollSteps": 0,
       "track": {
         "x": 910,
         "y": 270,
         "width": 18,
-        "height": 250
+        "height": 308
       },
       "thumb": {
         "x": 910,
         "y": 270,
         "width": 18,
-        "height": 208
+        "height": 308
       },
       "trackHitTarget": {
         "x": 884,
         "y": 270,
         "width": 44,
-        "height": 250
+        "height": 308
       },
       "thumbHitTarget": {
         "x": 884,
         "y": 270,
         "width": 44,
-        "height": 208
+        "height": 308
       },
-      "thumbTravelPx": 42
+      "thumbTravelPx": 0
     },
     "compact": {
       "totalItems": 6,

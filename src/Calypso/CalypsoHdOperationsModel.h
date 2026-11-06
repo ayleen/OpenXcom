@@ -110,6 +110,8 @@ struct CalypsoHdOperationsState
 	bool focused = false;
 	bool selected = false;
 	bool disabled = false;
+	/// Read-only hover observation from the real native owner.
+	bool hovered = false;
 };
 
 struct CalypsoHdOperationsCell
@@ -134,6 +136,43 @@ struct CalypsoHdOperationsAction
 	CalypsoHdOperationsState state;
 	// The native widget remains the input/behaviour owner in live mode.
 	const void* widget = nullptr;
+};
+
+/// A live native ComboBox popup rendered by the shared HD layer. The popup
+/// rows retain the ComboBox/TextList owner so pointer events continue through
+/// the native selectOptionFromList path; this value is presentation metadata,
+/// not a second selection implementation.
+struct CalypsoHdOperationsChooserOption
+{
+	std::string id;
+	std::string label;
+	CalypsoHdOperationsRect rect;
+	CalypsoHdOperationsState state;
+	const void* widget = nullptr;
+};
+
+struct CalypsoHdOperationsChooser
+{
+	bool open = false;
+	CalypsoHdOperationsRect panel;
+	CalypsoHdOperationsRect bounds;
+	int optionInsetX = 0;
+	int optionInsetY = 0;
+	int selectedIndex = -1;
+	int hoveredIndex = -1;
+	const void* owner = nullptr;
+	std::vector<CalypsoHdOperationsChooserOption> options;
+};
+
+/// Shared command-center rail actions. These are populated from the real
+/// hidden TextButton owners by CalypsoHdOperationsChrome; they are not a
+/// second navigation implementation or a browser-only geometry guess.
+struct CalypsoHdOperationsNavigation
+{
+	/// Native origin of the global-production route. Empty for routes where
+	/// the origin is not part of the acceptance contract.
+	std::string origin;
+	std::vector<CalypsoHdOperationsAction> actions;
 };
 
 struct CalypsoHdOperationsSummaryField
@@ -228,6 +267,49 @@ struct CalypsoHdOperationsCollection
 	CalypsoHdOperationsScroll scroll;
 };
 
+/// Resolve one collection's authored row/rail geometry from its actual
+/// viewport. Adapters use this for both the painted model and the hidden
+/// native selection-list owner, so capacity cannot remain tied to the
+/// compact/wide generated slot count after a resize.
+inline void calypsoHdOperationsResolveCollectionGeometry(
+	CalypsoHdOperationsCollection &collection,
+	const CalypsoHdOperationsRect &viewport,
+	const CalypsoHdOperationsRect &firstRow,
+	const CalypsoHdOperationsRect &authoredTrack,
+	int headerHeight,
+	int authoredViewportWidth = 0)
+{
+	collection.viewport = viewport;
+	collection.rowSlots.clear();
+	collection.scrollTrack = authoredTrack;
+	collection.scrollThumb = authoredTrack;
+	collection.rowHeight = std::max(1, firstRow.h);
+	const int availableHeight = viewport.h - std::max(0, headerHeight);
+	const std::size_t visibleRows = static_cast<std::size_t>(std::max(0,
+		availableHeight / collection.rowHeight));
+	collection.visibleRows = visibleRows;
+	collection.scrollTrack.y = viewport.y + std::max(0, headerHeight);
+	collection.scrollTrack.h = static_cast<int>(visibleRows) * collection.rowHeight;
+	collection.scrollThumb = collection.scrollTrack;
+	const int authoredRailReserve = authoredViewportWidth > 0
+		? std::max(0, authoredViewportWidth - firstRow.w) : 0;
+	const int rowWidth = authoredRailReserve > 0
+		? std::max(1, viewport.w - authoredRailReserve) : firstRow.w;
+	for (std::size_t i = 0; i < visibleRows; ++i)
+	{
+		collection.rowSlots.push_back({
+			firstRow.x,
+			viewport.y + std::max(0, headerHeight)
+				+ static_cast<int>(i) * collection.rowHeight,
+			rowWidth,
+			collection.rowHeight});
+	}
+	collection.scroll.viewport = collection.viewport;
+	collection.scroll.track = collection.scrollTrack;
+	collection.scroll.thumb = collection.scrollThumb;
+	collection.scroll.visibleRows = visibleRows;
+}
+
 inline bool calypsoHdOperationsRowSelected(
 	const CalypsoHdOperationsCollection& collection, std::size_t index)
 {
@@ -239,12 +321,28 @@ inline bool calypsoHdOperationsRowSelected(
 }
 
 
+struct CalypsoHdOperationsProgress
+{
+	CalypsoHdOperationsRect rect;
+	double ratio = 0.0;
+};
+
+/// Return a progress ratio only for finite, internally consistent counters.
+/// Invalid counters fail closed so labels cannot accidentally become progress.
+inline std::optional<double> calypsoHdOperationsProgressRatio(
+	int produced, int total, bool infinite)
+{
+	if (infinite || produced < 0 || total <= 0 || produced > total) return std::nullopt;
+	return static_cast<double>(produced) / static_cast<double>(total);
+}
+
 struct CalypsoHdOperationsMetric
 {
 	std::string id;
 	std::string label;
 	std::string value;
 	CalypsoHdOperationsRect rect;
+	std::optional<CalypsoHdOperationsProgress> progress;
 	CalypsoHdOperationsState state;
 };
 
@@ -372,6 +470,7 @@ struct CalypsoHdOperationsModel
 	std::vector<CalypsoHdOperationsSummaryField> summaryFields;
 	std::vector<CalypsoHdOperationsControl> controls;
 	std::vector<CalypsoHdOperationsAction> toolbarActions;
+	CalypsoHdOperationsChooser chooser;
 	CalypsoHdOperationsCollection collection;
 	std::string visualShell;
 	std::string headerArtId;
@@ -383,6 +482,7 @@ struct CalypsoHdOperationsModel
 	CalypsoHdOperationsDetail detail;
 	std::vector<CalypsoHdOperationsRegion> regions;
 	std::vector<CalypsoHdOperationsAction> footerActions;
+	CalypsoHdOperationsNavigation navigation;
 	/// Native presentation owners that must remain hidden without becoming
 	/// rendered controls in this model.
 	std::vector<const void*> suppressedWidgets;
@@ -394,6 +494,29 @@ struct CalypsoHdOperationsModel
 	CalypsoHdOperationsStyle style;
 	CalypsoHdOperationsTypographyPx typography;
 };
+
+/// Return the text-owned portion of a collection cell without changing its
+/// semantic geometry or native hit owner. A right-aligned count immediately
+/// before a status cell needs a small text-only inset so a localized status
+/// label does not touch the preceding value. This is a generic semantic
+/// column policy; families that do not use that adjacent role pair remain
+/// unchanged.
+inline CalypsoHdOperationsRect calypsoHdOperationsCollectionCellTextRect(
+	const CalypsoHdOperationsColumn& column,
+	const CalypsoHdOperationsColumn* previousColumn,
+	const CalypsoHdOperationsRect& cell)
+{
+	const auto role = calypsoHdOperationsContentRole(column.contentRole, column.id);
+	const auto previousRole = previousColumn == nullptr
+		? CalypsoHdOperationsContentRole::Unknown
+		: calypsoHdOperationsContentRole(previousColumn->contentRole, previousColumn->id);
+	if (role != CalypsoHdOperationsContentRole::Status
+		|| previousRole != CalypsoHdOperationsContentRole::Count)
+		return cell;
+	const int inset = std::min(4, std::max(0, (cell.w - 1) / 2));
+	return {cell.x + inset, cell.y, std::max(1, cell.w - inset), cell.h};
+}
+
 /// Project a generated design-space font size into the canvas backing store.
 /// The physical/design-height ratio includes both logical layout projection and
 /// DPR, matching the rect edge mapping used by the HD overlay.
@@ -585,6 +708,11 @@ inline CalypsoHdOperationsActionPalette calypsoHdOperationsActionPalette(
 		palette = {style.panelFillTop, style.danger, style.danger};
 	else
 		palette = {style.panelFillTop, style.frame, style.text};
+	if (state.hovered && !state.disabled)
+	{
+		palette.fill = style.selection;
+		palette.border = style.accent;
+	}
 	if (state.selected && tone != "primary" && tone != "warning"
 		&& tone != "danger")
 		palette.fill = style.selection;
@@ -677,6 +805,22 @@ inline CalypsoHdOperationsRect calypsoHdOperationsCollectionViewport(
 inline bool calypsoHdOperationsModelReady(const CalypsoHdOperationsModel& model)
 {
 	const auto& g = model.geometry;
+	// L07 is an explicit renderer fixture with four sibling actions so the
+	// visual-state matrix can compare safe/primary/danger/warning in one frame.
+	// Keep the ordinary operations contract capped at three footer actions; only
+	// the exact fixture component is allowed to use the fourth slot.
+	const bool l07Fixture = model.footerActions.size() == 4
+		&& std::all_of(model.footerActions.begin(), model.footerActions.end(),
+			[](const CalypsoHdOperationsAction& action)
+			{
+				return action.component == "l07-state-fixture";
+			});
+	const bool tableContext = model.presentation == "table-context";
+	const bool omittedArt = tableContext && model.headerArtId.empty() && !g.headerArt.valid();
+	const bool omittedInspector = tableContext && !g.detailPanel.valid()
+		&& model.detail.identity.id.empty() && model.detail.identity.label.empty()
+		&& model.detail.identity.title.empty() && model.detail.metrics.empty()
+		&& model.detail.actions.empty();
 	if (model.familyId == 0 || !model.readiness.contractReady || !model.readiness.fontsReady
 		|| !model.readiness.uploadsReady || model.title.empty()
 		|| g.designWidth <= 0 || g.designHeight <= 0 || !g.window.valid()
@@ -684,15 +828,25 @@ inline bool calypsoHdOperationsModelReady(const CalypsoHdOperationsModel& model)
 		return false;
 	if ((model.archetype == CalypsoHdOperationsArchetype::OperationsWorkspace
 			|| model.archetype == CalypsoHdOperationsArchetype::WideDetail)
-		&& (model.visualShell != "base-operations" || model.headerArtId.empty()
+		&& (model.visualShell != "base-operations"
 			|| model.baseCaption.empty() || !g.screenHeader.valid()
-			|| !g.headerArt.valid()))
+			|| (!omittedArt && (model.headerArtId.empty() || !g.headerArt.valid()))))
 		return false;
 	if (model.summaryFields.size() > 4 || model.controls.size() > 3
 		|| model.toolbarActions.size() > 4 || model.collection.columns.size() > 8
 		|| model.detail.metrics.size() > 4 || model.detail.actions.size() > 12
-		|| model.footerActions.size() > 3 || model.regions.size() > 4)
+		|| model.footerActions.size() > (l07Fixture ? 4 : 3) || model.regions.size() > 4)
 		return false;
+	if (model.chooser.open
+		&& (model.chooser.owner == nullptr || !model.chooser.panel.valid()
+			|| !model.chooser.bounds.valid() || model.chooser.options.empty()))
+		return false;
+	for (const auto& option : model.chooser.options)
+	{
+		if (option.state.visible && (option.widget == nullptr || !option.rect.valid()
+			|| option.label.empty()))
+			return false;
+	}
 	for (const auto& control : model.controls)
 	{
 		if (control.options.size() > 32) return false;
@@ -772,14 +926,14 @@ inline bool calypsoHdOperationsModelReady(const CalypsoHdOperationsModel& model)
 	if (model.archetype == CalypsoHdOperationsArchetype::OperationsWorkspace)
 	{
 		if (!g.summaryBar.valid() || !g.toolbarBar.valid() || !g.collectionViewport.valid()
-			|| !g.detailPanel.valid() || model.collection.columns.empty()
+			|| (!omittedInspector && !g.detailPanel.valid()) || model.collection.columns.empty()
 			|| calypsoHdOperationsVisibleRows(model.collection) == 0
 			|| model.collection.rowHeight <= 0
 			|| (model.collection.rows.empty()
 				&& (model.collection.emptyTitle.empty()
 					|| model.collection.emptyBody.empty()))
-			|| model.detail.identity.id.empty() || model.detail.identity.label.empty()
-			|| model.detail.identity.title.empty())
+			|| (!omittedInspector && (model.detail.identity.id.empty()
+				|| model.detail.identity.label.empty() || model.detail.identity.title.empty())))
 			return false;
 	}
 	else
@@ -793,7 +947,15 @@ inline bool calypsoHdOperationsModelReady(const CalypsoHdOperationsModel& model)
 	for (const auto& action : model.detail.actions)
 		if (!calypsoHdOperationsActionReady(action)) return false;
 	for (const auto& action : model.footerActions)
-		if (!calypsoHdOperationsActionReady(action)) return false;
+	{
+		// The four L07 swatches are renderer diagnostics, not clickable
+		// controls. Never waive input ownership for ordinary actions.
+		const bool diagnosticReady = l07Fixture && action.slotRole == "visual-state"
+			&& action.widget == nullptr && (!action.state.visible
+				|| (!action.label.empty() && calypsoHdOperationsActionVisible(action)
+					&& calypsoHdOperationsHitTargetValid(action)));
+		if (!diagnosticReady && !calypsoHdOperationsActionReady(action)) return false;
+	}
 	for (const auto& region : model.regions)
 		for (const auto& action : region.actions)
 			if (!calypsoHdOperationsActionReady(action)) return false;

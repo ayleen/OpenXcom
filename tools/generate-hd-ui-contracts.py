@@ -1357,6 +1357,32 @@ def emit_operations_metadata(out, doc, profile, prefix):
         "",
     ]
 
+    chooser = form.get("toolbarChooser")
+    if chooser is not None:
+        out += [
+            'inline constexpr const char* kToolbarChooserOwner = '
+            + cpp_string(chooser["owner"]) + ";",
+            "struct " + prefix + "GenToolbarChooserOption",
+            "{",
+            TAB + "const char* id;",
+            TAB + "const char* label;",
+            TAB + "const char* labelKey;",
+            "};",
+            "inline constexpr " + prefix + "GenToolbarChooserOption kToolbarChooserOptions[] = {",
+        ]
+        for option in chooser["options"]:
+            out.append(
+                "    { " + cpp_string(option["id"]) + ", "
+                + cpp_string(option["label"]) + ", "
+                + cpp_string(option.get("labelKey", "")) + " },"
+            )
+        out += [
+            "};",
+            "inline constexpr int kToolbarChooserOptionCount = "
+            + str(len(chooser["options"])) + ";",
+            "",
+        ]
+
     tone_data = profile_data.get("resolvedActionTones") or {}
     if not tone_data:
         for action in form.get("actions") or []:
@@ -1515,6 +1541,7 @@ def emit_operations_metadata(out, doc, profile, prefix):
         TAB + "const " + prefix + "GenCollectionRowSlot* rowSlots;",
         TAB + "int rowSlotCount;",
         TAB + "int count;",
+        TAB + prefix + "GenRect rowActionArea;",
         TAB + prefix + "GenCollectionMetrics metrics;",
         "};",
         "",
@@ -1610,7 +1637,8 @@ def emit_operations_metadata(out, doc, profile, prefix):
                 len((collection or {}).get("items") or []), len(rows)))
             all_collection_layouts.append(
                 (path, label, header_name if headers else "nullptr", len(headers),
-                 rows_name, len(rows), count, metrics_name)
+                 rows_name, len(rows), count,
+                 operation_rect(fragment.get("rowActionArea")), metrics_name)
             )
             out.append("")
     wide_collection_count = sum(1 for _, label, *_ in all_collection_layouts if label == "Wide")
@@ -1619,12 +1647,12 @@ def emit_operations_metadata(out, doc, profile, prefix):
         "inline constexpr " + prefix + "GenCollectionLayout kCollectionsWide["
         + str(max(1, wide_collection_count)) + "] = {",
     ]
-    for path, label, header, header_count, rows, row_count, count, metrics in all_collection_layouts:
+    for path, label, header, header_count, rows, row_count, count, row_action_area, metrics in all_collection_layouts:
         if label != "Wide":
             continue
         out.append("    { " + cpp_string(path) + ", " + header + ", "
                    + str(header_count) + ", " + rows + ", " + str(row_count)
-                   + ", " + str(count) + ", " + metrics + " },")
+                   + ", " + str(count) + ", " + row_action_area + ", " + metrics + " },")
     out += [
         "};",
         "inline constexpr int kCollectionLayoutWideCount = "
@@ -1632,12 +1660,12 @@ def emit_operations_metadata(out, doc, profile, prefix):
         "inline constexpr " + prefix + "GenCollectionLayout kCollectionsCompact["
         + str(max(1, compact_collection_count)) + "] = {",
     ]
-    for path, label, header, header_count, rows, row_count, count, metrics in all_collection_layouts:
+    for path, label, header, header_count, rows, row_count, count, row_action_area, metrics in all_collection_layouts:
         if label != "Compact":
             continue
         out.append("    { " + cpp_string(path) + ", " + header + ", "
                    + str(header_count) + ", " + rows + ", " + str(row_count)
-                   + ", " + str(count) + ", " + metrics + " },")
+                   + ", " + str(count) + ", " + row_action_area + ", " + metrics + " },")
     out += [
         "};",
         "inline constexpr int kCollectionLayoutCompactCount = "
@@ -1749,6 +1777,21 @@ def emit_family_h(doc, rel, ns, prefix, profile):
            "/// One design-space rectangle (design px).",
            "struct " + prefix + "GenRect { int x; int y; int w; int h; };",
            "",
+           ]
+    if profile == "operations-workspace":
+        out += [
+            "/// Generated policy for an operations toolbar chooser.",
+            "struct " + prefix + "GenToolbarChooser",
+            "{",
+            TAB + "int optionRowHeight;",
+            TAB + "int optionInsetX;",
+            TAB + "int optionInsetY;",
+            TAB + "int maxOptions;",
+            TAB + prefix + "GenRect bounds;",
+            "};",
+            "",
+        ]
+    out += [
            "/// The complete " + rel + " layout for one class.",
            "struct " + prefix + "GenLayout",
            "{",
@@ -1756,6 +1799,8 @@ def emit_family_h(doc, rel, ns, prefix, profile):
            TAB + "int designHeight;"]
     for p in parts:
         out.append(TAB + prefix + "GenRect " + cpp_part_name(p) + ";")
+    if profile == "operations-workspace":
+        out.append(TAB + prefix + "GenToolbarChooser toolbarChooser;")
     out += ["};",
             "",
             "inline constexpr " + prefix + "GenLayout kLayouts[] =",
@@ -1763,9 +1808,26 @@ def emit_family_h(doc, rel, ns, prefix, profile):
     for name in ("wide", "compact"):
         l = layouts[name]
         out.append(TAB + "// " + name)
+        values = [
+            "{ " + str(family_part_rect(l, p)["x"]) + ", "
+            + str(family_part_rect(l, p)["y"]) + ", "
+            + str(family_part_rect(l, p)["width"]) + ", "
+            + str(family_part_rect(l, p)["height"]) + " }"
+            for p in parts
+        ]
+        if profile == "operations-workspace":
+            chooser = l["toolbarChooser"]
+            bounds = chooser["bounds"]
+            values.append(
+                "{ " + str(chooser["optionRowHeight"]) + ", "
+                + str(chooser["optionInsetX"]) + ", "
+                + str(chooser["optionInsetY"]) + ", "
+                + str(chooser["maxOptions"]) + ", { "
+                + str(bounds["x"]) + ", " + str(bounds["y"]) + ", "
+                + str(bounds["width"]) + ", " + str(bounds["height"]) + " } }"
+            )
         out.append(TAB + "{ " + str(l["designWidth"]) + ", " + str(l["designHeight"]) + ", "
-                   + ", ".join("{ " + str(family_part_rect(l, p)["x"]) + ", " + str(family_part_rect(l, p)["y"]) + ", "
-                               + str(family_part_rect(l, p)["width"]) + ", " + str(family_part_rect(l, p)["height"]) + " }" for p in parts) + " },")
+                   + ", ".join(values) + " },")
     out += ["};",
             "inline constexpr int kLayoutCount = " + str(len(layouts)) + ";",
             ""]
