@@ -93,7 +93,7 @@ void ComboBox::calypsoHdPopupWindowRect(int& x, int& y, int& width, int& height)
 
 void ComboBox::calypsoHdConfigurePopupSelection(int rowHeight, int optionInsetX,
 	int optionInsetY, int boundsX, int boundsY, int boundsW, int boundsH,
-	int maxOptions)
+	int maxOptions, int minPanelWidth)
 {
 	if (!_window || !_list) return;
 	const int stride = std::max(1, rowHeight);
@@ -102,10 +102,12 @@ void ComboBox::calypsoHdConfigurePopupSelection(int rowHeight, int optionInsetX,
 	const int insetY = std::max(0, optionInsetY);
 	const int safeW = std::max(1, boundsW);
 	const int safeH = std::max(1, boundsH);
+	const int safeMinPanelWidth = std::max(1, minPanelWidth);
 	const auto layout = Calypso::calypsoHdResolveChooserLayout(
 		{getX(), getY(), getWidth(), getHeight()},
 		{boundsX, boundsY, safeW, safeH}, stride, insetY,
-		static_cast<int>(count), maxOptions, _popupAboveButton);
+		static_cast<int>(count), maxOptions, _popupAboveButton,
+		safeMinPanelWidth);
 	const int panelWidth = layout.panel.w;
 	const int listWidth = std::max(1, panelWidth - 2 * insetX);
 	const int listHeight = std::max(1, layout.visibleRows * stride);
@@ -118,7 +120,9 @@ void ComboBox::calypsoHdConfigurePopupSelection(int rowHeight, int optionInsetX,
 	_list->setWidth(listWidth);
 	_list->rebaseNativeSize(listWidth, stride);
 	_list->setMinimumRowHeight(stride);
-	_list->setY(popupY + VERTICAL_MARGIN + insetY);
+	// The HD row rectangles already include the authored inset. The legacy
+	// three-pixel margin would shift native hit testing below the painted row.
+	_list->setY(popupY + insetY);
 	_list->setHeight(listHeight);
 	_list->configureCalypsoHdSelectionList(0, 0, stride, 0, listHeight,
 		layout.visibleRows);

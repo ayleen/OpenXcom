@@ -617,10 +617,13 @@ void CalypsoF09ResearchUi::applyCatalogueGeometry()
 	const auto chooserInsetY = fluid.resolve(
 		CalypsoHdOperationsRectf{0, 0, 1, g->toolbarChooser.optionInsetY},
 		FluidVRole::Fixed);
+	const auto chooserMinWidth = fluid.resolve(
+		CalypsoHdOperationsRectf{0, 0, g->toolbarChooser.minPanelWidth, 1},
+		FluidVRole::Fixed);
 	_catalogue->_cbxSort->calypsoHdConfigurePopupSelection(
 		chooserRow.h, chooserInsetX.w, chooserInsetY.h,
 		chooserBounds.x, chooserBounds.y, chooserBounds.w, chooserBounds.h,
-		g->toolbarChooser.maxOptions);
+		g->toolbarChooser.maxOptions, chooserMinWidth.w);
 	place(_catalogue->_btnShowOnlyNew, g->toolbar_show_only_new);
 	const auto descriptor = fluid.selectionListGeometry(
 		{g->collectionViewport.x, g->collectionViewport.y,
@@ -1122,6 +1125,8 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 		0, 0, 1, g->toolbarChooser.optionInsetY}).h;
 	const int chooserRowHeight = p(CalypsoHdOperationsRectf{
 		0, 0, 1, g->toolbarChooser.optionRowHeight}).h;
+	const int chooserMinWidth = p(CalypsoHdOperationsRectf{
+		0, 0, g->toolbarChooser.minPanelWidth, 1}).w;
 	const TextList *popupList = _catalogue->_cbxSort->calypsoHdPopupList();
 	if (popupList)
 	{
@@ -1135,7 +1140,7 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 			{model.chooser.bounds.x, model.chooser.bounds.y,
 				model.chooser.bounds.w, model.chooser.bounds.h}, rowHeight,
 			model.chooser.optionInsetY, optionCount,
-			g->toolbarChooser.maxOptions, _catalogue->_cbxSort->calypsoHdPopupAboveButton());
+			g->toolbarChooser.maxOptions, _catalogue->_cbxSort->calypsoHdPopupAboveButton(), chooserMinWidth);
 		model.chooser.panel = {chooserLayout.panel.x, chooserLayout.panel.y,
 			chooserLayout.panel.w, chooserLayout.panel.h};
 		model.chooser.selectedIndex = popupList->getTexts() > 0

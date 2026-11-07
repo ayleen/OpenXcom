@@ -292,9 +292,6 @@ CalypsoHdOperationsModel CalypsoF15TechTreeUi::buildModel() const
 	CalypsoHdOperationsRegion rightRegion;
 	leftRegion.id = "left";
 	rightRegion.id = "right";
-	// STR_TOPIC is a format string in the native locale; publish the same
-	// resolved empty-argument label used by TechTreeViewerState instead of
-	// leaking its placeholder into the HD column headers.
 	const std::string topicLabels[] = {tr("STR_REQUIRES"), tr("STR_UNLOCKS")};
 	const bool itemsMode = _state->_selectedFlag == TTV_ITEMS;
 	ListSource sources[2] = {

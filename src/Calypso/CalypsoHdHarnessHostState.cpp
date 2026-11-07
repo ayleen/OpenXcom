@@ -326,12 +326,15 @@ OperationsFixture makeOperationsFixture(Game *game, bool needResearch, bool need
 		CalypsoTutorial::get().disableForCampaign();
 		return fixture;
 	}
-	CalypsoTutorial::get().disableForCampaign();
 	fixture.research = researchRule(game->getMod(), researchName);
 	fixture.manufacture = manufactureRule(game->getMod(), manufactureName);
 	if ((needResearch && !fixture.research) || (needManufacture && !fixture.manufacture)
 		|| !prepareOperationsSave(game))
 		return OperationsFixture();
+	// Do not mutate campaign-global tutorial state until the save ownership
+	// check above has succeeded.  Rejected requests against a live player save
+	// must be completely side-effect free.
+	CalypsoTutorial::get().disableForCampaign();
 
 	fixture.base = new Base(game->getMod());
 	fixture.base->setName("Batumi");
@@ -372,9 +375,11 @@ OperationsFixture makeGlobalManufactureFixture(Game *game)
 {
 	OperationsFixture fixture;
 	if (!game || !game->getMod()) return fixture;
-	CalypsoTutorial::get().disableForCampaign();
 	fixture.manufacture = manufactureRule(game->getMod(), "STR_MAELSTROM_TORPEDOES");
 	if (!fixture.manufacture || !prepareOperationsSave(game)) return OperationsFixture();
+	// The ownership check must precede any tutorial mutation for the same
+	// reason as the regular operations fixture above.
+	CalypsoTutorial::get().disableForCampaign();
 
 	Base *batumi = new Base(game->getMod());
 	batumi->setName("Batumi");

@@ -799,6 +799,7 @@
         "optionInsetX": 8,
         "optionInsetY": 0,
         "maxOptions": 5,
+        "minPanelWidth": 240,
         "bounds": {
           "x": 112,
           "y": 234,
@@ -1271,6 +1272,7 @@
         "optionInsetX": 8,
         "optionInsetY": 0,
         "maxOptions": 5,
+        "minPanelWidth": 240,
         "bounds": {
           "x": 52,
           "y": 52,

@@ -793,11 +793,11 @@ def _validate_template(template):
             chooser = layout.get("toolbarChooser")
             _strict(
                 chooser,
-                {"optionRowHeight", "optionInsetX", "optionInsetY", "maxOptions", "bounds"},
+                {"optionRowHeight", "optionInsetX", "optionInsetY", "maxOptions", "minPanelWidth", "bounds"},
                 set(),
                 "template.layouts." + name + ".toolbarChooser",
             )
-            for field in ("optionRowHeight", "maxOptions"):
+            for field in ("optionRowHeight", "maxOptions", "minPanelWidth"):
                 _positive_int(
                     chooser[field],
                     "template.layouts." + name + ".toolbarChooser." + field,

@@ -92,7 +92,7 @@ public:
 	void calypsoHdPopupWindowRect(int& x, int& y, int& width, int& height) const;
 	void calypsoHdConfigurePopupSelection(int rowHeight, int optionInsetX,
 		int optionInsetY, int boundsX, int boundsY, int boundsW, int boundsH,
-		int maxOptions = 10);
+		int maxOptions = 10, int minPanelWidth = 240);
 	bool calypsoHdPopupAboveButton() const { return _popupAboveButton; }
 	void calypsoHdSuppressPopupWidgets(std::vector<const void*>& widgets) const;
 #endif

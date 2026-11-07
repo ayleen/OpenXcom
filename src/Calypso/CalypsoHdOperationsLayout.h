@@ -70,25 +70,43 @@ inline CalypsoHdChooserLayout calypsoHdResolveChooserLayout(
 	const CalypsoHdOperationsRectf &button,
 	const CalypsoHdOperationsRectf &bounds,
 	int rowHeight, int insetY, int optionCount, int maxOptions,
-	bool preferAbove)
+	bool preferAbove, int minPanelWidth = 240)
 {
 	const int stride = std::max(1, rowHeight);
 	const int safeInset = std::max(0, insetY);
-	const int availableRows = std::max(1,
-		(bounds.h - safeInset * 2) / stride);
-	const int visibleRows = std::max(1, std::min({
-		std::max(1, optionCount), std::max(1, maxOptions), availableRows}));
+	const int optionLimit = std::max(1, std::min(std::max(1, optionCount),
+		std::max(1, maxOptions)));
+	// Keep the popup disjoint from its opener. Button-first dispatch otherwise
+	// closes the popup before the painted first option can receive the click.
+	const int aboveSpace = std::max(0, button.y - bounds.y);
+	const int belowSpace = std::max(0,
+		(bounds.y + bounds.h) - (button.y + button.h));
+	const auto rowsFor = [stride, safeInset](int space) {
+		return std::max(0, (space - safeInset * 2) / stride);
+	};
+	const int aboveRows = rowsFor(aboveSpace);
+	const int belowRows = rowsFor(belowSpace);
+	// Use the side with the larger disjoint capacity; the caller's preference
+	// breaks ties so a cramped preferred side never needlessly hides rows.
+	const bool useAbove = aboveRows > belowRows
+		|| (aboveRows == belowRows && preferAbove);
+	const int availableRows = useAbove ? aboveRows : belowRows;
+	const int visibleRows = std::max(1, std::min(optionLimit,
+		std::max(1, availableRows)));
 	const int panelH = visibleRows * stride + safeInset * 2;
-	const int panelW = std::max(1, std::min(button.w, bounds.w));
+	// The popup is a content surface, not a copy of the opener's toolbar
+	// button.  Localized labels (especially the Russian availability pair)
+	// can be substantially wider than the compact 104px opener, while a full
+	// viewport-wide panel is excessive for short menus.  Keep a shared
+	// content width floor and clamp it to the authored safe bounds.
+	const int localizedContentWidth = std::max(1, minPanelWidth);
+	const int panelW = std::max(1, std::min(bounds.w,
+		std::max(button.w, localizedContentWidth)));
 	const int panelX = std::max(bounds.x,
 		std::min(button.x, bounds.x + bounds.w - panelW));
 	const int aboveY = button.y - panelH;
 	const int belowY = button.y + button.h;
-	int panelY = preferAbove && aboveY >= bounds.y ? aboveY : belowY;
-	if (panelY + panelH > bounds.y + bounds.h && aboveY >= bounds.y)
-		panelY = aboveY;
-	panelY = std::max(bounds.y,
-		std::min(panelY, bounds.y + bounds.h - panelH));
+	const int panelY = useAbove ? aboveY : belowY;
 	return {{panelX, panelY, panelW, panelH}, visibleRows};
 }
 

@@ -481,13 +481,17 @@ void CalypsoF10ProductionUi::applyCatalogueGeometry()
 	const int chooserInsetY = fluid.resolve(
 		CalypsoHdOperationsRectf{0, 0, 1, g->toolbarChooser.optionInsetY},
 		FluidVRole::Fixed).h;
+	const int chooserMinWidth = fluid.resolve(
+		CalypsoHdOperationsRectf{0, 0, g->toolbarChooser.minPanelWidth, 1},
+		FluidVRole::Fixed).w;
 	_catalogue->_cbxFilter->calypsoHdConfigurePopupSelection(
 		chooserRowHeight, chooserInsetX, chooserInsetY,
-		chooserBounds.x, chooserBounds.y, chooserBounds.w, chooserBounds.h);
+		chooserBounds.x, chooserBounds.y, chooserBounds.w, chooserBounds.h,
+		g->toolbarChooser.maxOptions, chooserMinWidth);
 	_catalogue->_cbxCategory->calypsoHdConfigurePopupSelection(
 		chooserRowHeight, chooserInsetX, chooserInsetY,
 		chooserBounds.x, chooserBounds.y, chooserBounds.w, chooserBounds.h,
-		g->toolbarChooser.maxOptions);
+		g->toolbarChooser.maxOptions, chooserMinWidth);
 	put(_catalogue->_btnShowOnlyNew, g->toolbar_show_only_new); put(_catalogue->_btnQuickSearch, g->toolbar_quick_search, FluidVRole::Fixed, FluidAnchor::Right);
 	put(_catalogue->_btnReview, g->detail_selected_item_action_review_production, FluidVRole::BottomShift, FluidAnchor::Right);
 	put(_catalogue->_btnTechTree, g->detail_selected_item_action_tech_tree, FluidVRole::BottomShift, FluidAnchor::Right);
@@ -1088,6 +1092,8 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 		0, 0, 1, g->toolbarChooser.optionInsetY}, FluidVRole::Fixed).h;
 	const int modelChooserRowHeight = fluid.cssY(CalypsoHdOperationsRectf{
 		0, 0, 1, g->toolbarChooser.optionRowHeight}, FluidVRole::Fixed).h;
+	const int modelChooserMinWidth = fluid.cssX(CalypsoHdOperationsRectf{
+		0, 0, g->toolbarChooser.minPanelWidth, 1}).w;
 	ComboBox *activeCombo = nullptr;
 	const TextList *popupList = nullptr;
 	if (_catalogue->_cbxFilter->calypsoHdPopupVisible())
@@ -1114,7 +1120,7 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 			{model.chooser.bounds.x, model.chooser.bounds.y,
 				model.chooser.bounds.w, model.chooser.bounds.h}, optionHeight,
 			model.chooser.optionInsetY, count,
-			g->toolbarChooser.maxOptions, activeCombo->calypsoHdPopupAboveButton());
+			g->toolbarChooser.maxOptions, activeCombo->calypsoHdPopupAboveButton(), modelChooserMinWidth);
 		model.chooser.panel = {chooserLayout.panel.x, chooserLayout.panel.y,
 			chooserLayout.panel.w, chooserLayout.panel.h};
 		model.chooser.selectedIndex = static_cast<int>(activeCombo->getSelected());

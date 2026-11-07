@@ -1822,7 +1822,8 @@ def emit_family_h(doc, rel, ns, prefix, profile):
                 "{ " + str(chooser["optionRowHeight"]) + ", "
                 + str(chooser["optionInsetX"]) + ", "
                 + str(chooser["optionInsetY"]) + ", "
-                + str(chooser["maxOptions"]) + ", { "
+                + str(chooser["maxOptions"]) + ", "
+                + str(chooser["minPanelWidth"]) + ", { "
                 + str(bounds["x"]) + ", " + str(bounds["y"]) + ", "
                 + str(bounds["width"]) + ", " + str(bounds["height"]) + " } }"
             )

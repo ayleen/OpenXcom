@@ -832,7 +832,11 @@ void collectChooser(CalypsoHdFrameBuilder& builder,
 		addPanel(builder, model, "chooser/option/" + option.id, order++, option.rect,
 			fill, fill, option.widget,
 			option.state.selected ? model.style.accent : model.style.divider);
-		CalypsoHdOperationsRect textRect = insetHorizontal(option.rect, insetX);
+		// option.rect already is the shared inner row rectangle (the native
+		// list starts at the same inset).  Applying optionInsetX again clipped
+		// long localized labels and made the two Russian supplies filters look
+		// identical in compact mode.
+		CalypsoHdOperationsRect textRect = option.rect;
 		textRect.y += insetY;
 		textRect.h = std::max(1, textRect.h - insetY * 2);
 		addText(builder, model, source, bodyPx,
