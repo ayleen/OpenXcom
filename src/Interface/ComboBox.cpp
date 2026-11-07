@@ -509,7 +509,7 @@ void ComboBox::toggle(bool first, bool listClick)
 	{
 		_window->setVisible(false);
 		_list->setVisible(false);
-		_state->setModal(0);
+		_state->clearModal(this);
 		return;
 	}
 	#endif

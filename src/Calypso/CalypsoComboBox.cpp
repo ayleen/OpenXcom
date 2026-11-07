@@ -178,7 +178,7 @@ void ComboBox::calypsoHdConfigurePopupSelection(int rowHeight, int optionInsetX,
 	{
 		_window->setVisible(false);
 		_list->setVisible(false);
-		_state->setModal(0);
+		_state->clearModal(this);
 	}
 	_list->configureCalypsoHdSelectionList(0, 0, stride, 0, listHeight,
 		visibleRows, descriptorGeometry ? rowBoundaries : std::vector<int>{});
