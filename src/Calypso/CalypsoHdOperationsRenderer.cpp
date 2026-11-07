@@ -196,6 +196,8 @@ void appendChooser(std::ostringstream& out,
 	appendRect(out, "bounds", chooser.bounds, first);
 	appendInt(out, "optionInsetX", chooser.optionInsetX, first);
 	appendInt(out, "optionInsetY", chooser.optionInsetY, first);
+	appendSize(out, "scrollOffset", chooser.scrollOffset, first);
+	appendSize(out, "visibleRows", chooser.visibleRows, first);
 	appendInt(out, "selectedIndex", chooser.selectedIndex, first);
 	appendInt(out, "hoveredIndex", chooser.hoveredIndex, first);
 	appendBool(out, "owner", chooser.owner != nullptr, first);

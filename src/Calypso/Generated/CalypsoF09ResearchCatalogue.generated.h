@@ -24,6 +24,7 @@ struct CalypsoF09ResearchCatalogueGenToolbarChooser
 	int optionInsetX;
 	int optionInsetY;
 	int maxOptions;
+	int minPanelWidth;
 	CalypsoF09ResearchCatalogueGenRect bounds;
 };
 

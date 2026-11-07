@@ -1787,6 +1787,7 @@ def emit_family_h(doc, rel, ns, prefix, profile):
             TAB + "int optionInsetX;",
             TAB + "int optionInsetY;",
             TAB + "int maxOptions;",
+            TAB + "int minPanelWidth;",
             TAB + prefix + "GenRect bounds;",
             "};",
             "",

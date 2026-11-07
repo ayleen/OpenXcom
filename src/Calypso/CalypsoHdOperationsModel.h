@@ -158,6 +158,11 @@ struct CalypsoHdOperationsChooser
 	CalypsoHdOperationsRect bounds;
 	int optionInsetX = 0;
 	int optionInsetY = 0;
+	/// Native popup window state used by the Reference chooser renderer. These
+	/// values describe the currently visible window, not the complete option
+	/// inventory.
+	std::size_t scrollOffset = 0;
+	std::size_t visibleRows = 0;
 	int selectedIndex = -1;
 	int hoveredIndex = -1;
 	const void* owner = nullptr;

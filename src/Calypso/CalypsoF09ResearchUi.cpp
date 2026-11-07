@@ -1143,6 +1143,8 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 			g->toolbarChooser.maxOptions, _catalogue->_cbxSort->calypsoHdPopupAboveButton(), chooserMinWidth);
 		model.chooser.panel = {chooserLayout.panel.x, chooserLayout.panel.y,
 			chooserLayout.panel.w, chooserLayout.panel.h};
+		model.chooser.scrollOffset = popupList->getScroll();
+		model.chooser.visibleRows = popupList->getVisibleRows();
 		model.chooser.selectedIndex = popupList->getTexts() > 0
 			? static_cast<int>(_catalogue->_cbxSort->getSelected()) : -1;
 		model.chooser.hoveredIndex = popupList->getTexts() > 0
@@ -1166,7 +1168,7 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 				model.chooser.panel.w - 2 * model.chooser.optionInsetX, rowHeight};
 			option.state.visible = model.chooser.open
 				&& popupOffset >= 0
-				&& popupOffset < chooserLayout.visibleRows;
+				&& popupOffset < static_cast<int>(model.chooser.visibleRows);
 			option.state.selected = static_cast<int>(index) == model.chooser.selectedIndex;
 			option.state.hovered = static_cast<int>(index) == model.chooser.hoveredIndex;
 			option.widget = popupList;

@@ -24,6 +24,7 @@ struct CalypsoF14ResearchDiaryGenToolbarChooser
 	int optionInsetX;
 	int optionInsetY;
 	int maxOptions;
+	int minPanelWidth;
 	CalypsoF14ResearchDiaryGenRect bounds;
 };
 

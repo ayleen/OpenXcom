@@ -1123,6 +1123,8 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 			g->toolbarChooser.maxOptions, activeCombo->calypsoHdPopupAboveButton(), modelChooserMinWidth);
 		model.chooser.panel = {chooserLayout.panel.x, chooserLayout.panel.y,
 			chooserLayout.panel.w, chooserLayout.panel.h};
+		model.chooser.scrollOffset = popupList->getScroll();
+		model.chooser.visibleRows = popupList->getVisibleRows();
 		model.chooser.selectedIndex = static_cast<int>(activeCombo->getSelected());
 		model.chooser.hoveredIndex = static_cast<int>(activeCombo->getHoveredListIdx());
 		const int popupScroll = static_cast<int>(popupList->getScroll());
@@ -1136,7 +1138,8 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 			option.rect = {model.chooser.panel.x + model.chooser.optionInsetX,
 				model.chooser.panel.y + model.chooser.optionInsetY + popupOffset * optionHeight,
 				model.chooser.panel.w - 2 * model.chooser.optionInsetX, optionHeight};
-			option.state.visible = popupOffset >= 0 && popupOffset < chooserLayout.visibleRows;
+			option.state.visible = popupOffset >= 0
+				&& popupOffset < static_cast<int>(model.chooser.visibleRows);
 			option.state.selected = index == model.chooser.selectedIndex;
 			option.state.hovered = index == model.chooser.hoveredIndex;
 			option.widget = popupList;

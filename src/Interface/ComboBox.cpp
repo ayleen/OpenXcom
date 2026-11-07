@@ -445,10 +445,26 @@ void ComboBox::handle(Action *action, State *state)
 	#endif
 	_list->handle(action, state);
 	InteractiveSurface::handle(action, state);
+#ifdef __EMSCRIPTEN__
+	// HD popup geometry may be wider than its toolbar opener. Dismiss only
+	// when the pointer is outside both actual owners so an option beyond the
+	// opener's horizontal bounds can still receive the gesture.
+	const int mouseX = action->getAbsoluteXMouse();
+	const int mouseY = action->getAbsoluteYMouse();
+	const bool insideButton = mouseX >= getX() && mouseX < getX() + getWidth()
+		&& mouseY >= getY() && mouseY < getY() + getHeight();
+	const bool insidePopup = mouseX >= _window->getX()
+		&& mouseX < _window->getX() + _window->getWidth()
+		&& mouseY >= _window->getY()
+		&& mouseY < _window->getY() + _window->getHeight();
+	if (_window->getVisible() && action->getDetails()->type == SDL_MOUSEBUTTONDOWN
+		&& !insideButton && !insidePopup)
+#else
 	int topY = std::min(getY(), _window->getY());
 	if (_window->getVisible() && action->getDetails()->type == SDL_MOUSEBUTTONDOWN &&
 		(action->getAbsoluteXMouse() < getX() || action->getAbsoluteXMouse() >= getX() + getWidth() ||
 		 action->getAbsoluteYMouse() < topY || action->getAbsoluteYMouse() >= topY + getHeight() + _window->getHeight()))
+#endif
 	{
 		toggle(false, false);
 	}
