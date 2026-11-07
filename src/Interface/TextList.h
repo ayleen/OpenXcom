@@ -89,6 +89,9 @@ private:
 	int _hdRowOriginY = 0;
 	int _hdDataViewportH = 0;
 	size_t _hdVisibleRows = 0;
+	/// Optional projected half-open row edges relative to the list top. When
+	/// present, these are authoritative for HD popup hit-testing and painting.
+	std::vector<int> _hdRowBoundaries;
 	double _hdLastHoverX = 1e30;
 	double _hdLastHoverY = 1e30;
 #endif
@@ -205,7 +208,8 @@ public:
 	/// scrollbar placement and row hit-testing; same values re-applied preserve
 	/// drag capture, real changes reset it.
 	void configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbHeight,
-		int rowStride, int rowOriginY, int dataViewportH, size_t visibleRows);
+		int rowStride, int rowOriginY, int dataViewportH, size_t visibleRows,
+		const std::vector<int>& rowBoundaries = {});
 	void clearCalypsoHdSelectionList();
 	/// Invalidate the HD owner selection after a filtered list rebuild. This
 	/// keeps stale action rectangles from activating the new row zero; vanilla
@@ -215,6 +219,7 @@ public:
 	/// Read-only projected HD row stride used by paint, hit-testing and pointer
 	/// warp. Zero means that this list has no active HD selection-list seam.
 	int getCalypsoHdRowStride() const { return _hdRowStride; }
+	const std::vector<int>& getCalypsoHdRowBoundaries() const { return _hdRowBoundaries; }
 	/// Read-only native track/thumb in the list's logical space, valid before
 	/// input even when native draw never runs. Thumb h is 0 when nothing scrolls.
 	SDL_Rect getCalypsoHdTrackRect() const;

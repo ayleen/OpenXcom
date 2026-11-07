@@ -141,6 +141,33 @@ struct CalypsoSelectionListRowHit
 	std::size_t index = 0;
 };
 
+/// Hit-test against projected half-open row edges. Boundaries are relative to
+/// the list surface top and contain one more edge than visible slots. Keeping
+/// these edges explicit avoids re-rounding a CSS row stride at fractional
+/// presentation scales.
+inline CalypsoSelectionListRowHit calypsoSelectionListRowAtBoundaries(
+	double relativeLogicalY, const std::vector<int>& boundaries,
+	std::size_t scroll, std::size_t total, std::size_t visibleCapacity)
+{
+	CalypsoSelectionListRowHit out;
+	if (total == 0 || visibleCapacity == 0 || boundaries.size() < 2)
+		return out;
+	const std::size_t slots = std::min(visibleCapacity, boundaries.size() - 1);
+	for (std::size_t slot = 0; slot < slots; ++slot)
+	{
+		const double top = static_cast<double>(boundaries[slot]);
+		const double bottom = static_cast<double>(boundaries[slot + 1]);
+		if (bottom <= top || relativeLogicalY < top || relativeLogicalY >= bottom)
+			continue;
+		const std::size_t index = scroll + slot;
+		if (index >= total) return out;
+		out.hit = true;
+		out.index = index;
+		return out;
+	}
+	return out;
+}
+
 inline CalypsoSelectionListRowHit calypsoSelectionListRowAtLogicalY(
 	double relativeLogicalY, double rowStride, double rowOrigin,
 	std::size_t scroll, std::size_t total, std::size_t visibleCapacity)

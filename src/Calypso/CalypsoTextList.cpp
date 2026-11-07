@@ -165,6 +165,12 @@ Calypso::CalypsoSelectionListRowHit TextList::calypsoHdRowHit(const Action *acti
 	// row slots into. getRelativeYMouse() would be display px — one conversion,
 	// never mixed systems.
 	const double relativeLogicalY = action->getAbsoluteYMouse() - static_cast<double>(getY());
+	if (!_hdRowBoundaries.empty())
+	{
+		return Calypso::calypsoSelectionListRowAtBoundaries(
+			relativeLogicalY,
+			_hdRowBoundaries, _scroll, _rows.size(), _hdVisibleRows);
+	}
 	return Calypso::calypsoSelectionListRowAtLogicalY(
 		relativeLogicalY, static_cast<double>(_hdRowStride),
 		static_cast<double>(_hdRowOriginY), _scroll, _rows.size(), _hdVisibleRows);
@@ -310,7 +316,8 @@ void TextList::setTTFFont(TTFFont* font, float fillFrac)
 }
 
 void TextList::configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbHeight,
-	int rowStride, int rowOriginY, int dataViewportH, size_t visibleRows)
+	int rowStride, int rowOriginY, int dataViewportH, size_t visibleRows,
+	const std::vector<int>& rowBoundaries)
 {
 	// A descriptor without a fixed row stride is not an HD selection-list
 	// configuration. Disable the seam completely so the native list keeps its
@@ -325,6 +332,19 @@ void TextList::configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbH
 	const int cachedOrigin = rowOriginY > 0 ? rowOriginY : 0;
 	const int cachedViewportH = dataViewportH > 0 ? dataViewportH : 0;
 	const size_t cachedVisible = visibleRows;
+	std::vector<int> cachedBoundaries;
+	if (rowBoundaries.size() == cachedVisible + 1)
+	{
+		cachedBoundaries = rowBoundaries;
+		for (std::size_t i = 1; i < cachedBoundaries.size(); ++i)
+		{
+			if (cachedBoundaries[i] < cachedBoundaries[i - 1])
+			{
+				cachedBoundaries.clear();
+				break;
+			}
+		}
+	}
 	const bool fixedStride = cachedStride > 0 && cachedVisible > 0;
 	if (fixedStride && !_hdFixedStride)
 	{
@@ -337,7 +357,8 @@ void TextList::configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbH
 	_hdFixedStride = fixedStride;
 	const bool changed = !_hdSelList || _hdScrollBarWidth != scrollBarWidth || _hdMinThumb != minThumbHeight ||
 		_hdRowStride != cachedStride || _hdRowOriginY != cachedOrigin ||
-		_hdDataViewportH != cachedViewportH || _hdVisibleRows != cachedVisible;
+		_hdDataViewportH != cachedViewportH || _hdVisibleRows != cachedVisible ||
+		_hdRowBoundaries != cachedBoundaries;
 	_hdSelList = true;
 	_hdScrollBarWidth = scrollBarWidth > 0 ? scrollBarWidth : 0;
 	_hdMinThumb = minThumbHeight > 0 ? minThumbHeight : 0;
@@ -345,6 +366,7 @@ void TextList::configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbH
 	_hdRowOriginY = cachedOrigin;
 	_hdDataViewportH = cachedViewportH;
 	_hdVisibleRows = cachedVisible;
+	_hdRowBoundaries = std::move(cachedBoundaries);
 	if (changed)
 	{
 		_scrollbar->setCalypsoHdMinThumb(_hdMinThumb);
@@ -375,6 +397,7 @@ void TextList::clearCalypsoHdSelectionList()
 	_hdRowOriginY = 0;
 	_hdDataViewportH = 0;
 	_hdVisibleRows = 0;
+	_hdRowBoundaries.clear();
 	_hdLastHoverX = 1e30;
 	_hdLastHoverY = 1e30;
 	_scrollbar->clearCalypsoHd();

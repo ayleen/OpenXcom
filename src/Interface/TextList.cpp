@@ -846,6 +846,25 @@ void TextList::updateSelector()
 	Text *selText = _texts[_rows[_selRow]].front();
 	int y = getY() + selText->getY();
 	int actualHeight = selText->getHeight() + _font->getSpacing();
+#ifdef __EMSCRIPTEN__
+	// HD popups may have fractional projected row heights. Use the same
+	// half-open boundaries as hit-testing so the native selector highlight does
+	// not fall back to the rounded uniform TextList stride.
+	if (_hdSelList && !_hdRowBoundaries.empty() && _selRow >= _scroll)
+	{
+		const std::size_t slot = _selRow - _scroll;
+		if (slot + 1 < _hdRowBoundaries.size())
+		{
+			const int top = _hdRowBoundaries[slot];
+			const int bottom = _hdRowBoundaries[slot + 1];
+			if (bottom > top)
+			{
+				y = getY() + top;
+				actualHeight = bottom - top;
+			}
+		}
+	}
+#endif
 	if (y < getY() || y + actualHeight > getY() + getHeight()) actualHeight /= 2;
 	if (y < getY()) y = getY();
 	if (_selector->getHeight() != actualHeight)

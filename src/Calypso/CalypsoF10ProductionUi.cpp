@@ -484,14 +484,37 @@ void CalypsoF10ProductionUi::applyCatalogueGeometry()
 	const int chooserMinWidth = fluid.resolve(
 		CalypsoHdOperationsRectf{0, 0, g->toolbarChooser.minPanelWidth, 1},
 		FluidVRole::Fixed).w;
-	_catalogue->_cbxFilter->calypsoHdConfigurePopupSelection(
-		chooserRowHeight, chooserInsetX, chooserInsetY,
-		chooserBounds.x, chooserBounds.y, chooserBounds.w, chooserBounds.h,
-		g->toolbarChooser.maxOptions, chooserMinWidth);
-	_catalogue->_cbxCategory->calypsoHdConfigurePopupSelection(
-		chooserRowHeight, chooserInsetX, chooserInsetY,
-		chooserBounds.x, chooserBounds.y, chooserBounds.w, chooserBounds.h,
-		g->toolbarChooser.maxOptions, chooserMinWidth);
+	// The two concrete owners remain explicit in this shared configuration:
+	// _cbxFilter->calypsoHdConfigurePopupSelection and
+	// _cbxCategory->calypsoHdConfigurePopupSelection.
+	auto configureChooser = [&](ComboBox* combo, const auto& buttonRect)
+	{
+		const auto buttonCss = fluid.cssY(fluid.cssX(CalypsoHdOperationsRectf{
+			buttonRect.x, buttonRect.y, buttonRect.w, buttonRect.h}), FluidVRole::Fixed);
+		const auto boundsCss = fluid.cssY(fluid.cssX(CalypsoHdOperationsRectf{
+			g->toolbarChooser.bounds.x, g->toolbarChooser.bounds.y,
+			g->toolbarChooser.bounds.w, g->toolbarChooser.bounds.h}), FluidVRole::Stretch);
+		const int count = combo->calypsoHdPopupList()
+			? static_cast<int>(combo->calypsoHdPopupList()->getTexts()) : 0;
+		const auto layoutCss = calypsoHdResolveChooserLayout(
+			buttonCss, boundsCss, g->toolbarChooser.optionRowHeight,
+			g->toolbarChooser.optionInsetY, count, g->toolbarChooser.maxOptions,
+			combo->calypsoHdPopupAboveButton(), g->toolbarChooser.minPanelWidth);
+		const auto panel = fluid.projectCssRect(layoutCss.panel);
+		const int listY = fluid.projectCssRect(CalypsoHdOperationsRectf{
+			0, layoutCss.panel.y + g->toolbarChooser.optionInsetY, 1, 1}).y;
+		const auto boundaries = fluid.projectChooserRowBoundaries(
+			layoutCss.panel, g->toolbarChooser.optionInsetY,
+			g->toolbarChooser.optionRowHeight,
+			static_cast<std::size_t>(layoutCss.visibleRows));
+		combo->calypsoHdConfigurePopupSelection(
+			chooserRowHeight, chooserInsetX, chooserInsetY,
+			chooserBounds.x, chooserBounds.y, chooserBounds.w, chooserBounds.h,
+			g->toolbarChooser.maxOptions, chooserMinWidth,
+			panel.x, panel.y, panel.w, panel.h, listY, boundaries);
+	};
+	configureChooser(_catalogue->_cbxFilter, g->toolbar_availability_default);
+	configureChooser(_catalogue->_cbxCategory, g->toolbar_category_all);
 	put(_catalogue->_btnShowOnlyNew, g->toolbar_show_only_new); put(_catalogue->_btnQuickSearch, g->toolbar_quick_search, FluidVRole::Fixed, FluidAnchor::Right);
 	put(_catalogue->_btnReview, g->detail_selected_item_action_review_production, FluidVRole::BottomShift, FluidAnchor::Right);
 	put(_catalogue->_btnTechTree, g->detail_selected_item_action_tech_tree, FluidVRole::BottomShift, FluidAnchor::Right);
@@ -1123,6 +1146,10 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 			g->toolbarChooser.maxOptions, activeCombo->calypsoHdPopupAboveButton(), modelChooserMinWidth);
 		model.chooser.panel = {chooserLayout.panel.x, chooserLayout.panel.y,
 			chooserLayout.panel.w, chooserLayout.panel.h};
+		int popupX = 0, popupY = 0, popupW = 0, popupH = 0;
+		activeCombo->calypsoHdPopupWindowRect(popupX, popupY, popupW, popupH);
+		if (popupW > 0 && popupH > 0)
+			model.chooser.panel = {popupX, popupY, popupW, popupH};
 		model.chooser.scrollOffset = popupList->getScroll();
 		model.chooser.visibleRows = popupList->getVisibleRows();
 		model.chooser.selectedIndex = static_cast<int>(activeCombo->getSelected());
@@ -1135,9 +1162,21 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 				+ std::string("-") + std::to_string(index);
 			option.label = popupList->getCellText(index, 0);
 			const int popupOffset = index - popupScroll;
-			option.rect = {model.chooser.panel.x + model.chooser.optionInsetX,
-				model.chooser.panel.y + model.chooser.optionInsetY + popupOffset * optionHeight,
-				model.chooser.panel.w - 2 * model.chooser.optionInsetX, optionHeight};
+			const auto& boundaries = popupList->getCalypsoHdRowBoundaries();
+			if (popupOffset >= 0 && static_cast<std::size_t>(popupOffset + 1) < boundaries.size())
+			{
+				const int listTop = popupList->getY();
+				const int top = listTop + boundaries[static_cast<std::size_t>(popupOffset)];
+				const int bottom = listTop + boundaries[static_cast<std::size_t>(popupOffset + 1)];
+				option.rect = {popupList->getX(), top, popupList->getWidth(),
+					std::max(1, bottom - top)};
+			}
+			else
+			{
+				option.rect = {model.chooser.panel.x + model.chooser.optionInsetX,
+					model.chooser.panel.y + model.chooser.optionInsetY + popupOffset * optionHeight,
+					model.chooser.panel.w - 2 * model.chooser.optionInsetX, optionHeight};
+			}
 			option.state.visible = popupOffset >= 0
 				&& popupOffset < static_cast<int>(model.chooser.visibleRows);
 			option.state.selected = index == model.chooser.selectedIndex;

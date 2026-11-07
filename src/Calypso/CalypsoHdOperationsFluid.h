@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <vector>
 
 namespace OpenXcom
 {
@@ -116,6 +117,39 @@ public:
 			CalypsoHdOperationsFluidPolicy::Anchor::Geometry) const
 	{
 		return projectCss(cssY(cssX(rect, anchor), role));
+	}
+
+	/// Project an already-resolved CSS rectangle without applying the fluid
+	/// policy a second time. Used for popup geometry whose placement is resolved
+	/// by the shared chooser policy before edge projection.
+	CalypsoHdOperationsRect projectCssRect(const CalypsoHdOperationsRectf &rect) const
+	{
+		return projectCss(rect);
+	}
+
+	/// Project each authored chooser row edge individually. The returned edges
+	/// are relative to the projected list top and therefore remain authoritative
+	/// for both the native TextList and the HD option rectangles at fractional
+	/// presentation scales.
+	std::vector<int> projectChooserRowBoundaries(
+		const CalypsoHdOperationsRectf& panelCss, int insetYCss,
+		int rowHeightCss, std::size_t visibleRows) const
+	{
+		std::vector<int> edges;
+		if (rowHeightCss <= 0) return edges;
+		// Native placement uses the one projected list top. Keep the first edge
+		// exactly at that top; separately projecting panel and inset can differ by
+		// one pixel at a fractional scale.
+		const int listTop = projectCss({0,
+			panelCss.y + std::max(0, insetYCss), 1, 1}).y;
+		edges.reserve(visibleRows + 1);
+		for (std::size_t i = 0; i <= visibleRows; ++i)
+		{
+			const int cssY = panelCss.y + std::max(0, insetYCss)
+				+ static_cast<int>(i) * rowHeightCss;
+			edges.push_back(projectCss({0, cssY, 1, 1}).y - listTop);
+		}
+		return edges;
 	}
 
 	CalypsoHdOperationsFluidPolicy policy;

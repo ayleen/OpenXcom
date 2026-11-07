@@ -93,7 +93,8 @@ void ComboBox::calypsoHdPopupWindowRect(int& x, int& y, int& width, int& height)
 
 void ComboBox::calypsoHdConfigurePopupSelection(int rowHeight, int optionInsetX,
 	int optionInsetY, int boundsX, int boundsY, int boundsW, int boundsH,
-	int maxOptions, int minPanelWidth)
+	int maxOptions, int minPanelWidth, int panelX, int panelY, int panelW,
+	int panelH, int listY, const std::vector<int>& rowBoundaries)
 {
 	if (!_window || !_list) return;
 	const int stride = std::max(1, rowHeight);
@@ -103,14 +104,24 @@ void ComboBox::calypsoHdConfigurePopupSelection(int rowHeight, int optionInsetX,
 	const int safeW = std::max(1, boundsW);
 	const int safeH = std::max(1, boundsH);
 	const int safeMinPanelWidth = std::max(1, minPanelWidth);
-	const auto layout = Calypso::calypsoHdResolveChooserLayout(
+	auto layout = Calypso::calypsoHdResolveChooserLayout(
 		{getX(), getY(), getWidth(), getHeight()},
 		{boundsX, boundsY, safeW, safeH}, stride, insetY,
 		static_cast<int>(count), maxOptions, _popupAboveButton,
 		safeMinPanelWidth);
+	if (panelX >= 0 && panelY >= 0 && panelW > 0 && panelH > 0)
+	{
+		layout.panel.x = panelX;
+		layout.panel.y = panelY;
+		layout.panel.w = panelW;
+		layout.panel.h = panelH;
+	}
 	const int panelWidth = layout.panel.w;
 	const int listWidth = std::max(1, panelWidth - 2 * insetX);
-	const int listHeight = std::max(1, layout.visibleRows * stride);
+	const int projectedListHeight = rowBoundaries.size() ==
+		static_cast<std::size_t>(layout.visibleRows + 1)
+		&& !rowBoundaries.empty() ? rowBoundaries.back() : layout.visibleRows * stride;
+	const int listHeight = std::max(1, projectedListHeight);
 	const int popupY = layout.panel.y;
 	_window->setX(layout.panel.x);
 	_window->setWidth(panelWidth);
@@ -122,10 +133,11 @@ void ComboBox::calypsoHdConfigurePopupSelection(int rowHeight, int optionInsetX,
 	_list->setMinimumRowHeight(stride);
 	// The HD row rectangles already include the authored inset. The legacy
 	// three-pixel margin would shift native hit testing below the painted row.
-	_list->setY(popupY + insetY);
+	// Fallback remains the legacy geometry: _list->setY(popupY + insetY).
+	_list->setY(listY >= 0 ? listY : popupY + insetY);
 	_list->setHeight(listHeight);
 	_list->configureCalypsoHdSelectionList(0, 0, stride, 0, listHeight,
-		layout.visibleRows);
+		layout.visibleRows, rowBoundaries);
 }
 
 void ComboBox::calypsoHdSuppressPopupWidgets(std::vector<const void*>& widgets) const
