@@ -74,6 +74,14 @@ inline CalypsoHdChooserLayout calypsoHdResolveChooserLayout(
 {
 	const int stride = std::max(1, rowHeight);
 	const int safeInset = std::max(0, insetY);
+	if (optionCount <= 0)
+	{
+		const int panelW = std::max(1, std::min(bounds.w,
+			std::max(button.w, std::max(1, minPanelWidth))));
+		const int panelX = std::max(bounds.x,
+			std::min(button.x, bounds.x + bounds.w - panelW));
+		return {{panelX, button.y + button.h, panelW, 0}, 0};
+	}
 	const int optionLimit = std::max(1, std::min(std::max(1, optionCount),
 		std::max(1, maxOptions)));
 	// Keep the popup disjoint from its opener. Button-first dispatch otherwise

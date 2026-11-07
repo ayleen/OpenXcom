@@ -9,6 +9,7 @@
 #include "../Engine/TTFFont.h"
 #include "../fmath.h"
 #include "CalypsoHdOperationsLayout.h"
+#include "CalypsoHdUiOverlay.h"
 
 #include <algorithm>
 
@@ -94,7 +95,8 @@ void ComboBox::calypsoHdPopupWindowRect(int& x, int& y, int& width, int& height)
 void ComboBox::calypsoHdConfigurePopupSelection(int rowHeight, int optionInsetX,
 	int optionInsetY, int boundsX, int boundsY, int boundsW, int boundsH,
 	int maxOptions, int minPanelWidth, int panelX, int panelY, int panelW,
-	int panelH, int listY, const std::vector<int>& rowBoundaries)
+	int panelH, int listX, int listY, int listW,
+	const std::vector<int>& rowBoundaries, bool projectedDescriptor)
 {
 	if (!_window || !_list) return;
 	const int stride = std::max(1, rowHeight);
@@ -116,28 +118,70 @@ void ComboBox::calypsoHdConfigurePopupSelection(int rowHeight, int optionInsetX,
 		layout.panel.w = panelW;
 		layout.panel.h = panelH;
 	}
+	const bool emptyDescriptor = projectedDescriptor && count == 0 && rowBoundaries.empty();
+	const bool validBoundaries = emptyDescriptor || (rowBoundaries.size() >= 2
+		&& rowBoundaries.front() == 0
+		&& std::is_sorted(rowBoundaries.begin(), rowBoundaries.end())
+		&& rowBoundaries.back() > 0);
+	const std::size_t descriptorRows = emptyDescriptor ? 0
+		: (validBoundaries ? rowBoundaries.size() - 1 : 0);
 	const int panelWidth = layout.panel.w;
-	const int listWidth = std::max(1, panelWidth - 2 * insetX);
-	const int projectedListHeight = rowBoundaries.size() ==
-		static_cast<std::size_t>(layout.visibleRows + 1)
-		&& !rowBoundaries.empty() ? rowBoundaries.back() : layout.visibleRows * stride;
-	const int listHeight = std::max(1, projectedListHeight);
+	const int descriptorListWidth = listW > 0 ? listW : std::max(1, panelWidth - 2 * insetX);
+	const int descriptorListHeight = emptyDescriptor ? 0
+		: (validBoundaries ? rowBoundaries.back() : 0);
+	const int descriptorListX = listX >= 0 ? listX : layout.panel.x + insetX;
 	const int popupY = layout.panel.y;
+	const int descriptorListY = listY >= 0 ? listY : popupY + insetY;
+	const bool descriptorGeometry = emptyDescriptor || (validBoundaries
+		&& descriptorListWidth > 0 && descriptorListHeight > 0
+		&& descriptorListX >= layout.panel.x
+		&& descriptorListY >= popupY
+		&& descriptorListX + descriptorListWidth <= layout.panel.x + panelWidth
+		&& descriptorListY + descriptorListHeight <= popupY + layout.panel.h);
+	if (projectedDescriptor)
+	{
+		_calypsoHdDescriptorFailed = !descriptorGeometry;
+		_calypsoHdDescriptorEmpty = emptyDescriptor;
+	}
+	if (projectedDescriptor && !descriptorGeometry)
+	{
+		// An explicitly supplied HD descriptor is authoritative. Never silently
+		// fall back to a rounded legacy stride: that would expose painted rows
+		// whose native owner no longer matches the visible geometry.
+		_list->clearCalypsoHdSelectionList();
+		_window->setVisible(false);
+		_list->setVisible(false);
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+			"invalid explicit HD chooser geometry descriptor");
+		return;
+	}
+	if (projectedDescriptor && descriptorGeometry)
+		_calypsoHdDescriptorFailed = false;
+	const std::size_t visibleRows = descriptorGeometry
+		? descriptorRows : static_cast<std::size_t>(std::max(0, layout.visibleRows));
+	const int listWidth = descriptorGeometry ? descriptorListWidth : std::max(1, panelWidth - 2 * insetX);
+	const int listHeight = descriptorGeometry ? descriptorListHeight : static_cast<int>(visibleRows) * stride;
 	_window->setX(layout.panel.x);
 	_window->setWidth(panelWidth);
 	_window->setY(popupY);
 	_window->setHeight(layout.panel.h);
-	_list->setX(layout.panel.x + insetX);
+	_list->setX(descriptorGeometry ? descriptorListX : layout.panel.x + insetX);
 	_list->setWidth(listWidth);
 	_list->rebaseNativeSize(listWidth, stride);
 	_list->setMinimumRowHeight(stride);
 	// The HD row rectangles already include the authored inset. The legacy
 	// three-pixel margin would shift native hit testing below the painted row.
 	// Fallback remains the legacy geometry: _list->setY(popupY + insetY).
-	_list->setY(listY >= 0 ? listY : popupY + insetY);
+	_list->setY(descriptorGeometry ? descriptorListY : popupY + insetY);
 	_list->setHeight(listHeight);
+	if (emptyDescriptor)
+	{
+		_window->setVisible(false);
+		_list->setVisible(false);
+		_state->setModal(0);
+	}
 	_list->configureCalypsoHdSelectionList(0, 0, stride, 0, listHeight,
-		layout.visibleRows, rowBoundaries);
+		visibleRows, descriptorGeometry ? rowBoundaries : std::vector<int>{});
 }
 
 void ComboBox::calypsoHdSuppressPopupWidgets(std::vector<const void*>& widgets) const

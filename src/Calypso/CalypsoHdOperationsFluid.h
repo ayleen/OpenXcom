@@ -136,7 +136,7 @@ public:
 		int rowHeightCss, std::size_t visibleRows) const
 	{
 		std::vector<int> edges;
-		if (rowHeightCss <= 0) return edges;
+		if (rowHeightCss <= 0 || visibleRows == 0) return edges;
 		// Native placement uses the one projected list top. Keep the first edge
 		// exactly at that top; separately projecting panel and inset can differ by
 		// one pixel at a fractional scale.
@@ -150,6 +150,16 @@ public:
 			edges.push_back(projectCss({0, cssY, 1, 1}).y - listTop);
 		}
 		return edges;
+	}
+
+	CalypsoHdOperationsRect projectChooserListRect(
+		const CalypsoHdOperationsRectf& panelCss, int insetXCss,
+		int insetYCss, int listHeightCss) const
+	{
+		return projectCss({panelCss.x + std::max(0, insetXCss),
+			panelCss.y + std::max(0, insetYCss),
+			std::max(1, panelCss.w - 2 * std::max(0, insetXCss)),
+			std::max(1, listHeightCss)});
 	}
 
 	CalypsoHdOperationsFluidPolicy policy;

@@ -430,6 +430,13 @@ void ComboBox::handle(Action *action, State *state)
 {
 	if (!_visible || _hidden)
 		return;
+	#ifdef __EMSCRIPTEN__
+	if (_calypsoHdDescriptorFailed || _calypsoHdDescriptorEmpty)
+	{
+		if (_window->getVisible()) toggle(false, false);
+		return;
+	}
+	#endif
 
 	#ifdef __EMSCRIPTEN__
 	// A compact HD popup is repositioned below the toolbar owner. If the
@@ -497,6 +504,15 @@ void ComboBox::think()
  */
 void ComboBox::toggle(bool first, bool listClick)
 {
+	#ifdef __EMSCRIPTEN__
+	if (_calypsoHdDescriptorFailed || _calypsoHdDescriptorEmpty)
+	{
+		_window->setVisible(false);
+		_list->setVisible(false);
+		_state->setModal(0);
+		return;
+	}
+	#endif
 	_window->setVisible(!_window->getVisible());
 	_list->setVisible(!_list->getVisible());
 	_state->setModal(_window->getVisible() ? this : 0);
@@ -506,6 +522,13 @@ void ComboBox::toggle(bool first, bool listClick)
 	}
 	if (_list->getVisible())
 	{
+		#ifdef __EMSCRIPTEN__
+		if (_list->getVisibleRows() == 0)
+		{
+			_list->setVisible(false);
+			return;
+		}
+		#endif
 		if (_sel < _list->getVisibleRows()/2 || _sel == (size_t)-1)
 		{
 			_list->scrollTo(0);

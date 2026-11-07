@@ -64,6 +64,8 @@ private:
 	std::vector<std::string> _optionsCache;
 	std::vector<bool> _optionEnabled;
 	bool _optionsCacheTranslate = false;
+	bool _calypsoHdDescriptorFailed = false;
+	bool _calypsoHdDescriptorEmpty = false;
 #endif
 
 	void drawArrow();
@@ -94,7 +96,9 @@ public:
 		int optionInsetY, int boundsX, int boundsY, int boundsW, int boundsH,
 		int maxOptions = 10, int minPanelWidth = 240,
 		int panelX = -1, int panelY = -1, int panelW = 0, int panelH = 0,
-		int listY = -1, const std::vector<int>& rowBoundaries = {});
+		int listX = -1, int listY = -1, int listW = 0,
+		const std::vector<int>& rowBoundaries = {},
+		bool projectedDescriptor = false);
 	bool calypsoHdPopupAboveButton() const { return _popupAboveButton; }
 	void calypsoHdSuppressPopupWidgets(std::vector<const void*>& widgets) const;
 #endif
