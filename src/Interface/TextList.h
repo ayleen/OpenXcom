@@ -21,6 +21,9 @@
 #include <map>
 #include "../Engine/InteractiveSurface.h"
 #include "Text.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoSelectionListScroll.h"
+#endif
 
 namespace OpenXcom
 {
@@ -72,10 +75,23 @@ private:
 	/// When enabled the inset track/thumb geometry is shared with the HD
 	/// painter and the ScrollBar owns track/drag input exclusively.
 	bool _hdSelList = false;
+	/// Fixed-stride HD uses one logical entry per TextList item. Vanilla keeps
+	/// one physical entry per wrapped line, so retain that exact map while the
+	/// opt-in seam is active and restore it on clear.
+	std::vector<size_t> _hdPhysicalRows;
+	bool _hdFixedStride = false;
 	int _hdScrollBarWidth = 0;
 	int _hdMinThumb = 0;
 	int _hdRowStride = 0;
+	/// Calypso HD data viewport (engine-logical px): offset from the surface
+	/// top to the first painted row slot (header owns no rows) and the union
+	/// height of the painted row slots (trailing panel remainder owns none).
+	int _hdRowOriginY = 0;
+	int _hdDataViewportH = 0;
 	size_t _hdVisibleRows = 0;
+	/// Optional projected half-open row edges relative to the list top. When
+	/// present, these are authoritative for HD popup hit-testing and painting.
+	std::vector<int> _hdRowBoundaries;
 	double _hdLastHoverX = 1e30;
 	double _hdLastHoverY = 1e30;
 #endif
@@ -93,10 +109,13 @@ private:
 	bool calypsoHdHandleResizedHeight();
 	bool calypsoHdClaimedThisFrame() const;
 	bool calypsoHdFilterMouseOver(Action *action, State *state);
-	int calypsoHdHoverSelRow(double relY, double yScale, int nativeRowH) const;
+	bool calypsoHdApplyMouseOverSelection(Action *action, State *state, int rowHeight);
+	Calypso::CalypsoSelectionListRowHit calypsoHdRowHit(const Action *action) const;
 	bool calypsoHdSuppressClick(Action *action) const;
 	void calypsoHdMaybeApplyTtf(Text *txt);
 	void calypsoHdNormalizeRowHeights(std::vector<Text*> &row, int rowHeight, int cols);
+	void calypsoHdNormalizeRowMap();
+	void calypsoHdRestoreRowMap();
 	/// Repositions the native scrollbar onto the inset HD track (change-guarded).
 	void positionCalypsoHdScrollbar();
 	/// True when the absolute point hits the inset HD track.
@@ -182,12 +201,25 @@ public:
 	/// Calypso HD selection-list seam: per-instance opt-in (no user toggle).
 	/// Configures the inset track width and min thumb height in engine-logical
 	/// px plus the projected generated row stride (generated.rowHeight scaled by
-	/// the SAME adapter uiScale) and generated visibleRows; the track is derived
-	/// from the actual native list rect. Same values re-applied preserve drag
-	/// capture; real changes reset it.
-	void configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbHeight, int rowStride, size_t visibleRows);
+	/// the SAME adapter uiScale), the logical offset from the surface top to the
+	/// first painted row slot (column header excluded) and the logical height of
+	/// the union of painted row slots (trailing panel remainder excluded), and
+	/// the emitted visible slot capacity. One descriptor drives paint, native
+	/// scrollbar placement and row hit-testing; same values re-applied preserve
+	/// drag capture, real changes reset it.
+	void configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbHeight,
+		int rowStride, int rowOriginY, int dataViewportH, size_t visibleRows,
+		const std::vector<int>& rowBoundaries = {});
 	void clearCalypsoHdSelectionList();
+	/// Invalidate the HD owner selection after a filtered list rebuild. This
+	/// keeps stale action rectangles from activating the new row zero; vanilla
+	/// TextList selection behavior is intentionally unchanged.
+	void invalidateCalypsoHdSelection();
 	bool isCalypsoHdSelectionList() const;
+	/// Read-only projected HD row stride used by paint, hit-testing and pointer
+	/// warp. Zero means that this list has no active HD selection-list seam.
+	int getCalypsoHdRowStride() const { return _hdRowStride; }
+	const std::vector<int>& getCalypsoHdRowBoundaries() const { return _hdRowBoundaries; }
 	/// Read-only native track/thumb in the list's logical space, valid before
 	/// input even when native draw never runs. Thumb h is 0 when nothing scrolls.
 	SDL_Rect getCalypsoHdTrackRect() const;
@@ -275,7 +307,7 @@ public:
 	/// Special handling for mouse hovering out.
 	void mouseOut(Action *action, State *state) override;
 	/// get the scroll depth
-	size_t getScroll();
+	size_t getScroll() const;
 	/// set the scroll depth
 	void scrollTo(size_t scroll);
 	/// Attaches this button to a combobox.

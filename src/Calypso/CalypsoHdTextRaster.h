@@ -52,6 +52,16 @@ public:
 	/// string is empty, or rendering fails (nothing is cached in that case).
 	SDL_Surface* rasterFor(const CalypsoHdTextRasterKey& key);
 
+	struct AuditMetrics
+	{
+		std::string fontPath;
+		bool covered = false;
+		int fontHeight = 0;
+		int lineSkip = 0;
+	};
+	/// Harness-only caller: inspect the same face selection used by rasterFor.
+	AuditMetrics auditMetricsFor(const CalypsoHdTextRasterKey& key);
+
 	/// Convenience: warms the cache for `key`. Returns rasterFor(key) != nullptr.
 	bool warm(const CalypsoHdTextRasterKey& key);
 

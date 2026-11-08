@@ -38,6 +38,9 @@
 
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
+#include "../Calypso/CalypsoF09ResearchUi.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#include "../Calypso/CalypsoPlacementHooks.h"
 #endif
 
 namespace OpenXcom
@@ -121,6 +124,9 @@ ResearchState::ResearchState(Base *base) : _base(base)
 	_lstResearch->onMouseClick((ActionHandler)&ResearchState::onSelectProject, SDL_BUTTON_LEFT);
 	_lstResearch->onMouseClick((ActionHandler)&ResearchState::onOpenTechTreeViewer, SDL_BUTTON_MIDDLE);
 	_lstResearch->onMousePress((ActionHandler)&ResearchState::lstResearchMousePress);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF09ResearchUi::configure(*this);
+#endif
 }
 
 /**
@@ -128,6 +134,10 @@ ResearchState::ResearchState(Base *base) : _base(base)
  */
 ResearchState::~ResearchState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -155,6 +165,10 @@ void ResearchState::btnNewClick(Action *)
  */
 void ResearchState::onSelectProject(Action *action)
 {
+#ifdef __EMSCRIPTEN__
+	if (action->getSender() == _lstResearch && _hdAdapter && _hdAdapter->ownsQueueReorderPoint(
+		action->getAbsoluteXMouse(), action->getAbsoluteYMouse())) return;
+#endif
 	double mx = action->getAbsoluteXMouse();
 	if (mx >= _lstResearch->getArrowsLeftEdge() && mx < _lstResearch->getArrowsRightEdge())
 	{
@@ -162,6 +176,10 @@ void ResearchState::onSelectProject(Action *action)
 	}
 
 	const std::vector<ResearchProject *> & baseProjects(_base->getResearch());
+	if (_lstResearch->getSelectedRow() >= baseProjects.size())
+	{
+		return;
+	}
 	_game->pushState(new ResearchInfoState(_base, baseProjects[_lstResearch->getSelectedRow()]));
 }
 
@@ -171,6 +189,10 @@ void ResearchState::onSelectProject(Action *action)
 */
 void ResearchState::onOpenTechTreeViewer(Action *action)
 {
+#ifdef __EMSCRIPTEN__
+	if (action->getSender() == _lstResearch && _hdAdapter && _hdAdapter->ownsQueueReorderPoint(
+		action->getAbsoluteXMouse(), action->getAbsoluteYMouse())) return;
+#endif
 	double mx = action->getAbsoluteXMouse();
 	if (mx >= _lstResearch->getArrowsLeftEdge() && mx < _lstResearch->getArrowsRightEdge())
 	{
@@ -178,7 +200,12 @@ void ResearchState::onOpenTechTreeViewer(Action *action)
 	}
 
 	const std::vector<ResearchProject *> & baseProjects(_base->getResearch());
-	const RuleResearch *selectedTopic = baseProjects[_lstResearch->getSelectedRow()]->getRules();
+	if (_lstResearch->getSelectedRow() >= baseProjects.size())
+	{
+		return;
+	}
+	const RuleResearch *selectedTopic =
+	baseProjects[_lstResearch->getSelectedRow()]->getRules();
 	_game->pushState(new TechTreeViewerState(selectedTopic, 0));
 }
 
@@ -189,6 +216,11 @@ void ResearchState::onOpenTechTreeViewer(Action *action)
 void ResearchState::lstResearchMousePress(Action *action)
 {
 	if (!_lstResearch->isInsideNoScrollArea(action->getAbsoluteXMouse()))
+	{
+		return;
+	}
+	const std::vector<ResearchProject *> & baseProjects(_base->getResearch());
+	if (_lstResearch->getSelectedRow() >= baseProjects.size())
 	{
 		return;
 	}
@@ -241,12 +273,22 @@ void ResearchState::init()
 
 	if (Options::oxceResearchScrollSpeed > 0 || Options::oxceResearchScrollSpeedWithCtrl > 0)
 	{
-		// 175 +/- 20
-		_lstResearch->setNoScrollArea(_txtAllocated->getX() - 5, _txtAllocated->getX() + 35);
+#ifdef __EMSCRIPTEN__
+		if (calypsoHdUsesSummaryNoScrollArea())
+#endif
+		{
+			// 175 +/- 20
+			_lstResearch->setNoScrollArea(_txtAllocated->getX() - 5, _txtAllocated->getX() + 35);
+		}
 	}
 	else
 	{
-		_lstResearch->setNoScrollArea(0, 0);
+#ifdef __EMSCRIPTEN__
+		if (calypsoHdUsesSummaryNoScrollArea())
+#endif
+		{
+			_lstResearch->setNoScrollArea(0, 0);
+		}
 	}
 #ifdef __EMSCRIPTEN__
 	CalypsoTutorial::get().anchorAll({ {"res.btnNew", _btnNew} });
@@ -275,6 +317,10 @@ void ResearchState::fillProjectList(size_t scrl)
 
 	if (scrl)
 		_lstResearch->scrollTo(scrl);
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter != nullptr)
+		_hdAdapter->refresh();
+#endif
 }
 
 /**
@@ -284,7 +330,8 @@ void ResearchState::fillProjectList(size_t scrl)
 void ResearchState::lstResearchLeftArrowClick(Action* action)
 {
 	unsigned int row = _lstResearch->getSelectedRow();
-	if (row > 0)
+	const auto &topics = _base->getResearch();
+	if (row > 0 && row < topics.size())
 	{
 		if (_game->isLeftClick(action, true))
 		{
@@ -306,6 +353,7 @@ void ResearchState::lstResearchLeftArrowClick(Action* action)
 void ResearchState::moveTopicUp(Action* action, unsigned int row, bool max)
 {
 	auto& topics = _base->getResearch();
+	if (row >= topics.size()) return;
 	if (max)
 	{
 		auto* r = topics.at(row);
@@ -317,7 +365,19 @@ void ResearchState::moveTopicUp(Action* action, unsigned int row, bool max)
 		std::swap(topics[row], topics[row - 1]);
 		if (row != _lstResearch->getScroll())
 		{
-			SDL_WarpMouse(action->getLeftBlackBand() + action->getXMouse(), action->getTopBlackBand() + action->getYMouse() - static_cast<Uint16>(8 * action->getYScale()));
+			#ifdef __EMSCRIPTEN__
+			const Uint16 warpDelta = Calypso::calypsoResearchReorderWarpDelta(_lstResearch, action);
+			#else
+			const Uint16 warpDelta = static_cast<Uint16>(8 * action->getYScale());
+			#endif
+#ifdef __EMSCRIPTEN__
+			if (_hdAdapter)
+				// Browsers cannot warp the OS pointer. Move the actual game cursor
+				// through its canonical motion owner by the projected HD row stride.
+				Calypso::calypsoResearchWarpCursor(_game, action, -static_cast<int>(warpDelta));
+			else
+#endif
+			SDL_WarpMouse(action->getLeftBlackBand() + action->getXMouse(), action->getTopBlackBand() + action->getYMouse() - warpDelta);
 		}
 		else
 		{
@@ -357,6 +417,7 @@ void ResearchState::lstResearchRightArrowClick(Action* action)
 void ResearchState::moveTopicDown(Action* action, unsigned int row, bool max)
 {
 	auto& topics = _base->getResearch();
+	if (row >= topics.size() || row + 1 >= topics.size()) return;
 	if (max)
 	{
 		auto* r = topics.at(row);
@@ -368,7 +429,19 @@ void ResearchState::moveTopicDown(Action* action, unsigned int row, bool max)
 		std::swap(topics[row], topics[row + 1]);
 		if (row != _lstResearch->getVisibleRows() - 1 + _lstResearch->getScroll())
 		{
-			SDL_WarpMouse(action->getLeftBlackBand() + action->getXMouse(), action->getTopBlackBand() + action->getYMouse() + static_cast<Uint16>(8 * action->getYScale()));
+			#ifdef __EMSCRIPTEN__
+			const Uint16 warpDelta = Calypso::calypsoResearchReorderWarpDelta(_lstResearch, action);
+			#else
+			const Uint16 warpDelta = static_cast<Uint16>(8 * action->getYScale());
+			#endif
+#ifdef __EMSCRIPTEN__
+			if (_hdAdapter)
+				// Browsers cannot warp the OS pointer. Move the actual game cursor
+				// through its canonical motion owner by the projected HD row stride.
+				Calypso::calypsoResearchWarpCursor(_game, action, +static_cast<int>(warpDelta));
+			else
+#endif
+			SDL_WarpMouse(action->getLeftBlackBand() + action->getXMouse(), action->getTopBlackBand() + action->getYMouse() + warpDelta);
 		}
 		else
 		{

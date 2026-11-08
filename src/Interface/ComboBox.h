@@ -64,6 +64,8 @@ private:
 	std::vector<std::string> _optionsCache;
 	std::vector<bool> _optionEnabled;
 	bool _optionsCacheTranslate = false;
+	bool _calypsoHdDescriptorFailed = false;
+	bool _calypsoHdDescriptorEmpty = false;
 #endif
 
 	void drawArrow();
@@ -83,6 +85,22 @@ public:
 	void setHeight(int height) override;
 	/// Calypso: HD — forward TTF to button and list.
 	void setTTFFont(TTFFont* font, float fillFrac);
+	/// Calypso: HD — expose the live popup owner without exposing its legacy
+	/// presentation. The popup remains selected by the native TextList.
+	bool calypsoHdPopupVisible() const;
+	const TextList* calypsoHdPopupList() const;
+	/// The generated HD popup panel (the outer Window), distinct from the
+	/// inset TextList that owns option input.
+	void calypsoHdPopupWindowRect(int& x, int& y, int& width, int& height) const;
+	void calypsoHdConfigurePopupSelection(int rowHeight, int optionInsetX,
+		int optionInsetY, int boundsX, int boundsY, int boundsW, int boundsH,
+		int maxOptions = 10, int minPanelWidth = 240,
+		int panelX = -1, int panelY = -1, int panelW = 0, int panelH = 0,
+		int listX = -1, int listY = -1, int listW = 0,
+		const std::vector<int>& rowBoundaries = {},
+		bool projectedDescriptor = false);
+	bool calypsoHdPopupAboveButton() const { return _popupAboveButton; }
+	void calypsoHdSuppressPopupWidgets(std::vector<const void*>& widgets) const;
 #endif
 	/// Sets the palette of the text list.
 	void setPalette(const SDL_Color *colors, int firstcolor = 0, int ncolors = 256) override;

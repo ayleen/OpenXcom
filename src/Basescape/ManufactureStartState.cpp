@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "ManufactureStartState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF10ProductionUi.h"
+#endif
 #include <sstream>
 #include "../Interface/Window.h"
 #include "../Interface/TextButton.h"
@@ -26,6 +29,9 @@
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Options.h"
 #include "../Menu/ErrorMessageState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoRdErrorForm.h"
+#endif
 #include "../Engine/Unicode.h"
 #include "../Mod/Mod.h"
 #include "../Mod/RuleItem.h"
@@ -222,8 +228,25 @@ ManufactureStartState::ManufactureStartState(Base *base, RuleManufacture *item) 
 			_game->getSavedGame()->setManufactureRuleStatus(_item->getName(), RuleManufacture::MANU_STATUS_NORMAL);
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF10ProductionUi::configure(*this);
+#endif
 }
 
+ManufactureStartState::~ManufactureStartState()
+{
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
+}
+void ManufactureStartState::init()
+{
+	State::init();
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
+}
 /**
  * Returns to previous screen.
  * @param action A pointer to an Action.
@@ -241,7 +264,12 @@ void ManufactureStartState::btnStartClick(Action *)
 {
 	if (_item->getProducedCraft() && _base->getAvailableHangars() - _base->getUsedHangars() <= 0)
 	{
-		_game->pushState(new ErrorMessageState(tr("STR_NO_FREE_HANGARS_FOR_CRAFT_PRODUCTION"), _palette, _game->getMod()->getInterface("basescape")->getElement("errorMessage")->color, "BACK17.SCR", _game->getMod()->getInterface("basescape")->getElement("errorPalette")->color));
+		_game->pushState(new ErrorMessageState(tr("STR_NO_FREE_HANGARS_FOR_CRAFT_PRODUCTION"), _palette, _game->getMod()->getInterface("basescape")->getElement("errorMessage")->color, "BACK17.SCR", _game->getMod()->getInterface("basescape")->getElement("errorPalette")->color
+#ifdef __EMSCRIPTEN__
+			, 0, nullptr, Calypso::calypsoRdErrorForm(this, tr("STR_PRODUCTION"),
+				tr("STR_CALYPSO_RD_NO_PENS"), tr("STR_CALYPSO_RD_PENS_REMEDY"), tr("STR_OK"))
+#endif
+			));
 	}
 	//else if (_item->getRequiredSpace() > _base->getFreeWorkshops())
 	//{
@@ -252,5 +280,13 @@ void ManufactureStartState::btnStartClick(Action *)
 		_game->pushState(new ManufactureInfoState(_base, _item));
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void ManufactureStartState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF10ProductionUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

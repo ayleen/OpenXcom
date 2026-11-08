@@ -83,6 +83,24 @@ bool loadEconomyRules(const YAML::YamlNodeReader& node, EconomyRules& out)
 		standing["onContractDelivered"].tryReadVal<int>(out.onContractDelivered);
 		standing["onContractExpired"].tryReadVal<int>(out.onContractExpired);
 		standing["activityDivisor"].tryReadVal<int>(out.activityDivisor);
+		if (auto price = standing["price"])
+		{
+			auto readMultiplier = [](const auto& node, double& target) {
+				double value = target;
+				if (node.template tryReadVal<double>(value))
+					target = normalizeStandingPriceMultiplier(value);
+			};
+			readMultiplier(price["playerBuy"]["hostile"], out.standingPrice.buyHostile);
+			readMultiplier(price["playerBuy"]["distrusted"], out.standingPrice.buyDistrusted);
+			readMultiplier(price["playerBuy"]["neutral"], out.standingPrice.buyNeutral);
+			readMultiplier(price["playerBuy"]["preferred"], out.standingPrice.buyPreferred);
+			readMultiplier(price["playerBuy"]["trusted"], out.standingPrice.buyTrusted);
+			readMultiplier(price["playerSell"]["hostile"], out.standingPrice.sellHostile);
+			readMultiplier(price["playerSell"]["distrusted"], out.standingPrice.sellDistrusted);
+			readMultiplier(price["playerSell"]["neutral"], out.standingPrice.sellNeutral);
+			readMultiplier(price["playerSell"]["preferred"], out.standingPrice.sellPreferred);
+			readMultiplier(price["playerSell"]["trusted"], out.standingPrice.sellTrusted);
+		}
 	}
 
 	// ---- contracts ----
@@ -312,16 +330,58 @@ int Economy::getDemand(const std::string& cp, const RuleItem* item, const SavedG
 
 int64_t Economy::buyPrice(const std::string& cp, const RuleItem* item, const EconomyRules& r) const
 {
-	double mult = (cp == BLACK_MARKET) ? r.bmBuyMult : 1.0;
-	double tf = (cp == BLACK_MARKET) ? 1.0 : terrorFactor(item, r);   // black market is a stable floor
+	const double mult = (cp == BLACK_MARKET)
+		? r.bmBuyMult
+		: standingBuyMultiplier(getTier(cp, r), r.standingPrice);
+	const double tf = (cp == BLACK_MARKET) ? 1.0 : terrorFactor(item, r);   // black market is a stable floor
 	return marketPrice(item->getBuyCost(), mult, priceMod(item->getType()) * tf);
 }
 
 int64_t Economy::sellPrice(const std::string& cp, const RuleItem* item, const EconomyRules& r) const
 {
-	double mult = (cp == BLACK_MARKET) ? r.bmSellMult : 1.0;
-	double tf = (cp == BLACK_MARKET) ? 1.0 : terrorFactor(item, r);
+	const double mult = (cp == BLACK_MARKET)
+		? r.bmSellMult
+		: standingSellMultiplier(getTier(cp, r), r.standingPrice);
+	const double tf = (cp == BLACK_MARKET) ? 1.0 : terrorFactor(item, r);
 	return marketPrice(item->getSellCost(), mult, priceMod(item->getType()) * tf);
+}
+
+std::vector<MarketOffer> Economy::buildMarketOffers(
+	MarketSide side, const RuleItem* item, const SavedGame* save,
+	const EconomyRules& r, bool includeBlackMarket) const
+{
+	if (!item || !save) return {};
+	std::vector<MarketOffer> offers;
+	auto append = [&](const std::string& cp, bool blackMarket) {
+		const bool eligible = side == MarketSide::Buy
+			? sellsToPlayer(cp, item, r)
+			: buysFromPlayer(cp, item, r);
+		if (!eligible) return;
+		const int remaining = side == MarketSide::Buy
+			? getStock(cp, item, save, r)
+			: getDemand(cp, item, save, r);
+		if (remaining <= 0) return;
+		const int64_t price = side == MarketSide::Buy
+			? buyPrice(cp, item, r)
+			: sellPrice(cp, item, r);
+		offers.push_back({ cp, cp,
+			blackMarket ? StandingTier::Hostile : getTier(cp, r),
+			price, remaining, blackMarket });
+	};
+
+	for (const CounterpartyRules& cp : r.counterparties)
+		append(cp.country, false);
+	if (includeBlackMarket) append(BLACK_MARKET, true);
+	return offers;
+}
+
+std::vector<MarketAllocation> Economy::allocateMarketOrder(
+	MarketSide side, const RuleItem* item, const SavedGame* save,
+	const EconomyRules& r, int requested, bool includeBlackMarket) const
+{
+	return Calypso::allocateMarketOrder(
+		buildMarketOffers(side, item, save, r, includeBlackMarket),
+		side, requested, includeBlackMarket);
 }
 
 void Economy::recordPurchase(const std::string& cp, const RuleItem* item, int qty)

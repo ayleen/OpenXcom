@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "f10-production-queue",
+  "familyId": 10,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {"shell": "base-operations", "headerArt": "base-manufacture"},
+  "state": "ManufactureState",
+  "labelKeys": {"title": "STR_CURRENT_PRODUCTION", "globalOverview": "STR_GLOBAL_OVERVIEW", "newProduction": "STR_NEW_PRODUCTION", "done": "STR_DONE", "openProduction": "STR_OPEN_PRODUCTION", "techTree": "STR_TECH_TREE", "collectionHeading": "STR_CALYPSO_PRODUCTION_LINES", "collectionMeta": "STR_CALYPSO_FUNDS_VALUE"},
+  "title": "CURRENT PRODUCTION",
+  "actions": [{"id": "global-overview", "label": "GLOBAL OVERVIEW", "labelKey": "STR_GLOBAL_OVERVIEW", "tone": "safe", "action": "open-global-production"}, {"id": "new-production", "label": "NEW PRODUCTION", "labelKey": "STR_NEW_PRODUCTION", "tone": "safe", "action": "new-production"}, {"id": "done", "label": "DONE", "labelKey": "STR_DONE", "tone": "primary", "action": "done"}],
+  "summary": [{"id": "available", "label": "AVAILABLE", "value": "2"}, {"id": "allocated", "label": "ALLOCATED", "value": "94"}, {"id": "workshop-space", "label": "WORKSHOP SPACE", "value": "0"}],
+  "collection": {"mode": "table", "selectionRole": "production-line", "heading": "PRODUCTION LINES", "meta": "FUNDS $27,550,246", "columns": [{"id": "item", "label": "ITEM", "contentRole": "name"}, {"id": "engineers", "label": "ENGINEERS", "contentRole": "count"}, {"id": "produced", "label": "PRODUCED", "contentRole": "quantity"}, {"id": "cost", "label": "COST PER UNIT", "contentRole": "money"}, {"id": "time", "label": "DAYS / HOURS", "contentRole": "time"}], "items": [{"id": "maelstrom-torpedoes", "values": ["MAELSTROM Torpedoes", "94", "22 / 40", "$28,000", "4 d 15 h"]}]},
+  "controls": [],
+  "toolbar": [],
+  "detail": {"id": "selected-production", "label": "SELECTED PRODUCTION", "title": "MAELSTROM Torpedoes", "subtitle": "PRODUCTION LINE", "metrics": [{"id": "engineers", "label": "ENGINEERS", "value": "94"}, {"id": "produced", "label": "PRODUCED", "value": "22 / 40"}, {"id": "unit-cost", "label": "UNIT COST", "value": "$28,000"}, {"id": "time-left", "label": "TIME LEFT", "value": "4 d 15 h"}], "actions": [{"id": "open-production", "label": "OPEN PRODUCTION", "labelKey": "STR_OPEN_PRODUCTION", "tone": "primary", "action": "open-production"}, {"id": "tech-tree", "label": "TECH TREE", "labelKey": "STR_TECH_TREE", "tone": "normal", "action": "open-tech-tree"}]}
+}

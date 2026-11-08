@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "TechTreeViewerState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF15TechTreeUi.h"
+#endif
 #include "TechTreeSelectState.h"
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
@@ -142,6 +145,10 @@ TechTreeViewerState::TechTreeViewerState(const RuleResearch *r, const RuleManufa
 	_btnOk->onKeyboardPress((ActionHandler)&TechTreeViewerState::btnOkClick, Options::keyCancel);
 	_btnOk->onKeyboardPress((ActionHandler)&TechTreeViewerState::btnBackClick, SDLK_BACKSPACE);
 
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF15TechTreeUi::configure(*this);
+#endif
+
 	if (Options::oxceDisableTechTreeViewer)
 	{
 		_txtTitle->setHeight(_txtTitle->getHeight() * 9);
@@ -240,6 +247,10 @@ TechTreeViewerState::TechTreeViewerState(const RuleResearch *r, const RuleManufa
  */
 TechTreeViewerState::~TechTreeViewerState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -264,6 +275,17 @@ void TechTreeViewerState::btnOkClick(Action *)
 	_game->popState();
 }
 
+#ifdef __EMSCRIPTEN__
+/**
+ * Handles HD resize through the registered adapter.
+ */
+void TechTreeViewerState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF15TechTreeUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
+
 /**
  * Navigates to the previous topic from the browsing history.
  * @param action Pointer to an action.
@@ -286,6 +308,26 @@ void TechTreeViewerState::btnBackClick(Action *)
 void TechTreeViewerState::btnNewClick(Action *)
 {
 	_game->pushState(new TechTreeSelectState(this));
+}
+
+/**
+* Records or updates the typed metadata for one emitted row. The native
+* owner derives it from the very color it painted: blue marks structural
+* group headers and grey marks hidden topics; everything else is an
+* authorized item row. Metadata never re-derives text.
+*/
+void TechTreeViewerState::calypsoRecordRow(TextList *list, std::size_t row,
+	Uint8 color)
+{
+	std::vector<RowMeta> &meta =
+		list == _lstRight ? _calypsoRightRows :
+		list == _lstFull ? _calypsoFullRows : _calypsoLeftRows;
+	if (meta.size() <= row)
+	{
+		meta.resize(row + 1);
+	}
+	meta[row].structural = (color == _blue);
+	meta[row].hidden = (color == _grey);
 }
 
 /**
@@ -325,6 +367,9 @@ void TechTreeViewerState::initLists()
 	_lstLeft->clearList();
 	_lstRight->clearList();
 	_lstFull->clearList();
+	_calypsoLeftRows.clear();
+	_calypsoRightRows.clear();
+	_calypsoFullRows.clear();
 	_lstLeft->setVisible(true);
 	_lstRight->setVisible(true);
 	_lstFull->setVisible(false);
@@ -528,12 +573,15 @@ void TechTreeViewerState::initLists()
 			if (rule->destroyItem())
 			{
 				_lstLeft->addRow(1, tr("STR_ITEM_DESTROYED").c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 			}
 			else
 			{
 				_lstLeft->addRow(1, tr("STR_ITEM_REQUIRED").c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 			}
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -542,7 +590,9 @@ void TechTreeViewerState::initLists()
 				std::string itemName = tr(rule->getNeededItem()->getType());
 				itemName.insert(0, "  ");
 				_lstLeft->addRow(1, itemName.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, getResearchColor(rule->getNeededItem()->getType()));
+				calypsoRecordRow(_lstLeft, row, getResearchColor(rule->getNeededItem()->getType()));
 				_leftTopics.push_back(rule->getNeededItem()->getType());
 				_leftFlags.push_back(TTV_ITEMS);
 			}
@@ -550,7 +600,9 @@ void TechTreeViewerState::initLists()
 			{
 				std::string itemName = "  -";
 				_lstLeft->addRow(1, itemName.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, _white);
+				calypsoRecordRow(_lstLeft, row, _white);
 				_leftTopics.push_back("-");
 				_leftFlags.push_back(TTV_NONE);
 			}
@@ -561,7 +613,9 @@ void TechTreeViewerState::initLists()
 		if (rule->getRequireBaseFunc().any())
 		{
 			_lstLeft->addRow(1, tr("STR_SERVICES_REQUIRED").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -570,7 +624,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(reqServiceType);
 				name.insert(0, "  ");
 				_lstLeft->addRow(1, name.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, _gold);
+				calypsoRecordRow(_lstLeft, row, _gold);
 				_leftTopics.push_back("-");
 				_leftFlags.push_back(TTV_NONE);
 				++row;
@@ -581,7 +637,9 @@ void TechTreeViewerState::initLists()
 		if (reqs.size() > 0)
 		{
 			_lstLeft->addRow(1, tr("STR_REQUIRES").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -590,7 +648,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(i->getName());
 				name.insert(0, "  ");
 				_lstLeft->addRow(1, name.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, getResearchColor(i->getName()));
+				calypsoRecordRow(_lstLeft, row, getResearchColor(i->getName()));
 				_leftTopics.push_back(i->getName());
 				_leftFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -601,7 +661,9 @@ void TechTreeViewerState::initLists()
 		if (deps.size() > 0)
 		{
 			_lstLeft->addRow(1, tr("STR_DEPENDS_ON").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -615,7 +677,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(i->getName());
 				name.insert(0, "  ");
 				_lstLeft->addRow(1, name.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, getResearchColor(i->getName()));
+				calypsoRecordRow(_lstLeft, row, getResearchColor(i->getName()));
 				_leftTopics.push_back(i->getName());
 				_leftFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -626,7 +690,9 @@ void TechTreeViewerState::initLists()
 		if (unlockedBy.size() > 0)
 		{
 			_lstLeft->addRow(1, tr("STR_UNLOCKED_BY").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -635,7 +701,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(res);
 				name.insert(0, "  ");
 				_lstLeft->addRow(1, name.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, getResearchColor(res));
+				calypsoRecordRow(_lstLeft, row, getResearchColor(res));
 				_leftTopics.push_back(res);
 				_leftFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -646,7 +714,9 @@ void TechTreeViewerState::initLists()
 		if (disabledBy.size() > 0)
 		{
 			_lstLeft->addRow(1, tr("STR_DISABLED_BY").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -655,7 +725,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(res);
 				name.insert(0, "  ");
 				_lstLeft->addRow(1, name.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, getResearchColor(res));
+				calypsoRecordRow(_lstLeft, row, getResearchColor(res));
 				_leftTopics.push_back(res);
 				_leftFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -666,7 +738,9 @@ void TechTreeViewerState::initLists()
 		if (reenabledBy.size() > 0)
 		{
 			_lstLeft->addRow(1, tr("STR_REENABLED_BY").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -675,7 +749,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(res);
 				name.insert(0, "  ");
 				_lstLeft->addRow(1, name.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, getResearchColor(res));
+				calypsoRecordRow(_lstLeft, row, getResearchColor(res));
 				_leftTopics.push_back(res);
 				_leftFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -686,7 +762,9 @@ void TechTreeViewerState::initLists()
 		if (getForFreeFrom.size() > 0)
 		{
 			_lstLeft->addRow(1, tr("STR_GET_FOR_FREE_FROM").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -695,7 +773,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(res);
 				name.insert(0, "  ");
 				_lstLeft->addRow(1, name.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, getResearchColor(res));
+				calypsoRecordRow(_lstLeft, row, getResearchColor(res));
 				_leftTopics.push_back(res);
 				_leftFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -706,7 +786,9 @@ void TechTreeViewerState::initLists()
 		if (lookupOf.size() > 0)
 		{
 			_lstLeft->addRow(1, tr("STR_IS_LOOKUP_OF").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -715,7 +797,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(res);
 				name.insert(0, "  ");
 				_lstLeft->addRow(1, name.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, getResearchColor(res));
+				calypsoRecordRow(_lstLeft, row, getResearchColor(res));
 				_leftTopics.push_back(res);
 				_leftFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -728,7 +812,9 @@ void TechTreeViewerState::initLists()
 		if (rule->getLookup())
 		{
 			_lstRight->addRow(1, tr("STR_LOOKUP").c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -736,7 +822,9 @@ void TechTreeViewerState::initLists()
 			std::string name = tr(rule->getLookup()->getName());
 			name.insert(0, "  ");
 			_lstRight->addRow(1, name.c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, getResearchColor(rule->getLookup()->getName()));
+			calypsoRecordRow(_lstRight, row, getResearchColor(rule->getLookup()->getName()));
 			_rightTopics.push_back(rule->getLookup()->getName());
 			_rightFlags.push_back(TTV_RESEARCH);
 			++row;
@@ -746,7 +834,9 @@ void TechTreeViewerState::initLists()
 		if (!Mod::isEmptyRuleName(rule->getSpawnedItem()) || !rule->getSpawnedItemList().empty())
 		{
 			_lstRight->addRow(1, tr("STR_SPAWNED_ITEMS").c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -761,7 +851,9 @@ void TechTreeViewerState::initLists()
 				name.append(std::to_string(rule->getSpawnedItemCount()));
 			}
 			_lstRight->addRow(1, name.c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _white);
+			calypsoRecordRow(_lstRight, row, _white);
 			_rightTopics.push_back(rule->getSpawnedItem());
 			_rightFlags.push_back(TTV_ITEMS);
 			++row;
@@ -771,7 +863,9 @@ void TechTreeViewerState::initLists()
 			std::string name = tr(sil);
 			name.insert(0, "  ");
 			_lstRight->addRow(1, name.c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _white);
+			calypsoRecordRow(_lstRight, row, _white);
 			_rightTopics.push_back(sil);
 			_rightFlags.push_back(TTV_ITEMS);
 			++row;
@@ -781,7 +875,9 @@ void TechTreeViewerState::initLists()
 		if (!Mod::isEmptyRuleName(rule->getSpawnedEvent()))
 		{
 			_lstRight->addRow(1, tr("STR_SPAWNED_EVENT").c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -789,7 +885,9 @@ void TechTreeViewerState::initLists()
 			std::string name = tr(rule->getSpawnedEvent());
 			name.insert(0, "  ");
 			_lstRight->addRow(1, name.c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _white);
+			calypsoRecordRow(_lstRight, row, _white);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -800,7 +898,9 @@ void TechTreeViewerState::initLists()
 		if (!randomEvents.empty())
 		{
 			_lstRight->addRow(1, tr("STR_RANDOM_EVENTS").c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -809,7 +909,9 @@ void TechTreeViewerState::initLists()
 				std::ostringstream chance;
 				chance << "  " << tr(randomEvent.first) << ": " << randomEvent.second;
 				_lstRight->addRow(1, chance.str().c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				_lstRight->setRowColor(row, _white);
+				calypsoRecordRow(_lstRight, row, _white);
 				_rightTopics.push_back("-");
 				_rightFlags.push_back(TTV_NONE);
 				++row;
@@ -820,7 +922,9 @@ void TechTreeViewerState::initLists()
 		if (requiredByResearch.size() > 0 || requiredByManufacture.size() > 0 || requiredByFacilities.size() > 0 || requiredByItems.size() > 0 || requiredByCrafts.size() > 0)
 		{
 			_lstRight->addRow(1, tr("STR_REQUIRED_BY").c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -834,7 +938,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(res);
 				name.insert(0, "  ");
 				_lstRight->addRow(1, name.c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				_lstRight->setRowColor(row, getResearchColor(res));
+				calypsoRecordRow(_lstRight, row, getResearchColor(res));
 				_rightTopics.push_back(res);
 				_rightFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -850,9 +956,11 @@ void TechTreeViewerState::initLists()
 				name.insert(0, "  ");
 				name.append(tr("STR_M_FLAG"));
 				_lstRight->addRow(1, name.c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				if (!isDiscoveredManufacture(manuf))
 				{
 					_lstRight->setRowColor(row, _pink);
+					calypsoRecordRow(_lstRight, row, _pink);
 				}
 				_rightTopics.push_back(manuf);
 				_rightFlags.push_back(TTV_MANUFACTURING);
@@ -869,9 +977,11 @@ void TechTreeViewerState::initLists()
 				name.insert(0, "  ");
 				name.append(tr("STR_F_FLAG"));
 				_lstRight->addRow(1, name.c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				if (!isDiscoveredFacility(facType))
 				{
 					_lstRight->setRowColor(row, _pink);
+					calypsoRecordRow(_lstRight, row, _pink);
 				}
 				_rightTopics.push_back(facType);
 				_rightFlags.push_back(TTV_FACILITIES);
@@ -888,9 +998,11 @@ void TechTreeViewerState::initLists()
 				name.insert(0, "  ");
 				name.append(tr("STR_I_FLAG"));
 				_lstRight->addRow(1, name.c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				if (!isProtectedAndDiscoveredItem(itemType))
 				{
 					_lstRight->setRowColor(row, _pink);
+					calypsoRecordRow(_lstRight, row, _pink);
 				}
 				_rightTopics.push_back(itemType);
 				_rightFlags.push_back(TTV_ITEMS);
@@ -907,9 +1019,11 @@ void TechTreeViewerState::initLists()
 				name.insert(0, "  ");
 				name.append(tr("STR_C_FLAG"));
 				_lstRight->addRow(1, name.c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				if (!isDiscoveredCraft(craftType))
 				{
 					_lstRight->setRowColor(row, _pink);
+					calypsoRecordRow(_lstRight, row, _pink);
 				}
 				_rightTopics.push_back(craftType);
 				_rightFlags.push_back(TTV_CRAFTS);
@@ -921,7 +1035,9 @@ void TechTreeViewerState::initLists()
 		if (requiredByTransformations.size() > 0)
 		{
 			_lstRight->addRow(1, tr("STR_REQUIRED_BY_TRANSFORMATIONS").c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -931,7 +1047,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(transformationType);
 				name.insert(0, "  ");
 				_lstRight->addRow(1, name.c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				_lstRight->setRowColor(row, _white);
+				calypsoRecordRow(_lstRight, row, _white);
 				_rightTopics.push_back("-");
 				_rightFlags.push_back(TTV_NONE);
 				++row;
@@ -942,7 +1060,9 @@ void TechTreeViewerState::initLists()
 		if (leadsTo.size() > 0)
 		{
 			_lstRight->addRow(1, tr("STR_LEADS_TO").c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -957,7 +1077,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(res);
 				name.insert(0, "  ");
 				_lstRight->addRow(1, name.c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				_lstRight->setRowColor(row, getResearchColor(res));
+				calypsoRecordRow(_lstRight, row, getResearchColor(res));
 				_rightTopics.push_back(res);
 				_rightFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -968,7 +1090,9 @@ void TechTreeViewerState::initLists()
 		if (unlocks.size() > 0)
 		{
 			_lstRight->addRow(1, tr("STR_UNLOCKS").c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -977,7 +1101,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(i->getName());
 				name.insert(0, "  ");
 				_lstRight->addRow(1, name.c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				_lstRight->setRowColor(row, getResearchColor(i->getName()));
+				calypsoRecordRow(_lstRight, row, getResearchColor(i->getName()));
 				_rightTopics.push_back(i->getName());
 				_rightFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -988,7 +1114,9 @@ void TechTreeViewerState::initLists()
 		if (disables.size() > 0)
 		{
 			_lstRight->addRow(1, tr("STR_DISABLES").c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -997,7 +1125,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(i->getName());
 				name.insert(0, "  ");
 				_lstRight->addRow(1, name.c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				_lstRight->setRowColor(row, getResearchColor(i->getName()));
+				calypsoRecordRow(_lstRight, row, getResearchColor(i->getName()));
 				_rightTopics.push_back(i->getName());
 				_rightFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -1008,7 +1138,9 @@ void TechTreeViewerState::initLists()
 		if (reenables.size() > 0)
 		{
 			_lstRight->addRow(1, tr("STR_REENABLES").c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -1017,7 +1149,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(i->getName());
 				name.insert(0, "  ");
 				_lstRight->addRow(1, name.c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				_lstRight->setRowColor(row, getResearchColor(i->getName()));
+				calypsoRecordRow(_lstRight, row, getResearchColor(i->getName()));
 				_rightTopics.push_back(i->getName());
 				_rightFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -1059,7 +1193,9 @@ void TechTreeViewerState::initLists()
 			}
 			ssFree << " " << remaining << "/" << total;
 			_lstRight->addRow(1, ssFree.str().c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -1068,7 +1204,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(i->getName());
 				name.insert(0, "  ");
 				_lstRight->addRow(1, name.c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				_lstRight->setRowColor(row, getResearchColor(i->getName()));
+				calypsoRecordRow(_lstRight, row, getResearchColor(i->getName()));
 				_rightTopics.push_back(i->getName());
 				_rightFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -1079,7 +1217,9 @@ void TechTreeViewerState::initLists()
 				name2.insert(0, " ");
 				name2.append(":");
 				_lstRight->addRow(1, name2.c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				_lstRight->setRowColor(row, getAltResearchColor(itMap.first->getName()));
+				calypsoRecordRow(_lstRight, row, getAltResearchColor(itMap.first->getName()));
 				_rightTopics.push_back(itMap.first->getName());
 				_rightFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -1088,7 +1228,9 @@ void TechTreeViewerState::initLists()
 					std::string name = tr(i->getName());
 					name.insert(0, "  ");
 					_lstRight->addRow(1, name.c_str());
+					calypsoRecordRow(_lstRight, row, 0);
 					_lstRight->setRowColor(row, getResearchColor(i->getName()));
+					calypsoRecordRow(_lstRight, row, getResearchColor(i->getName()));
 					_rightTopics.push_back(i->getName());
 					_rightFlags.push_back(TTV_RESEARCH);
 					++row;
@@ -1166,7 +1308,9 @@ void TechTreeViewerState::initLists()
 				if (!list.empty())
 				{
 					_lstRight->addRow(1, tr(label).c_str());
+					calypsoRecordRow(_lstRight, row, 0);
 					_lstRight->setRowColor(row, _blue);
+					calypsoRecordRow(_lstRight, row, _blue);
 					_rightTopics.push_back("-");
 					_rightFlags.push_back(TTV_NONE);
 					++row;
@@ -1175,7 +1319,9 @@ void TechTreeViewerState::initLists()
 						std::ostringstream name;
 						name << "  " << tr(i);
 						_lstRight->addRow(1, name.str().c_str());
+						calypsoRecordRow(_lstRight, row, 0);
 						_lstRight->setRowColor(row, _white);
+						calypsoRecordRow(_lstRight, row, _white);
 						_rightTopics.push_back("-");
 						_rightFlags.push_back(TTV_NONE);
 						++row;
@@ -1213,10 +1359,12 @@ void TechTreeViewerState::initLists()
 			if (showDisclaimer > 0)
 			{
 				_lstRight->addRow(1, tr("STR_AFFECTS_GAME_PROGRESSION").c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				if (showDisclaimer == 1)
-					_lstRight->setRowColor(row, _gold);
-				else
-					_lstRight->setRowColor(row, _white);
+				_lstRight->setRowColor(row, _gold);
+			else
+				_lstRight->setRowColor(row, _white);
+			calypsoRecordRow(_lstRight, row, 0);
 				_rightTopics.push_back("-");
 				_rightFlags.push_back(TTV_NONE);
 				++row;
@@ -1235,7 +1383,9 @@ void TechTreeViewerState::initLists()
 		if (reqs.size() > 0)
 		{
 			_lstLeft->addRow(1, tr("STR_RESEARCH_REQUIRED").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1244,7 +1394,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(i->getName());
 				name.insert(0, "  ");
 				_lstLeft->addRow(1, name.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, getResearchColor(i->getName()));
+				calypsoRecordRow(_lstLeft, row, getResearchColor(i->getName()));
 				_leftTopics.push_back(i->getName());
 				_leftFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -1255,7 +1407,9 @@ void TechTreeViewerState::initLists()
 		if (rule->getRequireBaseFunc().any())
 		{
 			_lstLeft->addRow(1, tr("STR_SERVICES_REQUIRED").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1264,7 +1418,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(requiredServiceType);
 				name.insert(0, "  ");
 				_lstLeft->addRow(1, name.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, _gold);
+				calypsoRecordRow(_lstLeft, row, _gold);
 				_leftTopics.push_back("-");
 				_leftFlags.push_back(TTV_NONE);
 				++row;
@@ -1277,7 +1433,9 @@ void TechTreeViewerState::initLists()
 		if (inputs.size() > 0 || craftInputs.size() > 0)
 		{
 			_lstLeft->addRow(1, tr("STR_MATERIALS_REQUIRED").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1289,7 +1447,9 @@ void TechTreeViewerState::initLists()
 				name << ": ";
 				name << i.second;
 				_lstLeft->addRow(1, name.str().c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, _white);
+				calypsoRecordRow(_lstLeft, row, _white);
 				_leftTopics.push_back("-");
 				_leftFlags.push_back(TTV_NONE);
 				++row;
@@ -1302,7 +1462,9 @@ void TechTreeViewerState::initLists()
 				name << ": ";
 				name << i.second;
 				_lstLeft->addRow(1, name.str().c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, _white);
+				calypsoRecordRow(_lstLeft, row, _white);
 				_leftTopics.push_back(i.first->getType());
 				_leftFlags.push_back(TTV_ITEMS);
 				++row;
@@ -1311,6 +1473,7 @@ void TechTreeViewerState::initLists()
 
 		// empty line
 		_lstLeft->addRow(1, "");
+		calypsoRecordRow(_lstLeft, row, 0);
 		_leftTopics.push_back("-");
 		_leftFlags.push_back(TTV_NONE);
 		++row;
@@ -1319,7 +1482,9 @@ void TechTreeViewerState::initLists()
 		if (rule->getManufactureCost() > 0)
 		{
 			_lstLeft->addRow(1, tr("STR_TTV_COST_PER_UNIT").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1328,7 +1493,9 @@ void TechTreeViewerState::initLists()
 			txt << "  ";
 			txt << Unicode::formatFunding(rule->getManufactureCost());
 			_lstLeft->addRow(1, txt.str().c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _white);
+			calypsoRecordRow(_lstLeft, row, _white);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1337,7 +1504,9 @@ void TechTreeViewerState::initLists()
 		if (rule->getManufactureTime() > 0)
 		{
 			_lstLeft->addRow(1, tr("STR_TTV_ENGINEER_HOURS").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1362,7 +1531,9 @@ void TechTreeViewerState::initLists()
 			}
 			txt << ")";
 			_lstLeft->addRow(1, txt.str().c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _white);
+			calypsoRecordRow(_lstLeft, row, _white);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1371,7 +1542,9 @@ void TechTreeViewerState::initLists()
 		if (rule->getRequiredSpace() > 0)
 		{
 			_lstLeft->addRow(1, tr("STR_TTV_WORK_SPACE_REQUIRED").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1380,7 +1553,9 @@ void TechTreeViewerState::initLists()
 			txt << "  ";
 			txt << rule->getRequiredSpace();
 			_lstLeft->addRow(1, txt.str().c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _white);
+			calypsoRecordRow(_lstLeft, row, _white);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1393,7 +1568,9 @@ void TechTreeViewerState::initLists()
 		if (outputs.size() > 0 || rule->getProducedCraft())
 		{
 			_lstRight->addRow(1, tr("STR_ITEMS_PRODUCED").c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -1404,7 +1581,9 @@ void TechTreeViewerState::initLists()
 				name << tr(rule->getProducedCraft()->getType());
 				name << ": 1";
 				_lstRight->addRow(1, name.str().c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				_lstRight->setRowColor(row, _white);
+				calypsoRecordRow(_lstRight, row, _white);
 				_rightTopics.push_back("-");
 				_rightFlags.push_back(TTV_NONE);
 				++row;
@@ -1417,7 +1596,9 @@ void TechTreeViewerState::initLists()
 				name << ": ";
 				name << i.second;
 				_lstRight->addRow(1, name.str().c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				_lstRight->setRowColor(row, _white);
+				calypsoRecordRow(_lstRight, row, _white);
 				_rightTopics.push_back(i.first->getType());
 				_rightFlags.push_back(TTV_ITEMS);
 				++row;
@@ -1429,7 +1610,9 @@ void TechTreeViewerState::initLists()
 		if (randomOutputs.size() > 0)
 		{
 			_lstRight->addRow(1, tr("STR_RANDOM_PRODUCTION_DISCLAIMER").c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -1443,7 +1626,9 @@ void TechTreeViewerState::initLists()
 				std::ostringstream chance;
 				chance << " " << randomOutput.first * 100 / total << "%";
 				_lstRight->addRow(1, chance.str().c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				_lstRight->setRowColor(row, _gold);
+				calypsoRecordRow(_lstRight, row, _gold);
 				_rightTopics.push_back("-");
 				_rightFlags.push_back(TTV_NONE);
 				++row;
@@ -1455,7 +1640,9 @@ void TechTreeViewerState::initLists()
 					name << ": ";
 					name << i.second;
 					_lstRight->addRow(1, name.str().c_str());
+					calypsoRecordRow(_lstRight, row, 0);
 					_lstRight->setRowColor(row, _white);
+					calypsoRecordRow(_lstRight, row, _white);
 					_rightTopics.push_back(i.first->getType());
 					_rightFlags.push_back(TTV_ITEMS);
 					++row;
@@ -1468,7 +1655,9 @@ void TechTreeViewerState::initLists()
 		if (!randomEvents.empty())
 		{
 			_lstRight->addRow(1, tr("STR_RANDOM_EVENTS").c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -1477,7 +1666,9 @@ void TechTreeViewerState::initLists()
 				std::ostringstream chance;
 				chance << "  " << tr(randomEvent.first) << ": " << randomEvent.second;
 				_lstRight->addRow(1, chance.str().c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				_lstRight->setRowColor(row, _white);
+				calypsoRecordRow(_lstRight, row, _white);
 				_rightTopics.push_back("-");
 				_rightFlags.push_back(TTV_NONE);
 				++row;
@@ -1488,7 +1679,9 @@ void TechTreeViewerState::initLists()
 		if (rule->getSpawnedPersonType() != "")
 		{
 			_lstRight->addRow(1, tr("STR_PERSON_RECRUITED").c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -1502,7 +1695,9 @@ void TechTreeViewerState::initLists()
 			}
 			name << tr(rule->getSpawnedPersonName() != "" ? rule->getSpawnedPersonName() : rule->getSpawnedPersonType());
 			_lstRight->addRow(1, name.str().c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _white);
+			calypsoRecordRow(_lstRight, row, _white);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -1520,7 +1715,9 @@ void TechTreeViewerState::initLists()
 		if (reqs.size() > 0)
 		{
 			_lstLeft->addRow(1, tr("STR_RESEARCH_REQUIRED").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1529,7 +1726,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(res);
 				name.insert(0, "  ");
 				_lstLeft->addRow(1, name.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, getResearchColor(res));
+				calypsoRecordRow(_lstLeft, row, getResearchColor(res));
 				_leftTopics.push_back(res);
 				_leftFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -1540,7 +1739,9 @@ void TechTreeViewerState::initLists()
 		if (rule->getRequireBaseFunc().any())
 		{
 			_lstLeft->addRow(1, tr("STR_SERVICES_REQUIRED").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1549,7 +1750,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(requiredServiceType);
 				name.insert(0, "  ");
 				_lstLeft->addRow(1, name.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, _gold);
+				calypsoRecordRow(_lstLeft, row, _gold);
 				_leftTopics.push_back("-");
 				_leftFlags.push_back(TTV_NONE);
 				++row;
@@ -1562,7 +1765,9 @@ void TechTreeViewerState::initLists()
 		if (rule->getProvidedBaseFunc().any())
 		{
 			_lstRight->addRow(1, tr("STR_SERVICES_PROVIDED").c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -1571,7 +1776,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(providedServiceType);
 				name.insert(0, "  ");
 				_lstRight->addRow(1, name.c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				_lstRight->setRowColor(row, _gold);
+				calypsoRecordRow(_lstRight, row, _gold);
 				_rightTopics.push_back("-");
 				_rightFlags.push_back(TTV_NONE);
 				++row;
@@ -1582,7 +1789,9 @@ void TechTreeViewerState::initLists()
 		if (rule->getForbiddenBaseFunc().any())
 		{
 			_lstRight->addRow(1, tr("STR_SERVICES_FORBIDDEN").c_str());
+			calypsoRecordRow(_lstRight, row, 0);
 			_lstRight->setRowColor(row, _blue);
+			calypsoRecordRow(_lstRight, row, _blue);
 			_rightTopics.push_back("-");
 			_rightFlags.push_back(TTV_NONE);
 			++row;
@@ -1591,7 +1800,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(forbiddenServiceType);
 				name.insert(0, "  ");
 				_lstRight->addRow(1, name.c_str());
+				calypsoRecordRow(_lstRight, row, 0);
 				_lstRight->setRowColor(row, _white);
+				calypsoRecordRow(_lstRight, row, _white);
 				_rightTopics.push_back("-");
 				_rightFlags.push_back(TTV_NONE);
 				++row;
@@ -1614,7 +1825,9 @@ void TechTreeViewerState::initLists()
 		if (reqs.size() > 0)
 		{
 			_lstFull->addRow(1, tr("STR_RESEARCH_REQUIRED_USE").c_str());
+			calypsoRecordRow(_lstFull, row, 0);
 			_lstFull->setRowColor(row, _blue);
+			calypsoRecordRow(_lstFull, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1623,7 +1836,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(i->getName());
 				name.insert(0, "  ");
 				_lstFull->addRow(1, name.c_str());
+				calypsoRecordRow(_lstFull, row, 0);
 				_lstFull->setRowColor(row, getResearchColor(i->getName()));
+				calypsoRecordRow(_lstFull, row, getResearchColor(i->getName()));
 				_leftTopics.push_back(i->getName());
 				_leftFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -1635,7 +1850,9 @@ void TechTreeViewerState::initLists()
 		if (reqsBuy.size() > 0)
 		{
 			_lstFull->addRow(1, tr("STR_RESEARCH_REQUIRED_BUY").c_str());
+			calypsoRecordRow(_lstFull, row, 0);
 			_lstFull->setRowColor(row, _blue);
+			calypsoRecordRow(_lstFull, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1644,7 +1861,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(i->getName());
 				name.insert(0, "  ");
 				_lstFull->addRow(1, name.c_str());
+				calypsoRecordRow(_lstFull, row, 0);
 				_lstFull->setRowColor(row, getResearchColor(i->getName()));
+				calypsoRecordRow(_lstFull, row, getResearchColor(i->getName()));
 				_leftTopics.push_back(i->getName());
 				_leftFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -1656,7 +1875,9 @@ void TechTreeViewerState::initLists()
 		{
 			const std::vector<std::string> servicesBuy = _game->getMod()->getBaseFunctionNames(rule->getRequiresBuyBaseFunc());
 			_lstFull->addRow(1, tr("STR_SERVICES_REQUIRED_BUY").c_str());
+			calypsoRecordRow(_lstFull, row, 0);
 			_lstFull->setRowColor(row, _blue);
+			calypsoRecordRow(_lstFull, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1665,7 +1886,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(i);
 				name.insert(0, "  ");
 				_lstFull->addRow(1, name.c_str());
+				calypsoRecordRow(_lstFull, row, 0);
 				_lstFull->setRowColor(row, _gold);
+				calypsoRecordRow(_lstFull, row, _gold);
 				_leftTopics.push_back("-");
 				_leftFlags.push_back(TTV_NONE);
 				++row;
@@ -1707,7 +1930,9 @@ void TechTreeViewerState::initLists()
 		if (producedBy.size() > 0)
 		{
 			_lstFull->addRow(1, tr("STR_PRODUCED_BY").c_str());
+			calypsoRecordRow(_lstFull, row, 0);
 			_lstFull->setRowColor(row, _blue);
+			calypsoRecordRow(_lstFull, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1717,9 +1942,11 @@ void TechTreeViewerState::initLists()
 				name.insert(0, "  ");
 				name.append(tr("STR_M_FLAG"));
 				_lstFull->addRow(1, name.c_str());
+				calypsoRecordRow(_lstFull, row, 0);
 				if (!isDiscoveredManufacture(manuf))
 				{
 					_lstFull->setRowColor(row, _pink);
+					calypsoRecordRow(_lstFull, row, _pink);
 				}
 				_leftTopics.push_back(manuf);
 				_leftFlags.push_back(TTV_MANUFACTURING);
@@ -1751,7 +1978,9 @@ void TechTreeViewerState::initLists()
 		if (spawnedBy.size() > 0)
 		{
 			_lstFull->addRow(1, tr("STR_SPAWNED_BY").c_str());
+			calypsoRecordRow(_lstFull, row, 0);
 			_lstFull->setRowColor(row, _blue);
+			calypsoRecordRow(_lstFull, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1760,7 +1989,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(res);
 				name.insert(0, "  ");
 				_lstFull->addRow(1, name.c_str());
+				calypsoRecordRow(_lstFull, row, 0);
 				_lstFull->setRowColor(row, getResearchColor(res));
+				calypsoRecordRow(_lstFull, row, getResearchColor(res));
 				_leftTopics.push_back(res);
 				_leftFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -1769,6 +2000,7 @@ void TechTreeViewerState::initLists()
 
 		// empty line
 		_lstFull->addRow(1, "");
+		calypsoRecordRow(_lstFull, row, 0);
 		_leftTopics.push_back("-");
 		_leftFlags.push_back(TTV_NONE);
 		++row;
@@ -1777,7 +2009,9 @@ void TechTreeViewerState::initLists()
 		if (rule->getBuyCost() > 0)
 		{
 			_lstFull->addRow(1, tr("STR_TTV_COST_PER_UNIT").c_str());
+			calypsoRecordRow(_lstFull, row, 0);
 			_lstFull->setRowColor(row, _blue);
+			calypsoRecordRow(_lstFull, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1786,7 +2020,9 @@ void TechTreeViewerState::initLists()
 			txt << "  ";
 			txt << Unicode::formatFunding(rule->getBuyCost());
 			_lstFull->addRow(1, txt.str().c_str());
+			calypsoRecordRow(_lstFull, row, 0);
 			_lstFull->setRowColor(row, _white);
+			calypsoRecordRow(_lstFull, row, _white);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1804,7 +2040,9 @@ void TechTreeViewerState::initLists()
 		if (reqs.size() > 0)
 		{
 			_lstLeft->addRow(1, tr("STR_RESEARCH_REQUIRED").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1813,7 +2051,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(res);
 				name.insert(0, "  ");
 				_lstLeft->addRow(1, name.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, getResearchColor(res));
+				calypsoRecordRow(_lstLeft, row, getResearchColor(res));
 				_leftTopics.push_back(res);
 				_leftFlags.push_back(TTV_RESEARCH);
 				++row;
@@ -1824,7 +2064,9 @@ void TechTreeViewerState::initLists()
 		if (rule->getRequiresBuyBaseFunc().any())
 		{
 			_lstLeft->addRow(1, tr("STR_SERVICES_REQUIRED_BUY").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1833,7 +2075,9 @@ void TechTreeViewerState::initLists()
 				std::string name = tr(serviceReqToBuy);
 				name.insert(0, "  ");
 				_lstLeft->addRow(1, name.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				_lstLeft->setRowColor(row, _gold);
+				calypsoRecordRow(_lstLeft, row, _gold);
 				_leftTopics.push_back("-");
 				_leftFlags.push_back(TTV_NONE);
 				++row;
@@ -1854,7 +2098,9 @@ void TechTreeViewerState::initLists()
 		if (producedBy.size() > 0)
 		{
 			_lstLeft->addRow(1, tr("STR_PRODUCED_BY").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1864,9 +2110,11 @@ void TechTreeViewerState::initLists()
 				name.insert(0, "  ");
 				name.append(tr("STR_M_FLAG"));
 				_lstLeft->addRow(1, name.c_str());
+				calypsoRecordRow(_lstLeft, row, 0);
 				if (!isDiscoveredManufacture(manuf))
 				{
 					_lstLeft->setRowColor(row, _pink);
+					calypsoRecordRow(_lstLeft, row, _pink);
 				}
 				_leftTopics.push_back(manuf);
 				_leftFlags.push_back(TTV_MANUFACTURING);
@@ -1876,6 +2124,7 @@ void TechTreeViewerState::initLists()
 
 		// empty line
 		_lstLeft->addRow(1, "");
+		calypsoRecordRow(_lstLeft, row, 0);
 		_leftTopics.push_back("-");
 		_leftFlags.push_back(TTV_NONE);
 		++row;
@@ -1884,7 +2133,9 @@ void TechTreeViewerState::initLists()
 		if (rule->getBuyCost() > 0)
 		{
 			_lstLeft->addRow(1, tr("STR_TTV_COST_PER_UNIT").c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _blue);
+			calypsoRecordRow(_lstLeft, row, _blue);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;
@@ -1893,7 +2144,9 @@ void TechTreeViewerState::initLists()
 			txt << "  ";
 			txt << Unicode::formatFunding(rule->getBuyCost());
 			_lstLeft->addRow(1, txt.str().c_str());
+			calypsoRecordRow(_lstLeft, row, 0);
 			_lstLeft->setRowColor(row, _white);
+			calypsoRecordRow(_lstLeft, row, _white);
 			_leftTopics.push_back("-");
 			_leftFlags.push_back(TTV_NONE);
 			++row;

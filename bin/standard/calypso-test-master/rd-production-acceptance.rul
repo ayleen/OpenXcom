@@ -1,0 +1,839 @@
+# GPL-only R&D production acceptance fragment (STR_CALYPSO_RD_PRODUCTION).
+# Loaded by the harness campaign
+# in addition to calypso-test-master.rul; never included in a proprietary data
+# bundle.  The names are deliberately unique so this fragment cannot override
+# the canonical visual fixture.
+
+items:
+  - type: STR_CALYPSO_RD_MATERIAL
+    size: 1
+    costBuy: 100
+    costSell: 50
+    transferTime: 24
+  - type: STR_CALYPSO_RD_OUTPUT_A
+    size: 1
+    costBuy: 400
+    costSell: 200
+    transferTime: 24
+  - type: STR_CALYPSO_RD_OUTPUT_B
+    size: 1
+    costBuy: 600
+    costSell: 300
+    transferTime: 24
+
+crafts:
+  - type: STR_CALYPSO_RD_CRAFT
+    sprite: 0
+    fuelMax: 100
+    damageMax: 100
+    speedMax: 100
+    accel: 1
+    soldiers: 1
+    maxAltitude: 1
+  - type: STR_CALYPSO_RD_REQUIRED_CRAFT
+    sprite: 0
+    fuelMax: 100
+    damageMax: 100
+    speedMax: 100
+    accel: 1
+    soldiers: 1
+    maxAltitude: 1
+
+manufacture:
+  - name: STR_CALYPSO_RD_FACILITY_REQUIRED
+    category: STR_EQUIPMENT
+    requiresBaseFunc: [STR_CALYPSO_RD_REQUIRED_FUNCTION]
+    space: 4
+    time: 120
+    cost: 1200
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64
+    category: STR_EQUIPMENT
+    space: 4
+    time: 120
+    cost: 1200
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_00
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_01
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_02
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_03
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_04
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_05
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_06
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_07
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_08
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_09
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_10
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_11
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_12
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_13
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_14
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_15
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_16
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_17
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_18
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_19
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_20
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_21
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_22
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_23
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_24
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_25
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_26
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_27
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_28
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_29
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_30
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_31
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_32
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_33
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_34
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_35
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_36
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_37
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_38
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_39
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_40
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_41
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_42
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_43
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_44
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_45
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_46
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_47
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_48
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_49
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_50
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_51
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_52
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_53
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_54
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_55
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_56
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_57
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_58
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_59
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_60
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_61
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_62
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_63
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OVER64_64
+    category: STR_EQUIPMENT
+    space: 1
+    time: 120
+    cost: 10
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_FAILURE
+    category: STR_EQUIPMENT
+    space: 4
+    time: 120
+    cost: 1200
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+      STR_CALYPSO_RD_REQUIRED_CRAFT: 1
+  - name: STR_CALYPSO_RD_PERSON
+    category: STR_EQUIPMENT
+    space: 4
+    time: 120
+    cost: 1200
+    spawnedPersonType: STR_SOLDIER
+    spawnedPersonName: STR_CALYPSO_RD_PERSON
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_CRAFT
+    category: STR_CRAFT
+    space: 8
+    time: 120
+    cost: 1200
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_RICH_ROWS
+    category: STR_EQUIPMENT
+    space: 4
+    time: 120
+    cost: 1200
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+      STR_CALYPSO_RD_OUTPUT_B: 1
+    randomProducedItems:
+      - [1, {STR_CALYPSO_RD_OUTPUT_A: 1, STR_CALYPSO_RD_OUTPUT_B: 1}]
+  - name: STR_CALYPSO_RD_REFUND
+    category: STR_EQUIPMENT
+    refund: true
+    space: 4
+    time: 120
+    cost: 1200
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_OPTIONS
+    category: STR_EQUIPMENT
+    space: 4
+    time: 120
+    cost: 1200
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+  - name: STR_CALYPSO_RD_FALLBACK
+    category: STR_EQUIPMENT
+    space: 4
+    time: 120
+    cost: 1200
+    producedItems:
+      STR_CALYPSO_RD_OUTPUT_A: 1
+    requiredItems:
+      STR_CALYPSO_RD_MATERIAL: 1
+
+facilities:
+  - type: STR_CALYPSO_RD_WORKSHOP
+    spriteShape: 1
+    spriteFacility: 19
+    buildCost: 1000
+    buildTime: 0
+    workshops: 8
+    fireSound: -1
+    hitSound: -1
+    mapName: XBASES02
+  - type: STR_CALYPSO_RD_HANGAR
+    spriteShape: 1
+    spriteFacility: 19
+    buildCost: 1000
+    buildTime: 0
+    crafts: 19
+    fireSound: -1
+    hitSound: -1
+    mapName: XBASES02
+
+extraStrings:
+  - type: en-US
+    strings:
+      STR_CALYPSO_RD_REQUIRED_FUNCTION: "R&D REQUIRED FUNCTION"
+      STR_CALYPSO_RD_MATERIAL: "R&D MATERIAL"
+      STR_CALYPSO_RD_OUTPUT_A: "R&D OUTPUT A"
+      STR_CALYPSO_RD_OUTPUT_B: "R&D OUTPUT B"
+      STR_CALYPSO_RD_FACILITY_REQUIRED: "FACILITY REQUIRED PROJECT"
+      STR_CALYPSO_RD_OVER64: "LONG CATALOGUE PROJECT"
+      STR_CALYPSO_RD_OVER64_00: "LONG CATALOGUE 00"
+      STR_CALYPSO_RD_OVER64_01: "LONG CATALOGUE 01"
+      STR_CALYPSO_RD_OVER64_02: "LONG CATALOGUE 02"
+      STR_CALYPSO_RD_OVER64_03: "LONG CATALOGUE 03"
+      STR_CALYPSO_RD_OVER64_04: "LONG CATALOGUE 04"
+      STR_CALYPSO_RD_OVER64_05: "LONG CATALOGUE 05"
+      STR_CALYPSO_RD_OVER64_06: "LONG CATALOGUE 06"
+      STR_CALYPSO_RD_OVER64_07: "LONG CATALOGUE 07"
+      STR_CALYPSO_RD_OVER64_08: "LONG CATALOGUE 08"
+      STR_CALYPSO_RD_OVER64_09: "LONG CATALOGUE 09"
+      STR_CALYPSO_RD_OVER64_10: "LONG CATALOGUE 10"
+      STR_CALYPSO_RD_OVER64_11: "LONG CATALOGUE 11"
+      STR_CALYPSO_RD_OVER64_12: "LONG CATALOGUE 12"
+      STR_CALYPSO_RD_OVER64_13: "LONG CATALOGUE 13"
+      STR_CALYPSO_RD_OVER64_14: "LONG CATALOGUE 14"
+      STR_CALYPSO_RD_OVER64_15: "LONG CATALOGUE 15"
+      STR_CALYPSO_RD_OVER64_16: "LONG CATALOGUE 16"
+      STR_CALYPSO_RD_OVER64_17: "LONG CATALOGUE 17"
+      STR_CALYPSO_RD_OVER64_18: "LONG CATALOGUE 18"
+      STR_CALYPSO_RD_OVER64_19: "LONG CATALOGUE 19"
+      STR_CALYPSO_RD_OVER64_20: "LONG CATALOGUE 20"
+      STR_CALYPSO_RD_OVER64_21: "LONG CATALOGUE 21"
+      STR_CALYPSO_RD_OVER64_22: "LONG CATALOGUE 22"
+      STR_CALYPSO_RD_OVER64_23: "LONG CATALOGUE 23"
+      STR_CALYPSO_RD_OVER64_24: "LONG CATALOGUE 24"
+      STR_CALYPSO_RD_OVER64_25: "LONG CATALOGUE 25"
+      STR_CALYPSO_RD_OVER64_26: "LONG CATALOGUE 26"
+      STR_CALYPSO_RD_OVER64_27: "LONG CATALOGUE 27"
+      STR_CALYPSO_RD_OVER64_28: "LONG CATALOGUE 28"
+      STR_CALYPSO_RD_OVER64_29: "LONG CATALOGUE 29"
+      STR_CALYPSO_RD_OVER64_30: "LONG CATALOGUE 30"
+      STR_CALYPSO_RD_OVER64_31: "LONG CATALOGUE 31"
+      STR_CALYPSO_RD_OVER64_32: "LONG CATALOGUE 32"
+      STR_CALYPSO_RD_OVER64_33: "LONG CATALOGUE 33"
+      STR_CALYPSO_RD_OVER64_34: "LONG CATALOGUE 34"
+      STR_CALYPSO_RD_OVER64_35: "LONG CATALOGUE 35"
+      STR_CALYPSO_RD_OVER64_36: "LONG CATALOGUE 36"
+      STR_CALYPSO_RD_OVER64_37: "LONG CATALOGUE 37"
+      STR_CALYPSO_RD_OVER64_38: "LONG CATALOGUE 38"
+      STR_CALYPSO_RD_OVER64_39: "LONG CATALOGUE 39"
+      STR_CALYPSO_RD_OVER64_40: "LONG CATALOGUE 40"
+      STR_CALYPSO_RD_OVER64_41: "LONG CATALOGUE 41"
+      STR_CALYPSO_RD_OVER64_42: "LONG CATALOGUE 42"
+      STR_CALYPSO_RD_OVER64_43: "LONG CATALOGUE 43"
+      STR_CALYPSO_RD_OVER64_44: "LONG CATALOGUE 44"
+      STR_CALYPSO_RD_OVER64_45: "LONG CATALOGUE 45"
+      STR_CALYPSO_RD_OVER64_46: "LONG CATALOGUE 46"
+      STR_CALYPSO_RD_OVER64_47: "LONG CATALOGUE 47"
+      STR_CALYPSO_RD_OVER64_48: "LONG CATALOGUE 48"
+      STR_CALYPSO_RD_OVER64_49: "LONG CATALOGUE 49"
+      STR_CALYPSO_RD_OVER64_50: "LONG CATALOGUE 50"
+      STR_CALYPSO_RD_OVER64_51: "LONG CATALOGUE 51"
+      STR_CALYPSO_RD_OVER64_52: "LONG CATALOGUE 52"
+      STR_CALYPSO_RD_OVER64_53: "LONG CATALOGUE 53"
+      STR_CALYPSO_RD_OVER64_54: "LONG CATALOGUE 54"
+      STR_CALYPSO_RD_OVER64_55: "LONG CATALOGUE 55"
+      STR_CALYPSO_RD_OVER64_56: "LONG CATALOGUE 56"
+      STR_CALYPSO_RD_OVER64_57: "LONG CATALOGUE 57"
+      STR_CALYPSO_RD_OVER64_58: "LONG CATALOGUE 58"
+      STR_CALYPSO_RD_OVER64_59: "LONG CATALOGUE 59"
+      STR_CALYPSO_RD_OVER64_60: "LONG CATALOGUE 60"
+      STR_CALYPSO_RD_OVER64_61: "LONG CATALOGUE 61"
+      STR_CALYPSO_RD_OVER64_62: "LONG CATALOGUE 62"
+      STR_CALYPSO_RD_OVER64_63: "LONG CATALOGUE 63"
+      STR_CALYPSO_RD_OVER64_64: "LONG CATALOGUE 64"
+      STR_CALYPSO_RD_FAILURE: "FAILURE MATRIX PROJECT"
+      STR_CALYPSO_RD_REQUIRED_CRAFT: "REQUIRED CRAFT"
+      STR_CALYPSO_RD_PERSON: "R&D PERSON"
+      STR_CALYPSO_RD_CRAFT: "R&D CRAFT"
+      STR_CALYPSO_RD_RICH_ROWS: "RICH OUTPUT PROJECT"
+      STR_CALYPSO_RD_REFUND: "REFUND PROJECT"
+      STR_CALYPSO_RD_OPTIONS: "OPTIONS PROJECT"
+      STR_CALYPSO_RD_FALLBACK: "FALLBACK PROJECT"
+
+# Native error destinations used by the GPL-only production acceptance cases.
+interfaces:
+  - type: basescape
+    elements:
+      - {id: errorMessage, color: 138}
+      - {id: errorPalette, color: -1}
+extraSprites:
+  # GPL navigation fixture backdrop for the real GraphsState constructor.
+  # The image is project-owned test art; it is not TFTD data.
+  - type: GRAPHS.SPK
+    width: 320
+    height: 200
+    singleImage: true
+    files:
+      0: Resources/calypso-hud-test-pal8.png
+  - type: BACK17.SCR
+    width: 320
+    height: 200
+    singleImage: true
+    files:
+      0: Resources/calypso-hud-test-pal8.png

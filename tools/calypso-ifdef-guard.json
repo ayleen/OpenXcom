@@ -11,6 +11,17 @@
     "src/Battlescape/BattlescapeState.cpp",
     "src/Basescape/PurchaseState.cpp",
     "src/Basescape/SellState.cpp",
-    "src/Geoscape/GeoscapeState.cpp"
+    "src/Geoscape/GeoscapeState.cpp",
+    "src/Basescape/ResearchState.cpp",
+    "src/Basescape/NewResearchListState.cpp",
+    "src/Basescape/ResearchInfoState.cpp",
+    "src/Basescape/ManufactureState.cpp",
+    "src/Basescape/NewManufactureListState.cpp",
+    "src/Basescape/ManufactureStartState.cpp",
+    "src/Basescape/ManufactureInfoState.cpp",
+    "src/Basescape/ManufactureDependenciesTreeState.cpp",
+    "src/Basescape/GlobalResearchState.cpp",
+    "src/Basescape/GlobalResearchDiaryState.cpp",
+    "src/Basescape/GlobalManufactureState.cpp"
   ]
 }

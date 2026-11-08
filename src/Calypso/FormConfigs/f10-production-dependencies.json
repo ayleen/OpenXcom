@@ -1,0 +1,101 @@
+{
+  "schema": 1,
+  "id": "f10-production-dependencies",
+  "familyId": 10,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-detail",
+  "presentation": "dependency-list",
+  "state": "ManufactureDependenciesTreeState",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-manufacture"
+  },
+  "labelKeys": {
+    "title": "STR_PRODUCTION_DEPENDENCIES",
+    "showAll": "STR_SHOW_ALL",
+    "ok": "STR_OK"
+  },
+  "title": "TOPIC: ICHOR",
+  "actions": [
+    {
+      "id": "show-all",
+      "label": "SHOW ALL",
+      "labelKey": "STR_SHOW_ALL",
+      "tone": "safe",
+      "action": "show-all"
+    },
+    {
+      "id": "ok",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "tone": "primary",
+      "action": "ok"
+    }
+  ],
+  "controls": [],
+  "regions": [
+    {
+      "id": "tree",
+      "role": "primary",
+      "kind": "collection",
+      "label": "PRODUCTION DEPENDENCIES",
+      "collection": {
+        "mode": "list",
+        "selectionRole": "dependency",
+        "columns": [
+          {
+            "id": "topic",
+            "label": "TOPIC",
+            "contentRole": "name"
+          }
+        ],
+        "items": [
+          {
+            "id": "dependency-1",
+            "values": [
+              "MAELSTROM"
+            ]
+          },
+          {
+            "id": "dependency-2",
+            "values": [
+              "MANTIS"
+            ]
+          },
+          {
+            "id": "dependency-3",
+            "values": [
+              "Cavitation"
+            ]
+          },
+          {
+            "id": "dependency-4",
+            "values": [
+              "***"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "context",
+      "role": "secondary",
+      "kind": "preview",
+      "label": "DEPENDENCY TREE",
+      "contentId": "production-item"
+    },
+    {
+      "id": "summary",
+      "role": "summary",
+      "kind": "fields",
+      "label": "SEARCH",
+      "fields": [
+        {
+          "id": "topic",
+          "label": "TOPIC",
+          "value": "Ichor"
+        }
+      ]
+    }
+  ]
+}

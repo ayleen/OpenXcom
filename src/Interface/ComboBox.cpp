@@ -430,14 +430,48 @@ void ComboBox::handle(Action *action, State *state)
 {
 	if (!_visible || _hidden)
 		return;
+	#ifdef __EMSCRIPTEN__
+	if (_calypsoHdDescriptorFailed || _calypsoHdDescriptorEmpty)
+	{
+		if (_window->getVisible()) toggle(false, false);
+		return;
+	}
+	#endif
 
+	#ifdef __EMSCRIPTEN__
+	// A compact HD popup is repositioned below the toolbar owner. If the
+	// button opens it during this same SDL event, forwarding that event into
+	// the newly-visible legacy TextList lets the original button click select
+	// option zero and immediately close the popup. Consume the opening event;
+	// subsequent events still reach the live native TextList owner.
+	const bool popupWasVisible = _window->getVisible();
+	#endif
 	_button->handle(action, state);
+	#ifdef __EMSCRIPTEN__
+	if (!popupWasVisible && _window->getVisible()) return;
+	#endif
 	_list->handle(action, state);
 	InteractiveSurface::handle(action, state);
+#ifdef __EMSCRIPTEN__
+	// HD popup geometry may be wider than its toolbar opener. Dismiss only
+	// when the pointer is outside both actual owners so an option beyond the
+	// opener's horizontal bounds can still receive the gesture.
+	const int mouseX = action->getAbsoluteXMouse();
+	const int mouseY = action->getAbsoluteYMouse();
+	const bool insideButton = mouseX >= getX() && mouseX < getX() + getWidth()
+		&& mouseY >= getY() && mouseY < getY() + getHeight();
+	const bool insidePopup = mouseX >= _window->getX()
+		&& mouseX < _window->getX() + _window->getWidth()
+		&& mouseY >= _window->getY()
+		&& mouseY < _window->getY() + _window->getHeight();
+	if (_window->getVisible() && action->getDetails()->type == SDL_MOUSEBUTTONDOWN
+		&& !insideButton && !insidePopup)
+#else
 	int topY = std::min(getY(), _window->getY());
 	if (_window->getVisible() && action->getDetails()->type == SDL_MOUSEBUTTONDOWN &&
 		(action->getAbsoluteXMouse() < getX() || action->getAbsoluteXMouse() >= getX() + getWidth() ||
 		 action->getAbsoluteYMouse() < topY || action->getAbsoluteYMouse() >= topY + getHeight() + _window->getHeight()))
+#endif
 	{
 		toggle(false, false);
 	}
@@ -470,6 +504,15 @@ void ComboBox::think()
  */
 void ComboBox::toggle(bool first, bool listClick)
 {
+	#ifdef __EMSCRIPTEN__
+	if (_calypsoHdDescriptorFailed || _calypsoHdDescriptorEmpty)
+	{
+		_window->setVisible(false);
+		_list->setVisible(false);
+		_state->clearModal(this);
+		return;
+	}
+	#endif
 	_window->setVisible(!_window->getVisible());
 	_list->setVisible(!_list->getVisible());
 	_state->setModal(_window->getVisible() ? this : 0);
@@ -479,6 +522,13 @@ void ComboBox::toggle(bool first, bool listClick)
 	}
 	if (_list->getVisible())
 	{
+		#ifdef __EMSCRIPTEN__
+		if (_list->getVisibleRows() == 0)
+		{
+			_list->setVisible(false);
+			return;
+		}
+		#endif
 		if (_sel < _list->getVisibleRows()/2 || _sel == (size_t)-1)
 		{
 			_list->scrollTo(0);
@@ -525,81 +575,5 @@ void ComboBox::onListMouseOver(ActionHandler handler)
 {
 	_list->onMouseOver(handler);
 }
-
-#ifdef __EMSCRIPTEN__
-/**
- * Calypso: HD — re-lay out all children at the current scale.
- * Called from setWidth/setHeight after applyUiScaling enlarges the outer surface.
- * Also re-populates the dropdown list so rows are built at the new scale.
- */
-void ComboBox::relayout()
-{
-	float s = scale();
-	int bw = (int)Round(BUTTON_WIDTH * s);
-	int hm = (int)Round(HORIZONTAL_MARGIN * s);
-	int vm = (int)Round(VERTICAL_MARGIN * s);
-
-	// Resize the button to the full outer rect.
-	_button->setWidth(getWidth());
-	_button->setHeight(getHeight());
-
-	// Recreate _arrow at scaled size + position.
-	delete _arrow;
-	_arrow = new Surface((int)Round(11 * s), (int)Round(8 * s),
-	                     getX() + getWidth() - bw,
-	                     getY() + (int)Round(4 * s));
-	_arrow->setPalette(getPalette());
-
-	// Resize _list outer width (scaled), but declare its single column in NATIVE units —
-	// TextList::addRow multiplies the column width by its own scale(), so passing the
-	// scaled width here would double-scale the row text.
-	int listW = getWidth() - hm * 2 - bw + 1;
-	_list->setWidth(listW);
-	_list->setColumns(1, _nativeW - HORIZONTAL_MARGIN * 2 - BUTTON_WIDTH + 1);
-
-	// Resize _window width (height is recomputed by setDropdown).
-	_window->setWidth(getWidth());
-
-	// Re-run positional helpers to propagate new sizes.
-	setX(getX());
-	setY(getY());
-
-	// Draw the arrow at the new scale.
-	drawArrow();
-
-	// Re-populate the dropdown list so rows are sized at s (not s=1).
-	if (!_optionsCache.empty())
-	{
-		setDropdown((int)_optionsCache.size());
-		_list->clearList();
-		for (const auto& option : _optionsCache)
-		{
-			if (_optionsCacheTranslate)
-				_list->addRow(1, _lang->getString(option).c_str());
-			else
-				_list->addRow(1, option.c_str());
-		}
-		setSelected(_sel);
-	}
-}
-
-void ComboBox::setWidth(int w)
-{
-	Surface::setWidth(w);
-	relayout();
-}
-
-void ComboBox::setHeight(int h)
-{
-	Surface::setHeight(h);
-	relayout();
-}
-
-void ComboBox::setTTFFont(TTFFont* font, float fillFrac)
-{
-	_button->setTTFFont(font, fillFrac);
-	if (_list) _list->setTTFFont(font, fillFrac);
-}
-#endif
 
 }

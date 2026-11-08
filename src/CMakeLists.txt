@@ -632,7 +632,7 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoF05SoldierTransformUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF06SoldierDiaryUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF12TransferConfirmUi.cpp)
-  list(APPEND openxcom_src Calypso/CalypsoF10ManufactureCheckUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoF10ProductionUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF13ContainmentUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF24ItemsArrivingUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF21TransactionUi.cpp)
@@ -674,6 +674,8 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoStateUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoTextEdit.cpp)
   list(APPEND openxcom_src Calypso/CalypsoTextList.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoComboBox.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoPlacementHooks.cpp)
   list(APPEND openxcom_src Calypso/CalypsoScrollBar.cpp)
   list(APPEND openxcom_src Calypso/CalypsoTextInputHarnessState.cpp)
   list(APPEND openxcom_src Calypso/CalypsoViewportMailbox.cpp)
@@ -696,6 +698,11 @@ if(EMSCRIPTEN)
   # Phase 46.4-F33: opaque-black harness host + generic registry exports.
   list(APPEND openxcom_src Calypso/CalypsoHdHarnessHostState.cpp)
   list(APPEND openxcom_src Calypso/CalypsoHdScreenRenderer.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoHdOperationsRenderer.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoHdOperationsChrome.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoF09ResearchUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoF14GlobalOperationsUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoF15TechTreeUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoHdScreenHarness.cpp)
   list(APPEND openxcom_src Calypso/CalypsoErrorPopupUiShared.cpp)
   list(APPEND openxcom_src Calypso/CalypsoStatisticsUi.cpp)
@@ -1061,6 +1068,8 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdHarnessHostModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdDiagnosticsTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoSelectionListScrollTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdOperationsModelTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/ResearchInfoTransactionTest.cpp
         ${CMAKE_SOURCE_DIR}/src/Calypso/CommandCenter/CommandCenterLayout.cpp
         ${CMAKE_SOURCE_DIR}/src/Calypso/CalypsoHdTrackedText.cpp)
 

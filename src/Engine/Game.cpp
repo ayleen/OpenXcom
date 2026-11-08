@@ -188,6 +188,10 @@ Game *getCurrentGame() { return ::game; }
  */
 bool Game::iterate()
 {
+#ifdef __EMSCRIPTEN__
+	const int calypsoHdRouteTick = calypsoHdRouteFailedTick();
+	if (calypsoHdRouteTick != 0) return calypsoHdRouteTick > 0;
+#endif
 	static const ApplicationState kbFocusRun[4] = { RUNNING, RUNNING, SLOWED, PAUSED };
 	static const ApplicationState stateRun[4] = { SLOWED, PAUSED, PAUSED, PAUSED };
 #ifdef __EMSCRIPTEN__

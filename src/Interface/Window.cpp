@@ -126,6 +126,22 @@ void Window::think()
 	_timer->think(0, this);
 }
 
+#ifdef __EMSCRIPTEN__
+void Window::finishPopupForHd()
+{
+	if (_popupStep >= 1.0) return;
+	_popupStep = 1.0;
+	_timer->stop();
+	if (_screen)
+	{
+		_state->toggleScreen();
+		_screen = false;
+	}
+	_state->showAll();
+	_redraw = true;
+}
+#endif
+
 /**
  * Plays the window popup animation.
  */

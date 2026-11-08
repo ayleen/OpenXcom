@@ -101,6 +101,13 @@ public:
 	/// quad through the real GL path. Off by default.
 	void setHarnessEnabled(bool on);
 
+	/// Harness-only letterbox offsets in physical canvas pixels. The offset is
+	/// applied to the frozen presentation snapshot for every live frame so the
+	/// real overlay painter and native geometry owner share one projection. It
+	/// is deliberately not part of the production viewport model.
+	void setHarnessContentOffset(int physicalX, int physicalY);
+	void clearHarnessContentOffset();
+
 	/// WebGL context lost/restored -- forwarded to the frame controller and the
 	/// GPU caches. Also driven by the ShaderManager reset-callback ladder.
 	void contextLost();
@@ -109,6 +116,14 @@ public:
 	const CalypsoHdPresentationMetrics& frozenMetrics() const { return _frozenMetrics; }
 	bool mayGoPhysical() const { return _mayGoPhysical; }
 	bool resourcesReadyForFrame() const;
+	bool hasRegisteredState(const void* state) const { return findAdapterForState(state) != nullptr; }
+	/// Read-only harness diagnostics may need the adapter that owns the current
+	/// top state when a stacked frame collected another contributor last. This
+	/// never infers an underlay: it is an exact registered-state lookup.
+	const CalypsoHdFamilyAdapter* adapterForState(const void* state) const
+	{
+		return findAdapterForState(state);
+	}
 	std::uint64_t frameId() const { return _controller.frameId(); }
 	/// Monotonic GL context generation (bumped on every restore). Consumers
 	/// such as the live model snapshot cache key their caches by it.
@@ -124,6 +139,7 @@ public:
 
 	/// Fail closed for a registered HD world route; never expose partial or vanilla output.
 	[[noreturn]] void failHdRoute(const std::string& detail);
+	bool routeFailedForState(const void* state) const { return state && state == _failedState; }
 
 private:
 	CalypsoHdUiOverlay() = default;
@@ -207,6 +223,8 @@ private:
 	CalypsoHdPresentationMetrics _frozenMetrics;
 	bool _mayGoPhysical = false;
 	bool _activeThisFrame = false;
+	const void* _preparingState = nullptr;
+	const void* _failedState = nullptr;
 	// Every contributing adapter's top state with suppressed logical UI this
 	// frame (chain root through active); logicalStateSuppressed() reports
 	// membership. Published with the widget list before any readiness/warmup
@@ -258,6 +276,9 @@ private:
 
 	// Developer harness quad (off in production).
 	bool _harnessEnabled = false;
+	bool _harnessContentOffsetEnabled = false;
+	int _harnessContentOffsetX = 0;
+	int _harnessContentOffsetY = 0;
 	GpuTexture* _harnessTex = nullptr;
 	GpuTexture* _whiteTex = nullptr; // 1x1 white, tinted for solid panels
 

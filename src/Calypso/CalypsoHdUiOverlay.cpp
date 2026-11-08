@@ -6,6 +6,7 @@
 #ifdef __EMSCRIPTEN__
 
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoHdRuntimeDiagnostics.h"
 #include "CalypsoHdImageSource.h"
 #include "CalypsoHdHarnessHostState.h"
 #include "CalypsoViewportMailbox.h"
@@ -44,7 +45,9 @@ constexpr std::uint32_t kRetryableReadinessFrameBudget = 1800;
 
 [[noreturn]] void CalypsoHdUiOverlay::failHdRoute(const std::string& detail)
 {
-	// The exception cancels the Emscripten loop before State::blit. Keep logical
+	_failedState = _preparingState;
+	++calypsoHdRuntimeDiagnostics().routeFailures;
+	// The exception aborts this iteration; the owner latch prevents later input. Keep logical
 	// suppression claims active while unwinding: a registered HD route must never
 	// reveal native pixels as a recovery frame. Claims clear only at frame start
 	// or when the adapter leaves the overlay lifecycle.
@@ -75,6 +78,8 @@ void CalypsoHdUiOverlay::registerAdapter(const CalypsoHdFamilyAdapter* adapter)
 
 void CalypsoHdUiOverlay::clearAdapter(const CalypsoHdFamilyAdapter* adapter)
 {
+	if (adapter && adapter->topState() == _failedState) _failedState = nullptr;
+	if (adapter && adapter->topState() == _preparingState) _preparingState = nullptr;
 	_adapters.erase(std::remove(_adapters.begin(), _adapters.end(), adapter), _adapters.end());
 	if (adapter == _activeAdapter)
 	{
@@ -90,6 +95,27 @@ void CalypsoHdUiOverlay::clearAdapter(const CalypsoHdFamilyAdapter* adapter)
 		_activeThisFrame = false;
 		_controller.claims().clear();
 	}
+}
+
+void CalypsoHdUiOverlay::setHarnessContentOffset(int physicalX, int physicalY)
+{
+	_harnessContentOffsetEnabled = true;
+	_harnessContentOffsetX = std::max(0, physicalX);
+	_harnessContentOffsetY = std::max(0, physicalY);
+	// The setter is called by the QA harness while a target is live, before its
+	// resize hook. Update the current frozen snapshot immediately so that the
+	// resize path and the first input probe see the same projection as paint.
+	_frozenMetrics.contentOffsetX = _harnessContentOffsetX;
+	_frozenMetrics.contentOffsetY = _harnessContentOffsetY;
+}
+
+void CalypsoHdUiOverlay::clearHarnessContentOffset()
+{
+	_harnessContentOffsetEnabled = false;
+	_harnessContentOffsetX = 0;
+	_harnessContentOffsetY = 0;
+	_frozenMetrics.contentOffsetX = 0;
+	_frozenMetrics.contentOffsetY = 0;
 }
 
 const CalypsoHdFamilyAdapter* CalypsoHdUiOverlay::findAdapterForState(const void* state) const
@@ -141,10 +167,30 @@ void CalypsoHdUiOverlay::beginFrame(int logicalWidth, int logicalHeight)
 	}
 
 	_frozenMetrics = calypsoHdBuildPresentationMetrics(logicalWidth, logicalHeight);
+	// Content offsets are a harness-only physical letterbox probe. Keep them
+	// attached to every frozen frame while the target is live, and fail closed
+	// to the normal zero-offset production projection as soon as the host/target
+	// lifecycle ends.
+	const auto& harness = calypsoHarnessSession();
+	if (_harnessContentOffsetEnabled
+		&& calypsoHarnessHostUp(harness)
+		&& calypsoHarnessTargetUp(harness))
+	{
+		_frozenMetrics.contentOffsetX = _harnessContentOffsetX;
+		_frozenMetrics.contentOffsetY = _harnessContentOffsetY;
+	}
+	else if (_harnessContentOffsetEnabled)
+	{
+		clearHarnessContentOffset();
+	}
 
 	const CalypsoHdFrameController::BeginResult r =
 		_controller.beginFrame(_frozenMetrics.valid());
 	_mayGoPhysical = r.mayGoPhysical;
+
+	if (calypsoHdRuntimeDiagnostics().textAuditEnabled
+		&& calypsoHarnessHostUp(calypsoHarnessSession()))
+		EM_ASM({ globalThis.__calypsoRdTextAudit = []; });
 
 	// Reset per-frame state (A7: never sticky).
 	_activeThisFrame = false;
@@ -158,6 +204,7 @@ void CalypsoHdUiOverlay::beginFrame(int logicalWidth, int logicalHeight)
 
 void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const void* topState)
 {
+	_preparingState = topState;
 	beginFrame(logicalWidth, logicalHeight);
 
 	// Drive the registered adapter (if any) whose state is the current top state,
@@ -409,6 +456,28 @@ void CalypsoHdUiOverlay::resolveSubgroup(const CalypsoHdSubgroup& subgroup,
 			d.tex = tex;
 			d.naturalW = (int)tex->width();
 			d.naturalH = (int)tex->height();
+			if (calypsoHdRuntimeDiagnostics().textAuditEnabled
+				&& calypsoHarnessHostUp(calypsoHarnessSession()))
+			{
+				const auto audit = _textRaster.auditMetricsFor(item.rasterKey);
+				const auto box = calypsoMapLogicalRect(d.rect, _frozenMetrics);
+				EM_ASM_({
+					(globalThis.__calypsoRdTextAudit || (globalThis.__calypsoRdTextAudit = [])).push({
+						frame: $0, text: UTF8ToString($1), fontPath: UTF8ToString($2),
+						covered: !!$3, fontPx: $4, fontHeight: $5, lineSkip: $6,
+						rasterWidth: $7, rasterHeight: $8,
+						box: {x:$9, y:$10, w:$11, h:$12},
+						textScaleX: $13, textScaleY: $14, explicitLineHeight: $15
+					});
+				}, static_cast<double>(_controller.frameId()), item.rasterKey.text.c_str(), audit.fontPath.c_str(),
+					audit.covered, item.rasterKey.physicalPixelHeight, audit.fontHeight, audit.lineSkip,
+					d.naturalW, d.naturalH, box.x, box.y, box.w, box.h,
+					d.textScaleX, d.textScaleY,
+					item.rasterKey.lineHeightMilliPx > 0
+						? item.rasterKey.lineHeightMilliPx / 1000.0
+						: item.rasterKey.lineHeightPx);
+			}
+
 
 			// A guarded multi-line texture is an atomic-fit item. Generic glyphs
 			// may deliberately use their box as a UV clip target, but doing that to
@@ -804,6 +873,22 @@ bool CalypsoHdUiOverlay::drawImage(const ResolvedDraw& d)
 
 GpuTexture* CalypsoHdUiOverlay::textureForText(const CalypsoHdTextRasterKey& rasterKey)
 {
+	// Explicit harness fault injection reaches the ordinary resource failure
+	// path. It is unavailable outside a live developer harness session.
+	if (calypsoHarnessHostUp(calypsoHarnessSession()))
+	{
+		const int fault = calypsoHdRuntimeDiagnostics().harnessFault;
+		if (fault == 1)
+		{
+			auto missing = rasterKey;
+			missing.source.canonicalVfsPath = "/calypso-acceptance-missing.ttf";
+			missing.source.fallbackVfsPath.clear();
+			_textRaster.rasterFor(missing);
+			return nullptr;
+		}
+		if (fault == 2) return nullptr; // unavailable upload prerequisite
+	}
+
 	CalypsoHdTextTextureKey tk;
 	tk.raster = rasterKey;
 	tk.contextGeneration = _contextGen;
@@ -1066,6 +1151,8 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 		drawLogicalQuad(_harnessTex, CalypsoLogicalRect{ 8, 8, 96, 40 }, 0);
 	}
 
+	++calypsoHdRuntimeDiagnostics().renderedFrames;
+	calypsoHdRuntimeDiagnostics().lastDrawCount = _drawItems.size();
 	// Committed items in deterministic order (panels + text interleaved by key).
 	for (const ResolvedDraw& d : _drawItems)
 	{

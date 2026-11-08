@@ -24,6 +24,7 @@
 #include "CalypsoF34ErrorLayout.h"
 #include "CalypsoHdHarnessHostState.h"
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoHdOperationsChrome.h"
 #include "CalypsoSmallConfirmationRenderer.h"
 #include "CalypsoUiFamilies.h"
 #include "CalypsoUiMetrics.h"
@@ -86,6 +87,7 @@ std::string joinLines(const std::vector<std::string>& lines)
 CalypsoErrorPopupUi::~CalypsoErrorPopupUi()
 {
 	CalypsoHdUiOverlay::instance().clearAdapter(this);
+	delete _strategicChrome;
 }
 
 const void* CalypsoErrorPopupUi::topState() const
@@ -284,7 +286,13 @@ void CalypsoErrorPopupUi::configure(
 		/*subtractVanillaCenter=*/false);
 	CalypsoErrorPopupUi* adapter = new CalypsoErrorPopupUi(&state);
 	state._hdAdapter = adapter;
+	if (state._hdForm.allowStrategicNavigation && state._hdForm.hdUnderlayState)
+	{
+		adapter->_strategicChrome = new CalypsoHdOperationsChrome(state);
+		adapter->_strategicChrome->applyGeometry();
+	}
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter);
+	state._window->finishPopupForHd();
 	if (calypsoHarnessHostUp(calypsoHarnessSession()))
 	{
 		calypsoHdHarnessDomShow();
@@ -308,6 +316,8 @@ bool CalypsoErrorPopupUi::resize(ErrorMessageState& state)
 		applyRects(state, currentPresentationLayout(wide));
 		state.applyUiScaling();
 	}
+	if (state._hdAdapter && state._hdAdapter->_strategicChrome)
+		state._hdAdapter->_strategicChrome->applyGeometry();
 	return true;
 }
 

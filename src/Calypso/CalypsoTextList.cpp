@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 #include <vector>
 
 #include "../Engine/Action.h"
@@ -132,13 +133,47 @@ bool TextList::calypsoHdFilterMouseOver(Action *action, State *state)
 	return false;
 }
 
-int TextList::calypsoHdHoverSelRow(double relY, double yScale, int nativeRowH) const
+bool TextList::calypsoHdApplyMouseOverSelection(Action *action, State *state, int rowHeight)
 {
-	if (_hdSelList && _hdRowStride > 0)
+	if (_hdSelList)
 	{
-		return std::max(0, (int)(_scroll + (int)floor(relY / ((double)_hdRowStride * yScale))));
+		const Calypso::CalypsoSelectionListRowHit hit = calypsoHdRowHit(action);
+		if (!hit.hit)
+		{
+			_selector->setVisible(false);
+			InteractiveSurface::mouseOver(action, state);
+			return true;
+		}
+		_selRow = static_cast<int>(hit.index);
 	}
-	return std::max(0, (int)(_scroll + (int)floor(relY / (nativeRowH * scale() * yScale))));
+	else
+	{
+		_selRow = static_cast<int>(Calypso::calypsoTextListRowAtRenderedY(
+			action->getRelativeYMouse(), rowHeight, scale(),
+			action->getYScale(), _scroll));
+	}
+	return false;
+}
+
+Calypso::CalypsoSelectionListRowHit TextList::calypsoHdRowHit(const Action *action) const
+{
+	if (!_hdSelList || _hdRowStride <= 0 || _hdVisibleRows == 0)
+	{
+		return {};
+	}
+	// Engine-logical pointer position: the same space the adapter projected the
+	// row slots into. getRelativeYMouse() would be display px — one conversion,
+	// never mixed systems.
+	const double relativeLogicalY = action->getAbsoluteYMouse() - static_cast<double>(getY());
+	if (!_hdRowBoundaries.empty())
+	{
+		return Calypso::calypsoSelectionListRowAtBoundaries(
+			relativeLogicalY,
+			_hdRowBoundaries, _scroll, _rows.size(), _hdVisibleRows);
+	}
+	return Calypso::calypsoSelectionListRowAtLogicalY(
+		relativeLogicalY, static_cast<double>(_hdRowStride),
+		static_cast<double>(_hdRowOriginY), _scroll, _rows.size(), _hdVisibleRows);
 }
 
 void TextList::calypsoHdMaybeApplyTtf(Text *txt)
@@ -167,6 +202,48 @@ void TextList::calypsoHdNormalizeRowHeights(std::vector<Text*> &row, int rowHeig
 	{
 		row[i]->setHeight(scaledRowHeight);
 	}
+}
+
+void TextList::calypsoHdNormalizeRowMap()
+{
+	if (_hdFixedStride) return;
+	_hdPhysicalRows = _rows;
+	const std::size_t rawScroll = _scroll;
+	const std::size_t rawSelection = _selRow;
+	_rows = Calypso::calypsoSelectionListNormalizeRows(_hdPhysicalRows);
+	if (_hdPhysicalRows.empty())
+	{
+		_scroll = 0;
+		_selRow = 0;
+		return;
+	}
+	const std::size_t scrollPhysical = std::min(rawScroll, _hdPhysicalRows.size() - 1);
+	_scroll = _hdPhysicalRows[scrollPhysical];
+	if (rawSelection < _hdPhysicalRows.size())
+		_selRow = _hdPhysicalRows[rawSelection];
+	else
+		_selRow = _rows.size();
+}
+
+void TextList::calypsoHdRestoreRowMap()
+{
+	if (!_hdFixedStride) return;
+	const std::size_t logicalScroll = _scroll;
+	const std::size_t logicalSelection = _selRow;
+	_rows = std::move(_hdPhysicalRows);
+	_hdPhysicalRows.clear();
+	if (_rows.empty())
+	{
+		_scroll = 0;
+		_selRow = 0;
+		return;
+	}
+	const std::size_t rawScroll = Calypso::calypsoSelectionListFirstPhysicalRow(
+		_rows, logicalScroll);
+	_scroll = rawScroll < _rows.size() ? rawScroll : 0;
+	const std::size_t rawSelection = Calypso::calypsoSelectionListFirstPhysicalRow(
+		_rows, logicalSelection);
+	_selRow = rawSelection < _rows.size() ? rawSelection : _rows.size();
 }
 
 /**
@@ -238,17 +315,58 @@ void TextList::setTTFFont(TTFFont* font, float fillFrac)
 			t->setTTFFont(font, fillFrac);
 }
 
-void TextList::configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbHeight, int rowStride, size_t visibleRows)
+void TextList::configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbHeight,
+	int rowStride, int rowOriginY, int dataViewportH, size_t visibleRows,
+	const std::vector<int>& rowBoundaries)
 {
+	// A descriptor without a fixed row stride is not an HD selection-list
+	// configuration. Disable the seam completely so the native list keeps its
+	// ordinary row hit/scroll behavior instead of leaving _hdSelList active with
+	// an unusable row-hit descriptor.
+	if (rowStride <= 0 || visibleRows == 0)
+	{
+		clearCalypsoHdSelectionList();
+		return;
+	}
 	const int cachedStride = rowStride > 0 ? rowStride : 0;
+	const int cachedOrigin = rowOriginY > 0 ? rowOriginY : 0;
+	const int cachedViewportH = dataViewportH > 0 ? dataViewportH : 0;
 	const size_t cachedVisible = visibleRows;
+	std::vector<int> cachedBoundaries;
+	if (rowBoundaries.size() == cachedVisible + 1)
+	{
+		cachedBoundaries = rowBoundaries;
+		for (std::size_t i = 1; i < cachedBoundaries.size(); ++i)
+		{
+			if (cachedBoundaries[i] < cachedBoundaries[i - 1])
+			{
+				cachedBoundaries.clear();
+				break;
+			}
+		}
+	}
+	const bool fixedStride = cachedStride > 0 && cachedVisible > 0;
+	if (fixedStride && !_hdFixedStride)
+	{
+		calypsoHdNormalizeRowMap();
+	}
+	else if (!fixedStride && _hdFixedStride)
+	{
+		calypsoHdRestoreRowMap();
+	}
+	_hdFixedStride = fixedStride;
 	const bool changed = !_hdSelList || _hdScrollBarWidth != scrollBarWidth || _hdMinThumb != minThumbHeight ||
-		_hdRowStride != cachedStride || _hdVisibleRows != cachedVisible;
+		_hdRowStride != cachedStride || _hdRowOriginY != cachedOrigin ||
+		_hdDataViewportH != cachedViewportH || _hdVisibleRows != cachedVisible ||
+		_hdRowBoundaries != cachedBoundaries;
 	_hdSelList = true;
 	_hdScrollBarWidth = scrollBarWidth > 0 ? scrollBarWidth : 0;
 	_hdMinThumb = minThumbHeight > 0 ? minThumbHeight : 0;
 	_hdRowStride = cachedStride;
+	_hdRowOriginY = cachedOrigin;
+	_hdDataViewportH = cachedViewportH;
 	_hdVisibleRows = cachedVisible;
+	_hdRowBoundaries = std::move(cachedBoundaries);
 	if (changed)
 	{
 		_scrollbar->setCalypsoHdMinThumb(_hdMinThumb);
@@ -259,20 +377,50 @@ void TextList::configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbH
 		_scrollbar->setCalypsoHdMinThumb(_hdMinThumb);
 	}
 	updateVisible();
+	_scroll = Calypso::calypsoSelectionListClampScroll(_scroll, _rows.size(), _visibleRows);
+	if (_selRow > _rows.size()) _selRow = _rows.size();
 	positionCalypsoHdScrollbar();
 }
 
 void TextList::clearCalypsoHdSelectionList()
 {
 	if (!_hdSelList) return;
+	if (_hdFixedStride)
+	{
+		calypsoHdRestoreRowMap();
+		_hdFixedStride = false;
+	}
 	_hdSelList = false;
 	_hdScrollBarWidth = 0;
 	_hdMinThumb = 0;
 	_hdRowStride = 0;
+	_hdRowOriginY = 0;
+	_hdDataViewportH = 0;
 	_hdVisibleRows = 0;
+	_hdRowBoundaries.clear();
 	_hdLastHoverX = 1e30;
 	_hdLastHoverY = 1e30;
 	_scrollbar->clearCalypsoHd();
+	if (_font)
+	{
+		updateVisible();
+		_scroll = Calypso::calypsoSelectionListClampScroll(_scroll, _rows.size(), _visibleRows);
+		if (_selRow > _rows.size()) _selRow = _rows.size();
+		updateArrows();
+	}
+}
+
+void TextList::invalidateCalypsoHdSelection()
+{
+	if (!_hdSelList) return;
+	// _selRow is an index into _rows, not a gameplay row identity. After a
+	// filtered rebuild, retaining it would silently select the newly inserted
+	// row zero when the old row disappeared.
+	_selRow = _rows.size();
+	if (_selector) _selector->setVisible(false);
+	_hdLastHoverX = 1e30;
+	_hdLastHoverY = 1e30;
+	_redraw = true;
 }
 
 bool TextList::isCalypsoHdSelectionList() const
@@ -288,8 +436,15 @@ SDL_Rect TextList::getCalypsoHdTrackRect() const
 	track.w = 0;
 	track.h = 0;
 	if (!_hdSelList || _hdScrollBarWidth <= 0 || getWidth() <= 0 || getHeight() <= 0) return track;
+	// The visual track and the native input rail share one geometry: the data
+	// viewport (first painted row slot through the last), never the full list
+	// rect including the column header or the trailing empty remainder.
+	const int originY = _hdRowOriginY > 0 ? _hdRowOriginY : 0;
+	int viewportH = _hdDataViewportH > 0 ? _hdDataViewportH : getHeight() - originY;
+	if (originY + viewportH > getHeight()) viewportH = getHeight() - originY;
+	if (viewportH <= 0) return track;
 	const Calypso::CalypsoSelectionListTrack t = Calypso::calypsoSelectionListTrackForList(
-		getX(), getY(), getWidth(), getHeight(), _hdScrollBarWidth);
+		getX(), getY() + originY, getWidth(), viewportH, _hdScrollBarWidth);
 	track.x = t.x;
 	track.y = t.y;
 	track.w = t.w;

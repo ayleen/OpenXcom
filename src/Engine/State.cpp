@@ -32,6 +32,9 @@
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoHdHarnessHostState.h"
 #include "../Calypso/CalypsoHdUiOverlay.h"
+#include "../Calypso/CalypsoHdRuntimeDiagnostics.h"
+#include "../Calypso/CalypsoStrategicNavigation.h"
+#include "../Calypso/CalypsoPlacementHooks.h"
 #endif
 #include "../Engine/Sound.h"
 #include "../Engine/Collections.h"
@@ -381,9 +384,7 @@ void State::handle(Action *action)
 void State::blit()
 {
 #ifdef __EMSCRIPTEN__
-	if (Calypso::calypsoHarnessHostUp(Calypso::calypsoHarnessSession())) return;
-	if (Calypso::CalypsoHdUiOverlay::instance().logicalStateSuppressed(this,
-		Calypso::CalypsoHdUiOverlay::instance().frameId())) return;
+	if (Calypso::calypsoHdPrepareNativeBlit(this)) return;
 #endif
 	for (auto* surface : _surfaces)
 	{

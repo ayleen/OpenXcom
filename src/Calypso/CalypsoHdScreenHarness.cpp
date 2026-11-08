@@ -2,9 +2,15 @@
 #ifdef __EMSCRIPTEN__
 
 #include <cstring>
+#include <emscripten.h>
+#include <iomanip>
+#include <sstream>
 #include <utility>
 
+#include "../Engine/Game.h"
 #include "../Engine/State.h"
+#include "../Savegame/GameTime.h"
+#include "../Savegame/SavedGame.h"
 
 #include "CalypsoHdHarnessHostState.h"
 #include "CalypsoHdScreenRenderer.h"
@@ -21,6 +27,26 @@ namespace Calypso
 
 namespace
 {
+
+const CalypsoHdScreenRenderModel* g_activeScreenModel = nullptr;
+
+std::string screenJsonEscape(const std::string& value)
+{
+	std::string escaped;
+	for (unsigned char ch : value)
+	{
+		switch (ch)
+		{
+		case '"': escaped += "\\\""; break;
+		case '\\': escaped += "\\\\"; break;
+		case '\n': escaped += "\\n"; break;
+		case '\r': escaped += "\\r"; break;
+		case '\t': escaped += "\\t"; break;
+		default: escaped += static_cast<char>(ch); break;
+		}
+	}
+	return escaped;
+}
 
 CalypsoHdScreenRect screenRect(
 	const CalypsoGeoscapeCommandShellGen::CalypsoGeoscapeCommandShellGenRect& rect)
@@ -84,10 +110,21 @@ CalypsoHdScreenRenderModel basescapeHarnessModel()
 	for (const auto& copy : kFixtureCopy)
 		model.copy.emplace_back(copy.key, copy.value);
 	CalypsoBasescapeHdSnapshot snapshot;
-	snapshot.baseName = "AURORA DAWN";
+	const auto &session = calypsoHarnessSession();
+	// Keep the historical standalone F01 fixture deterministic. V01 supplies
+	// an explicit identity override when it needs parity with an R&D route.
+	snapshot.baseName = session.rdF01ShellBase.empty() ? "AURORA DAWN" : session.rdF01ShellBase;
 	snapshot.baseCaption = "BASES";
-	snapshot.displayTime = "12:28";
-	snapshot.displayDate = "14 Jun 2040";
+	if (!session.rdF01ShellTime.empty() && !session.rdF01ShellDate.empty())
+	{
+		snapshot.displayTime = session.rdF01ShellTime;
+		snapshot.displayDate = session.rdF01ShellDate;
+	}
+	else
+	{
+		snapshot.displayTime = "12:28";
+		snapshot.displayDate = "14 Jun 2040";
+	}
 	snapshot.region = "North Pacific";
 	snapshot.funds = "$10.21M";
 	snapshot.hoverFacility = "Laboratory";
@@ -132,7 +169,7 @@ CalypsoHdScreenRenderModel basescapeHarnessModel()
 		snapshot.facilities.push_back(std::move(fac));
 	}
 	CalypsoBasescapeHdSelectorEntry entry;
-	entry.name = "AURORA DAWN";
+	entry.name = snapshot.baseName;
 	entry.selected = true;
 	for (const auto& fac : snapshot.facilities)
 	{
@@ -162,6 +199,7 @@ public:
 		enableUiScaling(model.designWidth, model.designHeight, 1.0f,
 			/*subtractVanillaCenter=*/false);
 		_renderer = new CalypsoHdScreenRenderer(this, std::move(model));
+		g_activeScreenModel = &_renderer->model();
 		CalypsoHdUiOverlay::instance().registerAdapter(_renderer);
 		calypsoHdHarnessDomShow();
 	}
@@ -169,6 +207,7 @@ public:
 	~CalypsoHdScreenHarnessState() override
 	{
 		delete _renderer;
+		g_activeScreenModel = nullptr;
 		_renderer = nullptr;
 		calypsoHdHarnessDomHide();
 		calypsoHdHarnessClose();
@@ -182,7 +221,11 @@ public:
 		model.sideBySidePreview = calypsoHarnessSession().sideBySide;
 		recaptureUiScaling(model.designWidth, model.designHeight, 1.0f,
 			/*subtractVanillaCenter=*/false);
-		if (_renderer) _renderer->setModel(std::move(model));
+		if (_renderer)
+		{
+			_renderer->setModel(std::move(model));
+			g_activeScreenModel = &_renderer->model();
+		}
 	}
 
 private:
@@ -212,7 +255,45 @@ State* calypsoHdScreenHarnessCreateTarget(CalypsoHarnessScenario id)
 	return new CalypsoHdScreenHarnessState(id);
 }
 
+bool calypsoHdScreenHarnessF01Active()
+{
+	return g_activeScreenModel != nullptr
+		&& g_activeScreenModel->archetype == CalypsoBasescapeCommandShellGen::kArchetype;
+}
+
 } // namespace Calypso
 } // namespace OpenXcom
+
+extern "C" {
+
+/// Read-only shell identity rendered by the active F01 full-screen fixture.
+/// V01 uses this to prove that its F01 baseline carries the same base/time
+/// identity as the R&D capture; it is never used for production behavior.
+EMSCRIPTEN_KEEPALIVE
+const char *calypso_harness_screen_snapshot()
+{
+	static std::string snapshot;
+	const auto* model = OpenXcom::Calypso::g_activeScreenModel;
+	if (!model)
+	{
+		snapshot.clear();
+		return snapshot.c_str();
+	}
+	const auto& base = model->baseSnapshot;
+	std::ostringstream out;
+	out << "{\"screenShell\":{\"baseCaption\":\""
+		<< OpenXcom::Calypso::screenJsonEscape(base.baseCaption)
+		<< "\",\"baseName\":\""
+		<< OpenXcom::Calypso::screenJsonEscape(base.baseName)
+		<< "\",\"clockTime\":\""
+		<< OpenXcom::Calypso::screenJsonEscape(base.displayTime)
+		<< "\",\"clockDate\":\""
+		<< OpenXcom::Calypso::screenJsonEscape(base.displayDate)
+		<< "\"}}";
+	snapshot = out.str();
+	return snapshot.c_str();
+}
+
+} // extern "C"
 
 #endif // __EMSCRIPTEN__
