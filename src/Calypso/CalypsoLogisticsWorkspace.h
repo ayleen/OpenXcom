@@ -5,6 +5,9 @@
  */
 #include <cstddef>
 #include <string>
+#include <cstdint>
+#include <map>
+#include <utility>
 #include <vector>
 
 namespace OpenXcom
@@ -73,6 +76,13 @@ struct CalypsoLogisticsDraft
 	std::string value;
 	bool hasDraft = false;
 	std::vector<CalypsoLogisticsDraftRow> rows;
+	std::string counterparty;
+	std::int64_t total = 0;
+	int personnel = 0;
+	int craft = 0;
+	int aliens = 0;
+	double storage = 0;
+	std::map<int, int> prison;
 };
 
 struct CalypsoLogisticsDraftStore
@@ -95,19 +105,25 @@ struct CalypsoLogisticsDraftStore
 		}
 	}
 
-	void snapshot(CalypsoLogisticsTab tab,
-		const std::vector<CalypsoLogisticsDraftRow>& rows)
+	void snapshot(CalypsoLogisticsDraft draft)
 	{
 		for (std::size_t i = 0; i < 3; ++i)
 		{
-			if (calypsoLogisticsTabAt(i) == tab)
+			if (calypsoLogisticsTabAt(i) == draft.tab)
 			{
-				drafts[i].tab = tab;
-				drafts[i].rows = rows;
-				drafts[i].hasDraft = true;
+				draft.hasDraft = true;
+				drafts[i] = std::move(draft);
 				return;
 			}
 		}
+	}
+
+	void snapshot(CalypsoLogisticsTab tab, const std::vector<CalypsoLogisticsDraftRow>& rows)
+	{
+		auto draft = get(tab);
+		draft.tab = tab;
+		draft.rows = rows;
+		snapshot(std::move(draft));
 	}
 
 	void clear(CalypsoLogisticsTab tab)
