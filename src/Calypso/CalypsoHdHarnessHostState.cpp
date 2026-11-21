@@ -35,6 +35,9 @@
 #include "../Basescape/BuildFacilitiesState.h"
 #include "../Basescape/DismantleFacilityState.h"
 #include "../Basescape/PlaceFacilityState.h"
+#include "../Basescape/PurchaseState.h"
+#include "../Basescape/SellState.h"
+#include "../Mod/RuleItem.h"
 #include "../Basescape/SackSoldierState.h"
 #include "../Basescape/SoldierTransformState.h"
 #include "../Basescape/SoldiersState.h"
@@ -72,8 +75,14 @@
 #include "../Basescape/TechTreeViewerState.h"
 #include "../Ufopaedia/ArticleStateCraftWeapon.h"
 #include "../Basescape/BasescapeState.h"
-#include "../Geoscape/ConfirmLandingState.h"
+#include "../Basescape/TransferBaseState.h"
+#include "../Basescape/TransferItemsState.h"
+#include "../Basescape/TransferConfirmState.h"
 #include "../Geoscape/CraftErrorState.h"
+#include "../Geoscape/LowFuelState.h"
+#include "../Geoscape/CraftNotEnoughPilotsState.h"
+#include "../Geoscape/DogfightErrorState.h"
+#include "../Geoscape/ConfirmLandingState.h"
 #include "../Geoscape/ConfirmCydoniaState.h"
 #include "../Geoscape/ResearchRequiredState.h"
 #include "../Geoscape/ResearchCompleteState.h"
@@ -83,7 +92,6 @@
 #include "../Geoscape/Globe.h"
 #include "../Mod/RuleResearch.h"
 #include "../Mod/RuleManufacture.h"
-#include "../Mod/RuleItem.h"
 #include "../Mod/RuleAlienMission.h"
 #include "../Savegame/ResearchProject.h"
 #include "../Savegame/Production.h"
@@ -108,7 +116,6 @@
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/Soldier.h"
 #include "../Savegame/SoldierDiary.h"
-#include <cstdint>
 
 #include "CalypsoAbandonPopupUi.h" // calypsoHdHarnessSetSideBySide (F33 comparison shift)
 #include "CalypsoHdOperationsRenderer.h"
@@ -125,6 +132,8 @@
 #include "CalypsoRdErrorForm.h"
 #include "CalypsoStrategicNavigation.h"
 #include "CalypsoHarnessSaveOwnership.h"
+
+#include "CalypsoMarketState.h"
 
 namespace OpenXcom
 {
@@ -995,6 +1004,102 @@ std::string calypsoHdHarnessOperationsSnapshot(const char* capturePhase = "live"
 	return out.str();
 }
 
+/// Gives a harness fixture base completed live-ruleset capacity so behavior
+/// proofs satisfy native preconditions (personnel quarters, item storage).
+/// Selects real non-lift RuleBaseFacility rules by capacity, builds them
+/// completed, and leaves ownership with the base. Returns false when the
+/// ruleset cannot provide a requested capacity; callers fail closed.
+bool addCompletedFixtureCapacity(Game* game, Base* base, bool needQuarters, bool needStores)
+{
+	if (!game || !game->getMod() || !base) return false;
+	if (!needQuarters && !needStores) return true;
+	const RuleBaseFacility* quartersRule = nullptr;
+	const RuleBaseFacility* storesRule = nullptr;
+	for (const std::string& facilityType : game->getMod()->getBaseFacilitiesList())
+	{
+		const RuleBaseFacility* candidate = game->getMod()->getBaseFacility(facilityType, false);
+		if (!candidate || candidate->isLift()) continue;
+		if (needQuarters && !quartersRule && candidate->getPersonnel() > 0) quartersRule = candidate;
+		if (needStores && !storesRule && candidate->getStorage() > 0) storesRule = candidate;
+	}
+	if ((needQuarters && !quartersRule) || (needStores && !storesRule)) return false;
+	if (needQuarters)
+	{
+		BaseFacility* facility = new BaseFacility(quartersRule, base);
+		facility->setBuildTime(0);
+		base->getFacilities()->push_back(facility);
+	}
+	if (needStores)
+	{
+		BaseFacility* facility = new BaseFacility(storesRule, base);
+		facility->setBuildTime(0);
+		base->getFacilities()->push_back(facility);
+	}
+	return true;
+}
+
+/// F12 transfer fixture: two named GPL bases on one fixture save with
+/// deterministic funds. Fixture bases live for the harness process lifetime
+/// (F17 defense precedent); no TFTD or proprietary payload is involved.
+void ensureTransferFixture(Game* game, Base*& from, Base*& to)
+{
+	from = nullptr;
+	to = nullptr;
+	if (!game || !game->getMod()) return;
+	if (!g_harnessSaveLease.active) {
+		if (game->getSavedGame()) {
+			g_harnessSaveLease.original = game->getSavedGame();
+			g_harnessSaveLease.originalFunds = game->getSavedGame()->getFunds();
+			g_harnessSaveLease.fixture = nullptr;
+		} else {
+			SavedGame* fixture = new SavedGame();
+			game->setSavedGame(fixture);
+			g_harnessSaveLease.original = nullptr;
+			g_harnessSaveLease.fixture = fixture;
+			g_harnessSaveLease.originalFunds = 0;
+		}
+		g_harnessSaveLease.active = true;
+	}
+	if (game->getSavedGame())
+	{
+		game->getSavedGame()->setFunds(27550246);
+		if (g_harnessSaveLease.fixture == game->getSavedGame()
+			&& !game->getSavedGame()->getDebugMode())
+			game->getSavedGame()->setDebugMode();
+	}
+	from = new Base(game->getMod());
+	from->setName("Batumi");
+	from->setLongitude(0.0);
+	from->setLatitude(0.5);
+	to = new Base(game->getMod());
+	to->setName("Garni");
+	to->setLongitude(0.2);
+	to->setLatitude(0.72);
+	// Completed destination storage so a correctly dispatched transfer click
+	// proves a quantity delta instead of a capacity error. Source quantity,
+	// base names, and save ownership are untouched.
+	if (!addCompletedFixtureCapacity(game, to, false, true))
+	{
+		delete from;
+		delete to;
+		from = nullptr;
+		to = nullptr;
+		return;
+	}
+	game->getSavedGame()->getBases()->push_back(from);
+	game->getSavedGame()->getBases()->push_back(to);
+	trackFixtureBase(from);
+	trackFixtureBase(to);
+	for (const std::string& itemType : game->getMod()->getItemsList())
+	{
+		const RuleItem* seed = game->getMod()->getItem(itemType, true);
+		if (seed && !seed->isAlien())
+		{
+			from->getStorageItems()->addItem(seed, 4);
+			break;
+		}
+	}
+}
 } // namespace
 
 CalypsoHarnessSession& calypsoHarnessSession()
@@ -1033,6 +1138,31 @@ void calypsoHdHarnessDomShow()
 void calypsoHdHarnessDomHide()
 {
 	EM_ASM({ if (globalThis.__calypsoHdHarnessHide) globalThis.__calypsoHdHarnessHide(); });
+}
+
+bool calypsoHdHarnessTeardownForTarget(const void* target, std::uint64_t generation)
+{
+	CalypsoHarnessSession& s = calypsoHarnessSession();
+	// Same match predicate as calypsoHarnessCloseForTarget: only the still-
+	// active preview may tear down. A deferred stale target falls through.
+	if (s.activeTarget != target || s.generation != generation)
+	{
+		// The session is already fully closed with no successor preview (for
+		// example the DOM controller closed it first): hide this target's card
+		// without touching session state. A live successor preview keeps its
+		// own card: never hide for that case.
+		if (!s.hostUp && !s.targetUp)
+		{
+			calypsoHdHarnessDomHide();
+		}
+		return false;
+	}
+	// Genuine teardown of the live preview: DOM hide plus the full close
+	// cleanup (cursor restore, fixture lease restore/delete, session reset,
+	// side-by-side reset) exactly once via the shared close entry point.
+	calypsoHdHarnessDomHide();
+	calypsoHdHarnessClose();
+	return true;
 }
 
 State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
@@ -1222,8 +1352,124 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		// Real native owners for the placement slice; the lease frees the
 		// base because PlaceFacilityState never owns it.
 		Base* placeBase = new Base(game->getMod());
-		g_harnessSaveLease.fixtureBase = placeBase;
+		g_harnessSaveLease.fixtureBases.push_back(placeBase);
 		return new PlaceFacilityState(placeBase, rule);
+	}
+	case CalypsoHarnessScenario::F11Purchase:
+	{
+		Game* game = getCurrentGame();
+		if (!game || !game->getMod()) return nullptr;
+		if (!g_harnessSaveLease.active) {
+			if (game->getSavedGame()) {
+				g_harnessSaveLease.original = game->getSavedGame();
+				g_harnessSaveLease.originalFunds = game->getSavedGame()->getFunds();
+				g_harnessSaveLease.fixture = nullptr;
+			} else {
+				SavedGame* fixture = new SavedGame();
+				game->setSavedGame(fixture);
+				g_harnessSaveLease.original = nullptr;
+				g_harnessSaveLease.fixture = fixture;
+				g_harnessSaveLease.originalFunds = 0;
+			}
+			g_harnessSaveLease.active = true;
+		}
+		if (game->getSavedGame())
+		{
+			game->getSavedGame()->setFunds(27550246);
+			if (g_harnessSaveLease.fixture == game->getSavedGame()
+				&& !game->getSavedGame()->getDebugMode())
+				game->getSavedGame()->setDebugMode();
+		}
+		Base* marketBase = new Base(game->getMod());
+		g_harnessSaveLease.fixtureBases.push_back(marketBase);
+		// Completed fixture facilities so a successful stepper click is
+		// behavior-testable: an empty base has zero quarters/storage, and a
+		// real purchase then raises a capacity error that looks like dead
+		// input. Rules come from the live ruleset, owned by the fixture base.
+		if (!addCompletedFixtureCapacity(game, marketBase, true, true)) return nullptr;
+		return new PurchaseState(marketBase, nullptr);
+	}
+	case CalypsoHarnessScenario::F11Sell:
+	{
+		Game* game = getCurrentGame();
+		if (!game || !game->getMod()) return nullptr;
+		if (!g_harnessSaveLease.active) {
+			if (game->getSavedGame()) {
+				g_harnessSaveLease.original = game->getSavedGame();
+				g_harnessSaveLease.originalFunds = game->getSavedGame()->getFunds();
+				g_harnessSaveLease.fixture = nullptr;
+			} else {
+				SavedGame* fixture = new SavedGame();
+				game->setSavedGame(fixture);
+				g_harnessSaveLease.original = nullptr;
+				g_harnessSaveLease.fixture = fixture;
+				g_harnessSaveLease.originalFunds = 0;
+			}
+			g_harnessSaveLease.active = true;
+		}
+		if (game->getSavedGame())
+		{
+			game->getSavedGame()->setFunds(27550246);
+			if (g_harnessSaveLease.fixture == game->getSavedGame()
+				&& !game->getSavedGame()->getDebugMode())
+				game->getSavedGame()->setDebugMode();
+		}
+		Base* marketBase = new Base(game->getMod());
+		g_harnessSaveLease.fixtureBases.push_back(marketBase);
+		for (const std::string& itemType : game->getMod()->getItemsList())
+		{
+			const RuleItem* seed = game->getMod()->getItem(itemType, true);
+			if (seed && !seed->isAlien())
+			{
+				marketBase->getStorageItems()->addItem(seed, 4);
+				break;
+			}
+		}
+		return new SellState(marketBase, nullptr);
+	}
+	case CalypsoHarnessScenario::F36Market:
+	{
+		Game* game = getCurrentGame();
+		if (!game || !game->getMod()) return nullptr;
+		if (!g_harnessSaveLease.active) {
+			if (game->getSavedGame()) {
+				g_harnessSaveLease.original = game->getSavedGame();
+				g_harnessSaveLease.originalFunds = game->getSavedGame()->getFunds();
+				g_harnessSaveLease.fixture = nullptr;
+			} else {
+				SavedGame* fixture = new SavedGame();
+				game->setSavedGame(fixture);
+				g_harnessSaveLease.original = nullptr;
+				g_harnessSaveLease.fixture = fixture;
+				g_harnessSaveLease.originalFunds = 0;
+			}
+			g_harnessSaveLease.active = true;
+		}
+		// Purchase-mode picker: the contract captures the Acquisitions title.
+		// SavedGame always owns an Economy under emscripten, so refresh()
+		// lists live ruleset counterparties plus the Black Market row; the
+		// Reference side renders the deterministic GPL fixture rows.
+		Base* marketBase = new Base(game->getMod());
+		g_harnessSaveLease.fixtureBases.push_back(marketBase);
+		return new CalypsoMarketState(marketBase, false);
+	}
+	case CalypsoHarnessScenario::F12TransferBase:
+	{
+		Game* game = getCurrentGame();
+		Base* from = nullptr;
+		Base* to = nullptr;
+		ensureTransferFixture(game, from, to);
+		if (!from) return nullptr;
+		return new TransferBaseState(from, nullptr);
+	}
+	case CalypsoHarnessScenario::F12TransferItems:
+	{
+		Game* game = getCurrentGame();
+		Base* from = nullptr;
+		Base* to = nullptr;
+		ensureTransferFixture(game, from, to);
+		if (!from || !to) return nullptr;
+		return new TransferItemsState(from, to, nullptr);
 	}
 	case CalypsoHarnessScenario::F04SackSoldier:
 		return new CraftErrorState(nullptr, "Dismiss soldier confirmation.");
@@ -1608,7 +1854,18 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return nullptr;
 	}
 	case CalypsoHarnessScenario::F12TransferConfirm:
-		return new CraftErrorState(nullptr, "Confirm transfer of selected items?");
+	{
+		// Real confirm over a real HD-owned items underlay: the underlay is
+		// constructed (configuring its HD adapter) but stays unpushed, living
+		// for the harness process lifetime like the F17 fixtures.
+		Game* game = getCurrentGame();
+		Base* from = nullptr;
+		Base* to = nullptr;
+		ensureTransferFixture(game, from, to);
+		if (!from || !to) return nullptr;
+		TransferItemsState* items = new TransferItemsState(from, to, nullptr);
+		return new TransferConfirmState(to, items);
+	}
 	case CalypsoHarnessScenario::F13Containment:
 	{
 		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), false, false);
@@ -1823,7 +2080,9 @@ bool calypsoHdHarnessOpen(CalypsoHarnessScenario id, CalypsoLayoutClass layout,
 
 	if (Game* g = getCurrentGame())
 	{
-		g->pushState(new CalypsoHdHarnessHostState(id));
+		State* host = new CalypsoHdHarnessHostState(id);
+		g->pushState(host);
+		s.activeHost = host;
 		State* target = calypsoHarnessCreateTarget(id);
 		if (target)
 		{

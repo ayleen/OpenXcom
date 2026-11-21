@@ -305,6 +305,7 @@ void CalypsoF21DefenseUi::configure(BaseDefenseState& state, bool allowPhysicalO
 	if (!state._hdLayout) return;
 
 	state._hdWideLayout = currentF21LayoutClass() == CalypsoLayoutClass::Wide;
+	state._hdHarnessGeneration = calypsoHarnessSession().generation;
 	CalypsoF21DefenseLayout layout = calypsoF21DefenseLayout(
 		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 	calypsoF21DefenseApplyHarnessShift(layout,

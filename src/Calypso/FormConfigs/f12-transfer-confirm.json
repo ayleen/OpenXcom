@@ -30,7 +30,7 @@
     },
     {
       "id": "confirm",
-      "label": "CONFIRM",
+      "label": "OK",
       "tone": "primary",
       "action": "confirm"
     }

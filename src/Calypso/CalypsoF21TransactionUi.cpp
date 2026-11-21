@@ -279,6 +279,7 @@ void CalypsoF21TransactionUi::configure(ConfirmNewBaseState& state, bool allowPh
 	if (!state._hdLayout) return;
 
 	state._hdWideLayout = currentF21LayoutClass() == CalypsoLayoutClass::Wide;
+	state._hdHarnessGeneration = calypsoHarnessSession().generation;
 	CalypsoF21TransactionLayout layout = calypsoF21TransactionLayout(
 		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 	calypsoF21TransactionApplyHarnessShift(layout,

@@ -613,6 +613,10 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoAbandonPopupUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF03DismantleUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF03BuildFacilitiesUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoF11MarketUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoF12TransferUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoLogisticsWorkspace.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoF36MarketUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF04SackSoldierUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF04SoldiersUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF04SoldierInfoUi.cpp)
@@ -1093,6 +1097,7 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoSelectionListScrollTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdOperationsModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/ResearchInfoTransactionTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoLogisticsInteractionTest.cpp
         ${CMAKE_SOURCE_DIR}/src/Calypso/CommandCenter/CommandCenterLayout.cpp
         ${CMAKE_SOURCE_DIR}/src/Calypso/CalypsoHdTrackedText.cpp)
 

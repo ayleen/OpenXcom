@@ -104,11 +104,7 @@ BuildFacilitiesState::BuildFacilitiesState(Base *base, State *state) : _base(bas
 BuildFacilitiesState::~BuildFacilitiesState()
 {
 #ifdef __EMSCRIPTEN__
-	if (_hdLayout)
-	{
-		Calypso::calypsoHdHarnessDomHide();
-	}
-	Calypso::calypsoHarnessCloseForTarget(Calypso::calypsoHarnessSession(), this, _hdHarnessGeneration);
+	Calypso::calypsoHdHarnessTeardownForTarget(this, _hdHarnessGeneration);
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
 	if (_hdOwnFixture)

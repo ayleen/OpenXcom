@@ -24,6 +24,9 @@
 
 namespace OpenXcom
 {
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoF12TransferItemsUi; class CalypsoF12TransferConfirmUi; class CalypsoLogisticsWorkspace; }
+#endif
 
 class TextButton;
 class Window;
@@ -42,6 +45,11 @@ class RuleItem;
  */
 class TransferItemsState : public TouchState
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF12TransferItemsUi;
+friend class Calypso::CalypsoF12TransferConfirmUi;
+friend class Calypso::CalypsoLogisticsWorkspace;
+#endif
 private:
 	Base *_baseFrom, *_baseTo;
 	DebriefingState *_debriefingState;
@@ -122,6 +130,17 @@ public:
 	int getTotal() const;
 	/// Handler for changing the category filter.
 	void cbxCategoryChange(Action *action);
+#ifdef __EMSCRIPTEN__
+public:
+	void resize(int &dX, int &dY) override;
+	void calypsoWorkspaceTabClick(Action *action);
+private:
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF12TransferItemsUi *_hdAdapter = nullptr;
+	TextButton *_hdWorkspaceTabs[3] = {nullptr, nullptr, nullptr};
+	std::uint64_t _hdHarnessGeneration = 0;
+#endif
 };
 
 }

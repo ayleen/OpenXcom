@@ -1,0 +1,1604 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f11-sell",
+    "familyId": 11,
+    "archetype": "scrollable-collection",
+    "source": "FormConfigs/f11-sell.json",
+    "actions": [
+      {
+        "action": "sell",
+        "id": "sell",
+        "label": "SELL / SACK",
+        "tone": "warning",
+        "style": {
+          "fill": "FFC14DFF",
+          "border": "FFC14DFF",
+          "text": "071013FF"
+        }
+      },
+      {
+        "action": "transfer",
+        "id": "transfer",
+        "label": "TRANSFERS",
+        "tone": "normal",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB059",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "action": "cancel",
+        "id": "cancel",
+        "label": "CANCEL",
+        "tone": "safe",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "collection": {
+      "adjustmentColumnId": "sell",
+      "behaviorOwner": "adjust-quantity",
+      "columns": [
+        {
+          "id": "item",
+          "label": "ITEM"
+        },
+        {
+          "id": "remaining",
+          "label": "REMAINING"
+        },
+        {
+          "id": "sell",
+          "label": "SELL-SACK"
+        },
+        {
+          "id": "value",
+          "label": "VALUE"
+        }
+      ],
+      "items": [
+        {
+          "id": "fixture-diver-vermeulen",
+          "values": [
+            "S. VERMEULEN",
+            "1",
+            "0",
+            "$0"
+          ]
+        },
+        {
+          "id": "fixture-triton-1",
+          "values": [
+            "TRITON-1",
+            "1",
+            "0",
+            "$900 000"
+          ]
+        },
+        {
+          "id": "fixture-dart-gun",
+          "values": [
+            "DART GUN",
+            "12",
+            "2",
+            "$3 000"
+          ]
+        },
+        {
+          "id": "fixture-dart-pod",
+          "values": [
+            "DART POD",
+            "40",
+            "8",
+            "$250"
+          ]
+        },
+        {
+          "id": "fixture-gauss-rifle",
+          "values": [
+            "GAUSS RIFLE",
+            "3",
+            "1",
+            "$18 000"
+          ]
+        },
+        {
+          "id": "fixture-gauss-clip",
+          "values": [
+            "GAUSS CLIP",
+            "24",
+            "6",
+            "$900"
+          ]
+        },
+        {
+          "id": "fixture-medi-kit",
+          "values": [
+            "MEDI-KIT",
+            "9",
+            "0",
+            "$6 000"
+          ]
+        },
+        {
+          "id": "fixture-zrbite",
+          "values": [
+            "ZRBITE",
+            "5",
+            "2",
+            "$4 000"
+          ]
+        },
+        {
+          "id": "fixture-aquanaut",
+          "values": [
+            "AQUANAUT",
+            "6",
+            "0",
+            "$0"
+          ]
+        },
+        {
+          "id": "fixture-ion-armor",
+          "values": [
+            "ION ARMOR",
+            "2",
+            "0",
+            "$22 000"
+          ]
+        }
+      ],
+      "mode": "table",
+      "selectionRole": "sell"
+    },
+    "controls": [
+      {
+        "action": "change-category",
+        "id": "category-filter",
+        "kind": "select",
+        "label": "CATEGORY",
+        "options": [
+          {
+            "id": "all-items",
+            "label": "ALL ITEMS"
+          },
+          {
+            "id": "personnel",
+            "label": "PERSONNEL"
+          },
+          {
+            "id": "craft",
+            "label": "CRAFT"
+          },
+          {
+            "id": "equipment",
+            "label": "EQUIPMENT"
+          }
+        ],
+        "value": "all-items"
+      },
+      {
+        "action": "filter-items",
+        "id": "quick-search",
+        "kind": "text-input",
+        "label": "SEARCH",
+        "placeholder": "TYPE TO FILTER",
+        "value": ""
+      }
+    ],
+    "buttons": [
+      {
+        "id": "sell",
+        "label": "SELL / SACK",
+        "tone": "warning",
+        "action": "sell",
+        "style": {
+          "fill": "FFC14DFF",
+          "border": "FFC14DFF",
+          "text": "071013FF"
+        }
+      },
+      {
+        "id": "transfer",
+        "label": "TRANSFERS",
+        "tone": "normal",
+        "action": "transfer",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB059",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "cancel",
+        "label": "CANCEL",
+        "tone": "safe",
+        "action": "cancel",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "visibleButtons": [
+      "sell",
+      "transfer",
+      "cancel"
+    ],
+    "workspace": {
+      "id": "logistics-workspace",
+      "tabs": [
+        {
+          "id": "purchase",
+          "label": "PURCHASE",
+          "action": "logistics.openPurchase"
+        },
+        {
+          "id": "sell",
+          "label": "SELL",
+          "action": "logistics.openSell"
+        },
+        {
+          "id": "transfer",
+          "label": "TRANSFER",
+          "action": "logistics.openTransfer"
+        }
+      ],
+      "initialTab": "sell"
+    },
+    "summary": [
+      {
+        "id": "funds",
+        "label": "FUNDS",
+        "value": "$27 550 246"
+      },
+      {
+        "id": "sales",
+        "label": "SALES",
+        "value": "$12 000"
+      }
+    ]
+  },
+  "copy": {
+    "title": "SELL / SACK",
+    "workspace": {
+      "tabs": [
+        {
+          "id": "purchase",
+          "label": "PURCHASE",
+          "action": "logistics.openPurchase"
+        },
+        {
+          "id": "sell",
+          "label": "SELL",
+          "action": "logistics.openSell"
+        },
+        {
+          "id": "transfer",
+          "label": "TRANSFER",
+          "action": "logistics.openTransfer"
+        }
+      ]
+    },
+    "summary": [
+      {
+        "id": "funds",
+        "label": "FUNDS",
+        "value": "$27 550 246"
+      },
+      {
+        "id": "sales",
+        "label": "SALES",
+        "value": "$12 000"
+      }
+    ]
+  },
+  "style": {
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "divider": "74FFB04D",
+    "text": "E8FFF5FF",
+    "mutedText": "A9D8C7FF",
+    "selection": "74FFB033",
+    "scrollTrack": "061B1CD6",
+    "scrollThumb": "74FFB099",
+    "cutCornerPx": 14,
+    "headerArtOpacityPct": 85,
+    "headerArtScrim": "04090DCC"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      },
+      "title": {
+        "x": 112,
+        "y": 14,
+        "width": 500,
+        "height": 44
+      },
+      "summaryBar": {
+        "x": 648,
+        "y": 14,
+        "width": 520,
+        "height": 44
+      },
+      "controlBar": {
+        "x": 112,
+        "y": 150,
+        "width": 1144,
+        "height": 44
+      },
+      "controls": {
+        "category-filter": {
+          "x": 112,
+          "y": 150,
+          "width": 220,
+          "height": 44
+        },
+        "quick-search": {
+          "x": 342,
+          "y": 150,
+          "width": 220,
+          "height": 44
+        }
+      },
+      "viewport": {
+        "x": 112,
+        "y": 204,
+        "width": 1144,
+        "height": 388
+      },
+      "footer": {
+        "x": 112,
+        "y": 602,
+        "width": 1144,
+        "height": 70
+      },
+      "actions": {
+        "sell": {
+          "x": 730,
+          "y": 615,
+          "width": 158,
+          "height": 44
+        },
+        "transfer": {
+          "x": 898,
+          "y": 615,
+          "width": 158,
+          "height": 44
+        },
+        "cancel": {
+          "x": 1066,
+          "y": 615,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "rowHeight": 44,
+      "visibleRows": 8,
+      "headerHeight": 36,
+      "scrollbarWidth": 18,
+      "minThumbHeight": 44,
+      "headerArt": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "tabBar": {
+        "x": 112,
+        "y": 88,
+        "width": 1144,
+        "height": 52
+      },
+      "summaryFields": [
+        {
+          "id": "funds",
+          "rect": {
+            "x": 648,
+            "y": 14,
+            "width": 255,
+            "height": 44
+          },
+          "label": {
+            "x": 648,
+            "y": 14,
+            "width": 255,
+            "height": 16
+          },
+          "value": {
+            "x": 648,
+            "y": 30,
+            "width": 255,
+            "height": 28
+          }
+        },
+        {
+          "id": "sales",
+          "rect": {
+            "x": 913,
+            "y": 14,
+            "width": 255,
+            "height": 44
+          },
+          "label": {
+            "x": 913,
+            "y": 14,
+            "width": 255,
+            "height": 16
+          },
+          "value": {
+            "x": 913,
+            "y": 30,
+            "width": 255,
+            "height": 28
+          }
+        }
+      ],
+      "workspace": {
+        "window": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720
+        },
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 72
+        },
+        "navigationRail": {
+          "x": 0,
+          "y": 72,
+          "width": 88,
+          "height": 648
+        },
+        "content": {
+          "x": 88,
+          "y": 72,
+          "width": 1192,
+          "height": 648
+        },
+        "title": {
+          "x": 112,
+          "y": 14,
+          "width": 500,
+          "height": 44
+        },
+        "summaryBar": {
+          "x": 648,
+          "y": 14,
+          "width": 520,
+          "height": 44
+        },
+        "tabBar": {
+          "x": 112,
+          "y": 88,
+          "width": 1144,
+          "height": 52
+        },
+        "controlBar": {
+          "x": 112,
+          "y": 150,
+          "width": 1144,
+          "height": 44
+        },
+        "viewport": {
+          "x": 112,
+          "y": 204,
+          "width": 1144,
+          "height": 388
+        },
+        "footer": {
+          "x": 112,
+          "y": 602,
+          "width": 1144,
+          "height": 70
+        },
+        "tabs": {
+          "purchase": {
+            "x": 112,
+            "y": 88,
+            "width": 376,
+            "height": 52
+          },
+          "sell": {
+            "x": 496,
+            "y": 88,
+            "width": 376,
+            "height": 52
+          },
+          "transfer": {
+            "x": 880,
+            "y": 88,
+            "width": 376,
+            "height": 52
+          }
+        }
+      },
+      "columnHeaders": [
+        {
+          "id": "item",
+          "rect": {
+            "x": 112,
+            "y": 204,
+            "width": 271,
+            "height": 36
+          }
+        },
+        {
+          "id": "remaining",
+          "rect": {
+            "x": 384,
+            "y": 204,
+            "width": 271,
+            "height": 36
+          }
+        },
+        {
+          "id": "sell",
+          "rect": {
+            "x": 656,
+            "y": 204,
+            "width": 271,
+            "height": 36
+          }
+        },
+        {
+          "id": "value",
+          "rect": {
+            "x": 928,
+            "y": 204,
+            "width": 274,
+            "height": 36
+          }
+        }
+      ],
+      "rowSlots": [
+        {
+          "id": "row-slot-1",
+          "rect": {
+            "x": 112,
+            "y": 240,
+            "width": 1090,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 112,
+                "y": 240,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "remaining",
+              "rect": {
+                "x": 384,
+                "y": 240,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "sell",
+              "rect": {
+                "x": 656,
+                "y": 240,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "value",
+              "rect": {
+                "x": 928,
+                "y": 240,
+                "width": 274,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-2",
+          "rect": {
+            "x": 112,
+            "y": 284,
+            "width": 1090,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 112,
+                "y": 284,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "remaining",
+              "rect": {
+                "x": 384,
+                "y": 284,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "sell",
+              "rect": {
+                "x": 656,
+                "y": 284,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "value",
+              "rect": {
+                "x": 928,
+                "y": 284,
+                "width": 274,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-3",
+          "rect": {
+            "x": 112,
+            "y": 328,
+            "width": 1090,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 112,
+                "y": 328,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "remaining",
+              "rect": {
+                "x": 384,
+                "y": 328,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "sell",
+              "rect": {
+                "x": 656,
+                "y": 328,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "value",
+              "rect": {
+                "x": 928,
+                "y": 328,
+                "width": 274,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-4",
+          "rect": {
+            "x": 112,
+            "y": 372,
+            "width": 1090,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 112,
+                "y": 372,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "remaining",
+              "rect": {
+                "x": 384,
+                "y": 372,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "sell",
+              "rect": {
+                "x": 656,
+                "y": 372,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "value",
+              "rect": {
+                "x": 928,
+                "y": 372,
+                "width": 274,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-5",
+          "rect": {
+            "x": 112,
+            "y": 416,
+            "width": 1090,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 112,
+                "y": 416,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "remaining",
+              "rect": {
+                "x": 384,
+                "y": 416,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "sell",
+              "rect": {
+                "x": 656,
+                "y": 416,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "value",
+              "rect": {
+                "x": 928,
+                "y": 416,
+                "width": 274,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-6",
+          "rect": {
+            "x": 112,
+            "y": 460,
+            "width": 1090,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 112,
+                "y": 460,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "remaining",
+              "rect": {
+                "x": 384,
+                "y": 460,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "sell",
+              "rect": {
+                "x": 656,
+                "y": 460,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "value",
+              "rect": {
+                "x": 928,
+                "y": 460,
+                "width": 274,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-7",
+          "rect": {
+            "x": 112,
+            "y": 504,
+            "width": 1090,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 112,
+                "y": 504,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "remaining",
+              "rect": {
+                "x": 384,
+                "y": 504,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "sell",
+              "rect": {
+                "x": 656,
+                "y": 504,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "value",
+              "rect": {
+                "x": 928,
+                "y": 504,
+                "width": 274,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-8",
+          "rect": {
+            "x": 112,
+            "y": 548,
+            "width": 1090,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 112,
+                "y": 548,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "remaining",
+              "rect": {
+                "x": 384,
+                "y": 548,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "sell",
+              "rect": {
+                "x": 656,
+                "y": 548,
+                "width": 271,
+                "height": 44
+              }
+            },
+            {
+              "id": "value",
+              "rect": {
+                "x": 928,
+                "y": 548,
+                "width": 274,
+                "height": 44
+              }
+            }
+          ]
+        }
+      ],
+      "rowHit": {
+        "x": 112,
+        "y": 240,
+        "width": 1090,
+        "height": 352
+      },
+      "rowSteppers": [
+        {
+          "rowSlotId": "row-slot-1",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 656,
+            "y": 240,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 883,
+            "y": 240,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "rowSlotId": "row-slot-2",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 656,
+            "y": 284,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 883,
+            "y": 284,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "rowSlotId": "row-slot-3",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 656,
+            "y": 328,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 883,
+            "y": 328,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "rowSlotId": "row-slot-4",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 656,
+            "y": 372,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 883,
+            "y": 372,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "rowSlotId": "row-slot-5",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 656,
+            "y": 416,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 883,
+            "y": 416,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "rowSlotId": "row-slot-6",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 656,
+            "y": 460,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 883,
+            "y": 460,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "rowSlotId": "row-slot-7",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 656,
+            "y": 504,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 883,
+            "y": 504,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "rowSlotId": "row-slot-8",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 656,
+            "y": 548,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 883,
+            "y": 548,
+            "width": 44,
+            "height": 44
+          }
+        }
+      ]
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 740,
+        "height": 360
+      },
+      "title": {
+        "x": 72,
+        "y": 0,
+        "width": 300,
+        "height": 44
+      },
+      "summaryBar": {
+        "x": 380,
+        "y": 0,
+        "width": 342,
+        "height": 44
+      },
+      "controlBar": {
+        "x": 72,
+        "y": 110,
+        "width": 650,
+        "height": 44
+      },
+      "controls": {
+        "category-filter": {
+          "x": 72,
+          "y": 110,
+          "width": 196,
+          "height": 44
+        },
+        "quick-search": {
+          "x": 276,
+          "y": 110,
+          "width": 196,
+          "height": 44
+        }
+      },
+      "viewport": {
+        "x": 72,
+        "y": 164,
+        "width": 650,
+        "height": 120
+      },
+      "footer": {
+        "x": 72,
+        "y": 294,
+        "width": 650,
+        "height": 58
+      },
+      "actions": {
+        "sell": {
+          "x": 230,
+          "y": 301,
+          "width": 148,
+          "height": 44
+        },
+        "transfer": {
+          "x": 390,
+          "y": 301,
+          "width": 148,
+          "height": 44
+        },
+        "cancel": {
+          "x": 550,
+          "y": 301,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "rowHeight": 44,
+      "visibleRows": 2,
+      "headerHeight": 32,
+      "scrollbarWidth": 18,
+      "minThumbHeight": 44,
+      "headerArt": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "tabBar": {
+        "x": 72,
+        "y": 56,
+        "width": 650,
+        "height": 44
+      },
+      "summaryFields": [
+        {
+          "id": "funds",
+          "rect": {
+            "x": 380,
+            "y": 0,
+            "width": 167,
+            "height": 44
+          },
+          "label": {
+            "x": 380,
+            "y": 0,
+            "width": 167,
+            "height": 14
+          },
+          "value": {
+            "x": 380,
+            "y": 14,
+            "width": 167,
+            "height": 30
+          }
+        },
+        {
+          "id": "sales",
+          "rect": {
+            "x": 555,
+            "y": 0,
+            "width": 167,
+            "height": 44
+          },
+          "label": {
+            "x": 555,
+            "y": 0,
+            "width": 167,
+            "height": 14
+          },
+          "value": {
+            "x": 555,
+            "y": 14,
+            "width": 167,
+            "height": 30
+          }
+        }
+      ],
+      "workspace": {
+        "window": {
+          "x": 0,
+          "y": 0,
+          "width": 740,
+          "height": 360
+        },
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 740,
+          "height": 44
+        },
+        "navigationRail": {
+          "x": 0,
+          "y": 44,
+          "width": 54,
+          "height": 316
+        },
+        "content": {
+          "x": 54,
+          "y": 44,
+          "width": 686,
+          "height": 316
+        },
+        "title": {
+          "x": 72,
+          "y": 0,
+          "width": 300,
+          "height": 44
+        },
+        "summaryBar": {
+          "x": 380,
+          "y": 0,
+          "width": 342,
+          "height": 44
+        },
+        "tabBar": {
+          "x": 72,
+          "y": 56,
+          "width": 650,
+          "height": 44
+        },
+        "controlBar": {
+          "x": 72,
+          "y": 110,
+          "width": 650,
+          "height": 44
+        },
+        "viewport": {
+          "x": 72,
+          "y": 164,
+          "width": 650,
+          "height": 120
+        },
+        "footer": {
+          "x": 72,
+          "y": 294,
+          "width": 650,
+          "height": 58
+        },
+        "tabs": {
+          "purchase": {
+            "x": 72,
+            "y": 56,
+            "width": 212,
+            "height": 44
+          },
+          "sell": {
+            "x": 292,
+            "y": 56,
+            "width": 211,
+            "height": 44
+          },
+          "transfer": {
+            "x": 511,
+            "y": 56,
+            "width": 211,
+            "height": 44
+          }
+        }
+      },
+      "columnHeaders": [
+        {
+          "id": "item",
+          "rect": {
+            "x": 72,
+            "y": 164,
+            "width": 148,
+            "height": 32
+          }
+        },
+        {
+          "id": "remaining",
+          "rect": {
+            "x": 221,
+            "y": 164,
+            "width": 148,
+            "height": 32
+          }
+        },
+        {
+          "id": "sell",
+          "rect": {
+            "x": 370,
+            "y": 164,
+            "width": 148,
+            "height": 32
+          }
+        },
+        {
+          "id": "value",
+          "rect": {
+            "x": 519,
+            "y": 164,
+            "width": 151,
+            "height": 32
+          }
+        }
+      ],
+      "rowSlots": [
+        {
+          "id": "row-slot-1",
+          "rect": {
+            "x": 72,
+            "y": 196,
+            "width": 598,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 72,
+                "y": 196,
+                "width": 148,
+                "height": 44
+              }
+            },
+            {
+              "id": "remaining",
+              "rect": {
+                "x": 221,
+                "y": 196,
+                "width": 148,
+                "height": 44
+              }
+            },
+            {
+              "id": "sell",
+              "rect": {
+                "x": 370,
+                "y": 196,
+                "width": 148,
+                "height": 44
+              }
+            },
+            {
+              "id": "value",
+              "rect": {
+                "x": 519,
+                "y": 196,
+                "width": 151,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-2",
+          "rect": {
+            "x": 72,
+            "y": 240,
+            "width": 598,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 72,
+                "y": 240,
+                "width": 148,
+                "height": 44
+              }
+            },
+            {
+              "id": "remaining",
+              "rect": {
+                "x": 221,
+                "y": 240,
+                "width": 148,
+                "height": 44
+              }
+            },
+            {
+              "id": "sell",
+              "rect": {
+                "x": 370,
+                "y": 240,
+                "width": 148,
+                "height": 44
+              }
+            },
+            {
+              "id": "value",
+              "rect": {
+                "x": 519,
+                "y": 240,
+                "width": 151,
+                "height": 44
+              }
+            }
+          ]
+        }
+      ],
+      "rowHit": {
+        "x": 72,
+        "y": 196,
+        "width": 598,
+        "height": 88
+      },
+      "rowSteppers": [
+        {
+          "rowSlotId": "row-slot-1",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 370,
+            "y": 196,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 474,
+            "y": 196,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "rowSlotId": "row-slot-2",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 370,
+            "y": 240,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 474,
+            "y": 240,
+            "width": 44,
+            "height": 44
+          }
+        }
+      ]
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/scrollable-collection.json",
+    "templateVersion": 5,
+    "generatorKind": "collection"
+  },
+  "collectionMetrics": {
+    "wide": {
+      "totalItems": 10,
+      "visibleCapacity": 8,
+      "totalUnits": 10,
+      "visibleUnits": 8,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": true,
+      "scrollSteps": 2,
+      "track": {
+        "x": 1238,
+        "y": 240,
+        "width": 18,
+        "height": 352
+      },
+      "thumb": {
+        "x": 1238,
+        "y": 240,
+        "width": 18,
+        "height": 281
+      },
+      "trackHitTarget": {
+        "x": 1212,
+        "y": 240,
+        "width": 44,
+        "height": 352
+      },
+      "thumbHitTarget": {
+        "x": 1212,
+        "y": 240,
+        "width": 44,
+        "height": 281
+      },
+      "thumbTravelPx": 71
+    },
+    "compact": {
+      "totalItems": 10,
+      "visibleCapacity": 2,
+      "totalUnits": 10,
+      "visibleUnits": 2,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": true,
+      "scrollSteps": 8,
+      "track": {
+        "x": 704,
+        "y": 196,
+        "width": 18,
+        "height": 88
+      },
+      "thumb": {
+        "x": 704,
+        "y": 196,
+        "width": 18,
+        "height": 44
+      },
+      "trackHitTarget": {
+        "x": 678,
+        "y": 196,
+        "width": 44,
+        "height": 88
+      },
+      "thumbHitTarget": {
+        "x": 678,
+        "y": 196,
+        "width": 44,
+        "height": 44
+      },
+      "thumbTravelPx": 44
+    }
+  },
+  "parts": [
+    "window",
+    "title",
+    "summaryBar",
+    "controlBar",
+    "viewport",
+    "scroll.track",
+    "scroll.thumb",
+    "footer",
+    "tabBar",
+    "summary.funds",
+    "summary.sales",
+    "control.category-filter",
+    "control.quick-search",
+    "workspace",
+    "tab.purchase",
+    "tab.sell",
+    "tab.transfer",
+    "action.sell",
+    "action.transfer",
+    "action.cancel",
+    "column.item",
+    "column.remaining",
+    "column.sell",
+    "column.value",
+    "row-slot.1",
+    "row-slot.2",
+    "row-slot.3",
+    "row-slot.4",
+    "row-slot.5",
+    "row-slot.6",
+    "row-slot.7",
+    "row-slot.8",
+    "row-stepper.1",
+    "row-stepper.2",
+    "row-stepper.3",
+    "row-stepper.4",
+    "row-stepper.5",
+    "row-stepper.6",
+    "row-stepper.7",
+    "row-stepper.8"
+  ]
+}

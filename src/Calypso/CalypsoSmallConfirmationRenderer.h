@@ -67,6 +67,8 @@ class Mod;
 class Surface;
 class Text;
 class TextButton;
+class ComboBox;
+class TextEdit;
 class TextList;
 
 namespace Calypso
@@ -361,6 +363,172 @@ void calypsoCollectSelectionList(
 	const CalypsoSelectionListModel& model,
 	CalypsoSmallConfirmationMotion& motion);
 
+/// One native table row in list order: display values per collection column.
+struct CalypsoScrollableCollectionRow
+{
+	std::vector<std::string> values;
+	bool muted = false;
+};
+
+/// One read-only summary fact with generated label/value rects.
+struct CalypsoScrollableCollectionSummary
+{
+	std::string label;
+	std::string value;
+	CalypsoLogicalRect field;
+	CalypsoLogicalRect labelRect;
+	CalypsoLogicalRect valueRect;
+};
+
+/// One painted quantity stepper pair for a visible row, projected from the
+/// generated rowSteppers entry: 44px decrement/increment targets that coincide
+/// with the native arrow-button hit targets bound by the adapter. The owner
+/// names the native behavior (behaviorOwner); input stays fully native.
+struct CalypsoScrollableCollectionStepper
+{
+	CalypsoLogicalRect decrement;
+	CalypsoLogicalRect increment;
+	std::string owner;
+};
+
+/// One toolbar control (category select, quick-search input) with a generated
+/// rect and contract label, a live native value (or placeholder when empty),
+/// and the native ComboBox/TextEdit that stays the behavior owner.
+struct CalypsoScrollableCollectionControl
+{
+	std::string id;
+	std::string label;
+	std::string value;
+	std::string placeholder;
+	CalypsoLogicalRect rect;
+	Surface* widget = nullptr;
+	ComboBox* comboBox = nullptr;
+	TextEdit* textEdit = nullptr;
+	// Expanded select popup: runtime state only, never generated JSON. The
+	// native popup list stays the behavior owner; popupRect copies its exact
+	// input geometry so painted rows coincide with native hit targets.
+	bool popupOpen = false;
+	std::vector<std::string> popupOptions;
+	std::size_t popupSelected = 0;
+	std::size_t popupHovered = 0;
+	std::size_t popupScroll = 0;
+	std::size_t popupVisibleRows = 0;
+	CalypsoLogicalRect popupRect{};
+};
+
+/// Shared scrollable-collection model: canonical window shell/theme, table
+/// viewport over native rows, read-only summary facts, optional header art,
+/// and an optional contract-owned collection heading in the toolbar band
+/// (present only when the toolbar has no live controls). When hasWorkspace is
+/// true, workspace* rects and exactly three workspaceTabs describe the
+/// full-screen HD shell; otherwise the legacy modal composition is unchanged.
+/// Toolbar controls (category, quick search) paint contract chrome (label
+/// plus live value) in the control-bar band while their native
+/// ComboBox/TextEdit stays the behavior owner; the native list, header
+/// labels, footer buttons, and control widgets are behavior owners whose
+/// pixels are suppressed and replaced here.
+struct CalypsoScrollableCollectionWorkspaceTab
+{
+	std::string id;
+	std::string label;
+	std::string action;
+	CalypsoLogicalRect rect;
+	Surface* widget = nullptr;
+	bool active = false;
+};
+
+struct CalypsoScrollableCollectionModel
+{
+	std::uint32_t familyId = 0;
+	const void* instance = nullptr;
+	Mod* mod = nullptr;
+	bool wide = false;
+	int designWidth = 0;
+	int designHeight = 0;
+
+	bool hasWorkspace = false;
+	std::string workspaceId;
+	std::string workspaceInitialTab;
+	CalypsoLogicalRect workspaceHeader;
+	CalypsoLogicalRect workspaceNavigationRail;
+	CalypsoLogicalRect workspaceTabBar;
+	CalypsoLogicalRect workspaceContent;
+	std::string workspaceHeaderContext;
+	std::string workspaceRailContext;
+	std::vector<CalypsoScrollableCollectionWorkspaceTab> workspaceTabs;
+
+	CalypsoLogicalRect window;
+	CalypsoLogicalRect title;
+	CalypsoLogicalRect summaryBar;
+	CalypsoLogicalRect headerArt;
+	CalypsoLogicalRect controlBar;
+	CalypsoLogicalRect viewport;
+	CalypsoLogicalRect footer;
+	std::vector<CalypsoLogicalRect> rowSlots;
+	std::vector<std::vector<CalypsoLogicalRect>> rowCells;
+	std::vector<CalypsoLogicalRect> columnHeaders;
+	std::vector<std::string> columnLabels;
+
+	Surface* windowWidget = nullptr;
+	Text* titleWidget = nullptr;
+	TextList* listWidget = nullptr;
+	std::vector<Text*> headerWidgets;
+
+	std::string titleText;
+	bool hasHeading = false;
+	std::string headingText;
+	CalypsoLogicalRect headingRect;
+	std::vector<CalypsoScrollableCollectionRow> rows;
+	std::size_t scrollOffset = 0;
+	std::size_t selectedRow = 0;
+	bool hasSelection = false;
+	std::vector<CalypsoSmallConfirmationButton> buttons;
+	std::vector<CalypsoScrollableCollectionSummary> summaries;
+	std::vector<CalypsoScrollableCollectionControl> controls;
+	// Painted stepper pairs, 1:1 with rowSlots on quantity-adjustable tables,
+	// empty on plain tables. Projected from generated rowSteppers.
+	std::vector<CalypsoScrollableCollectionStepper> steppers;
+
+	bool hasHeaderArt = false;
+	std::string headerArtPath;
+	float headerArtOpacity = 1.0f;
+	std::uint32_t headerArtScrim = 0;
+
+	int rowHeight = 1;
+	int visibleRows = 1;
+	int headerHeight = 0;
+	int scrollBarWidth = 0;
+	int minThumbHeight = 0;
+	bool hasNativeScrollGeometry = false;
+	CalypsoLogicalRect nativeTrack{};
+	CalypsoLogicalRect nativeThumb{};
+	bool nativeThumbVisible = false;
+	float cutCornerPx = 0.0f;
+	float protocolTextInsetPx = 0.0f;
+	std::uint32_t panelFillTop = 0;
+	std::uint32_t panelFillBottom = 0;
+	std::uint32_t frameColor = 0;
+	std::uint32_t dividerColor = 0;
+	std::uint32_t footerDotColor = 0;
+	std::uint32_t textColor = 0;
+	std::uint32_t mutedTextColor = 0;
+	std::uint32_t selectionColor = 0;
+	std::uint32_t scrollTrackColor = 0;
+	std::uint32_t scrollThumbColor = 0;
+
+	double uiScale = 1.0;
+	double visualScale = 1.0;
+	double projectionScaleX = 1.0;
+	double projectionScaleY = 1.0;
+	int titleDesignHeight = 1;
+	int motionDurationMs = 0;
+	double motionScaleFrom = 1.0;
+};
+
+void calypsoCollectScrollableCollection(
+	CalypsoHdFrameBuilder& builder,
+	const CalypsoScrollableCollectionModel& model,
+	CalypsoSmallConfirmationMotion& motion);
 } // namespace Calypso
 } // namespace OpenXcom
 

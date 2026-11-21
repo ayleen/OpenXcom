@@ -402,6 +402,16 @@ void ComboBox::setOptionEnabled(size_t index, bool enabled)
 {
 	if (index < _optionEnabled.size()) _optionEnabled[index] = enabled;
 }
+
+bool ComboBox::isPopupOpen() const
+{
+	return _window != nullptr && _list != nullptr && _window->getVisible() && _list->getVisible();
+}
+
+const TextList *ComboBox::popupList() const
+{
+	return _list;
+}
 #endif
 
 /**
