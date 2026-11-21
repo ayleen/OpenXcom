@@ -338,6 +338,18 @@
         "width": 620,
         "height": 286
       },
+      "detailPanel": {
+        "x": 172,
+        "y": 280,
+        "width": 306,
+        "height": 286
+      },
+      "contextDock": {
+        "x": 172,
+        "y": 506,
+        "width": 306,
+        "height": 52
+      },
       "collection": {
         "columnHeaders": [
           {
@@ -559,7 +571,21 @@
               }
             ]
           }
-        ]
+        ],
+        "scroll": {
+          "track": {
+            "x": 1090,
+            "y": 316,
+            "width": 18,
+            "height": 220
+          },
+          "thumb": {
+            "x": 1090,
+            "y": 316,
+            "width": 18,
+            "height": 220
+          }
+        }
       },
       "toolbarBar": {
         "x": 172,
@@ -575,6 +601,7 @@
           "height": 44
         }
       },
+      "controlParts": {},
       "footer": {
         "x": 140,
         "y": 578,
@@ -718,6 +745,224 @@
             }
           }
         ]
+      },
+      "partRects": {
+        "window": {
+          "x": 140,
+          "y": 50,
+          "width": 1000,
+          "height": 620
+        },
+        "title": {
+          "x": 172,
+          "y": 68,
+          "width": 936,
+          "height": 44
+        },
+        "summaryBar": {
+          "x": 172,
+          "y": 116,
+          "width": 936,
+          "height": 36
+        },
+        "tabBar": {
+          "x": 172,
+          "y": 160,
+          "width": 936,
+          "height": 48
+        },
+        "toolbarBar": {
+          "x": 172,
+          "y": 218,
+          "width": 936,
+          "height": 52
+        },
+        "collectionViewport": {
+          "x": 488,
+          "y": 280,
+          "width": 620,
+          "height": 286
+        },
+        "footer": {
+          "x": 140,
+          "y": 578,
+          "width": 1000,
+          "height": 92
+        },
+        "summary.capacity": {
+          "x": 172,
+          "y": 116,
+          "width": 467,
+          "height": 36
+        },
+        "summary.available": {
+          "x": 640,
+          "y": 116,
+          "width": 468,
+          "height": 36
+        },
+        "tab.overview": {
+          "x": 172,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "tab.weapons": {
+          "x": 329,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "tab.crew": {
+          "x": 486,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "tab.equipment": {
+          "x": 643,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "tab.armor": {
+          "x": 800,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "tab.pilots": {
+          "x": 957,
+          "y": 160,
+          "width": 151,
+          "height": 48
+        },
+        "control.sort": {
+          "x": 172,
+          "y": 222,
+          "width": 220,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 1090,
+          "y": 316,
+          "width": 18,
+          "height": 220
+        },
+        "collection.scroll.thumb": {
+          "x": 1090,
+          "y": 316,
+          "width": 18,
+          "height": 220
+        },
+        "collection.column.diver": {
+          "x": 488,
+          "y": 280,
+          "width": 188,
+          "height": 36
+        },
+        "collection.column.rank": {
+          "x": 677,
+          "y": 280,
+          "width": 188,
+          "height": 36
+        },
+        "collection.column.assignment": {
+          "x": 866,
+          "y": 280,
+          "width": 188,
+          "height": 36
+        },
+        "collection.row-slot.1": {
+          "x": 488,
+          "y": 316,
+          "width": 566,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 488,
+          "y": 360,
+          "width": 566,
+          "height": 44
+        },
+        "collection.row-slot.3": {
+          "x": 488,
+          "y": 404,
+          "width": 566,
+          "height": 44
+        },
+        "collection.row-slot.4": {
+          "x": 488,
+          "y": 448,
+          "width": 566,
+          "height": 44
+        },
+        "collection.row-slot.5": {
+          "x": 488,
+          "y": 492,
+          "width": 566,
+          "height": 44
+        },
+        "detailPanel": {
+          "x": 172,
+          "y": 280,
+          "width": 306,
+          "height": 286
+        },
+        "contextDock": {
+          "x": 172,
+          "y": 506,
+          "width": 306,
+          "height": 52
+        },
+        "detail.diver": {
+          "x": 172,
+          "y": 280,
+          "width": 306,
+          "height": 286
+        },
+        "detail.diver.label": {
+          "x": 184,
+          "y": 292,
+          "width": 282,
+          "height": 24
+        },
+        "detail.diver.identity.title": {
+          "x": 184,
+          "y": 316,
+          "width": 282,
+          "height": 16
+        },
+        "detail.diver.identity.subtitle": {
+          "x": 184,
+          "y": 332,
+          "width": 282,
+          "height": 16
+        },
+        "detail.diver.metric.missions": {
+          "x": 184,
+          "y": 348,
+          "width": 140,
+          "height": 28
+        },
+        "detail.diver.metric.kills": {
+          "x": 325,
+          "y": 348,
+          "width": 141,
+          "height": 28
+        },
+        "detail.diver.action.preview": {
+          "x": 184,
+          "y": 510,
+          "width": 282,
+          "height": 44
+        },
+        "action.cancel": {
+          "x": 950,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        }
       }
     },
     "compact": {
@@ -766,6 +1011,18 @@
         "y": 168,
         "width": 392,
         "height": 112
+      },
+      "detailPanel": {
+        "x": 44,
+        "y": 168,
+        "width": 250,
+        "height": 112
+      },
+      "contextDock": {
+        "x": 36,
+        "y": 228,
+        "width": 266,
+        "height": 52
       },
       "collection": {
         "columnHeaders": [
@@ -874,7 +1131,21 @@
               }
             ]
           }
-        ]
+        ],
+        "scroll": {
+          "track": {
+            "x": 678,
+            "y": 192,
+            "width": 18,
+            "height": 88
+          },
+          "thumb": {
+            "x": 678,
+            "y": 192,
+            "width": 18,
+            "height": 58
+          }
+        }
       },
       "toolbarBar": {
         "x": 44,
@@ -890,6 +1161,7 @@
           "height": 44
         }
       },
+      "controlParts": {},
       "footer": {
         "x": 20,
         "y": 284,
@@ -1033,6 +1305,224 @@
             }
           }
         ]
+      },
+      "partRects": {
+        "window": {
+          "x": 20,
+          "y": 8,
+          "width": 700,
+          "height": 344
+        },
+        "title": {
+          "x": 44,
+          "y": 8,
+          "width": 652,
+          "height": 32
+        },
+        "summaryBar": {
+          "x": 44,
+          "y": 44,
+          "width": 652,
+          "height": 24
+        },
+        "tabBar": {
+          "x": 44,
+          "y": 72,
+          "width": 652,
+          "height": 44
+        },
+        "toolbarBar": {
+          "x": 44,
+          "y": 120,
+          "width": 652,
+          "height": 44
+        },
+        "collectionViewport": {
+          "x": 304,
+          "y": 168,
+          "width": 392,
+          "height": 112
+        },
+        "footer": {
+          "x": 20,
+          "y": 284,
+          "width": 700,
+          "height": 68
+        },
+        "summary.capacity": {
+          "x": 44,
+          "y": 44,
+          "width": 325,
+          "height": 24
+        },
+        "summary.available": {
+          "x": 370,
+          "y": 44,
+          "width": 326,
+          "height": 24
+        },
+        "tab.overview": {
+          "x": 44,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "tab.weapons": {
+          "x": 153,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "tab.crew": {
+          "x": 262,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "tab.equipment": {
+          "x": 371,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "tab.armor": {
+          "x": 480,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "tab.pilots": {
+          "x": 589,
+          "y": 72,
+          "width": 107,
+          "height": 44
+        },
+        "control.sort": {
+          "x": 44,
+          "y": 120,
+          "width": 180,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 678,
+          "y": 192,
+          "width": 18,
+          "height": 88
+        },
+        "collection.scroll.thumb": {
+          "x": 678,
+          "y": 192,
+          "width": 18,
+          "height": 58
+        },
+        "collection.column.diver": {
+          "x": 304,
+          "y": 168,
+          "width": 112,
+          "height": 24
+        },
+        "collection.column.rank": {
+          "x": 417,
+          "y": 168,
+          "width": 112,
+          "height": 24
+        },
+        "collection.column.assignment": {
+          "x": 530,
+          "y": 168,
+          "width": 114,
+          "height": 24
+        },
+        "collection.row-slot.1": {
+          "x": 304,
+          "y": 192,
+          "width": 340,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 304,
+          "y": 236,
+          "width": 340,
+          "height": 44
+        },
+        "collection.row-slot.3": {
+          "x": 304,
+          "y": 236,
+          "width": 340,
+          "height": 44
+        },
+        "collection.row-slot.4": {
+          "x": 304,
+          "y": 236,
+          "width": 340,
+          "height": 44
+        },
+        "collection.row-slot.5": {
+          "x": 304,
+          "y": 236,
+          "width": 340,
+          "height": 44
+        },
+        "detailPanel": {
+          "x": 44,
+          "y": 168,
+          "width": 250,
+          "height": 112
+        },
+        "contextDock": {
+          "x": 36,
+          "y": 228,
+          "width": 266,
+          "height": 52
+        },
+        "detail.diver": {
+          "x": 44,
+          "y": 168,
+          "width": 250,
+          "height": 112
+        },
+        "detail.diver.label": {
+          "x": 48,
+          "y": 172,
+          "width": 242,
+          "height": 16
+        },
+        "detail.diver.identity.title": {
+          "x": 48,
+          "y": 188,
+          "width": 242,
+          "height": 12
+        },
+        "detail.diver.identity.subtitle": {
+          "x": 48,
+          "y": 200,
+          "width": 242,
+          "height": 12
+        },
+        "detail.diver.metric.missions": {
+          "x": 48,
+          "y": 212,
+          "width": 120,
+          "height": 16
+        },
+        "detail.diver.metric.kills": {
+          "x": 169,
+          "y": 212,
+          "width": 121,
+          "height": 16
+        },
+        "detail.diver.action.preview": {
+          "x": 48,
+          "y": 232,
+          "width": 242,
+          "height": 44
+        },
+        "action.cancel": {
+          "x": 548,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        }
       }
     }
   },
@@ -1119,6 +1609,9 @@
       "thumbTravelPx": 30
     }
   },
+  "actions": [
+    "action.cancel"
+  ],
   "parts": [
     "window",
     "title",
@@ -1147,6 +1640,7 @@
     "collection.row-slot.4",
     "collection.row-slot.5",
     "detailPanel",
+    "contextDock",
     "detail.diver",
     "detail.diver.label",
     "detail.diver.identity.title",

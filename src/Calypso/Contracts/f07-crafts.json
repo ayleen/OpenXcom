@@ -247,6 +247,13 @@
         "width": 936,
         "height": 286
       },
+      "detailPanel": {
+        "x": 172,
+        "y": 280,
+        "width": 306,
+        "height": 286
+      },
+      "contextDock": null,
       "collection": {
         "columnHeaders": [
           {
@@ -522,7 +529,21 @@
               }
             ]
           }
-        ]
+        ],
+        "scroll": {
+          "track": {
+            "x": 1090,
+            "y": 316,
+            "width": 18,
+            "height": 220
+          },
+          "thumb": {
+            "x": 1090,
+            "y": 316,
+            "width": 18,
+            "height": 220
+          }
+        }
       },
       "toolbarBar": {
         "x": 172,
@@ -531,6 +552,7 @@
         "height": 52
       },
       "controls": {},
+      "controlParts": {},
       "footer": {
         "x": 140,
         "y": 578,
@@ -554,6 +576,152 @@
       "toolbar": {},
       "actions": {
         "overview": {
+          "x": 950,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "partRects": {
+        "window": {
+          "x": 140,
+          "y": 50,
+          "width": 1000,
+          "height": 620
+        },
+        "title": {
+          "x": 172,
+          "y": 68,
+          "width": 936,
+          "height": 44
+        },
+        "summaryBar": {
+          "x": 172,
+          "y": 116,
+          "width": 936,
+          "height": 36
+        },
+        "tabBar": {
+          "x": 172,
+          "y": 160,
+          "width": 936,
+          "height": 48
+        },
+        "toolbarBar": {
+          "x": 172,
+          "y": 218,
+          "width": 936,
+          "height": 52
+        },
+        "collectionViewport": {
+          "x": 172,
+          "y": 280,
+          "width": 936,
+          "height": 286
+        },
+        "footer": {
+          "x": 140,
+          "y": 578,
+          "width": 1000,
+          "height": 92
+        },
+        "summary.active-base": {
+          "x": 172,
+          "y": 116,
+          "width": 311,
+          "height": 36
+        },
+        "summary.funds": {
+          "x": 484,
+          "y": 116,
+          "width": 311,
+          "height": 36
+        },
+        "summary.strength": {
+          "x": 796,
+          "y": 116,
+          "width": 312,
+          "height": 36
+        },
+        "tab.divers": {
+          "x": 172,
+          "y": 160,
+          "width": 464,
+          "height": 48
+        },
+        "tab.submarines": {
+          "x": 644,
+          "y": 160,
+          "width": 464,
+          "height": 48
+        },
+        "collection.scroll.track": {
+          "x": 1090,
+          "y": 316,
+          "width": 18,
+          "height": 220
+        },
+        "collection.scroll.thumb": {
+          "x": 1090,
+          "y": 316,
+          "width": 18,
+          "height": 220
+        },
+        "collection.column.submarine": {
+          "x": 172,
+          "y": 280,
+          "width": 219,
+          "height": 36
+        },
+        "collection.column.status": {
+          "x": 392,
+          "y": 280,
+          "width": 219,
+          "height": 36
+        },
+        "collection.column.weapons-crew": {
+          "x": 612,
+          "y": 280,
+          "width": 219,
+          "height": 36
+        },
+        "collection.column.open": {
+          "x": 832,
+          "y": 280,
+          "width": 222,
+          "height": 36
+        },
+        "collection.row-slot.1": {
+          "x": 172,
+          "y": 316,
+          "width": 882,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 172,
+          "y": 360,
+          "width": 882,
+          "height": 44
+        },
+        "collection.row-slot.3": {
+          "x": 172,
+          "y": 404,
+          "width": 882,
+          "height": 44
+        },
+        "collection.row-slot.4": {
+          "x": 172,
+          "y": 448,
+          "width": 882,
+          "height": 44
+        },
+        "collection.row-slot.5": {
+          "x": 172,
+          "y": 492,
+          "width": 882,
+          "height": 44
+        },
+        "action.overview": {
           "x": 950,
           "y": 602,
           "width": 158,
@@ -614,6 +782,13 @@
         "width": 652,
         "height": 112
       },
+      "detailPanel": {
+        "x": 44,
+        "y": 168,
+        "width": 250,
+        "height": 112
+      },
+      "contextDock": null,
       "collection": {
         "columnHeaders": [
           {
@@ -748,7 +923,21 @@
               }
             ]
           }
-        ]
+        ],
+        "scroll": {
+          "track": {
+            "x": 678,
+            "y": 192,
+            "width": 18,
+            "height": 88
+          },
+          "thumb": {
+            "x": 678,
+            "y": 192,
+            "width": 18,
+            "height": 58
+          }
+        }
       },
       "toolbarBar": {
         "x": 44,
@@ -757,6 +946,7 @@
         "height": 44
       },
       "controls": {},
+      "controlParts": {},
       "footer": {
         "x": 20,
         "y": 284,
@@ -780,6 +970,152 @@
       "toolbar": {},
       "actions": {
         "overview": {
+          "x": 548,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "partRects": {
+        "window": {
+          "x": 20,
+          "y": 8,
+          "width": 700,
+          "height": 344
+        },
+        "title": {
+          "x": 44,
+          "y": 8,
+          "width": 652,
+          "height": 32
+        },
+        "summaryBar": {
+          "x": 44,
+          "y": 44,
+          "width": 652,
+          "height": 24
+        },
+        "tabBar": {
+          "x": 44,
+          "y": 72,
+          "width": 652,
+          "height": 44
+        },
+        "toolbarBar": {
+          "x": 44,
+          "y": 120,
+          "width": 652,
+          "height": 44
+        },
+        "collectionViewport": {
+          "x": 44,
+          "y": 168,
+          "width": 652,
+          "height": 112
+        },
+        "footer": {
+          "x": 20,
+          "y": 284,
+          "width": 700,
+          "height": 68
+        },
+        "summary.active-base": {
+          "x": 44,
+          "y": 44,
+          "width": 216,
+          "height": 24
+        },
+        "summary.funds": {
+          "x": 261,
+          "y": 44,
+          "width": 216,
+          "height": 24
+        },
+        "summary.strength": {
+          "x": 478,
+          "y": 44,
+          "width": 218,
+          "height": 24
+        },
+        "tab.divers": {
+          "x": 44,
+          "y": 72,
+          "width": 323,
+          "height": 44
+        },
+        "tab.submarines": {
+          "x": 373,
+          "y": 72,
+          "width": 323,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 678,
+          "y": 192,
+          "width": 18,
+          "height": 88
+        },
+        "collection.scroll.thumb": {
+          "x": 678,
+          "y": 192,
+          "width": 18,
+          "height": 58
+        },
+        "collection.column.submarine": {
+          "x": 44,
+          "y": 168,
+          "width": 149,
+          "height": 24
+        },
+        "collection.column.status": {
+          "x": 194,
+          "y": 168,
+          "width": 149,
+          "height": 24
+        },
+        "collection.column.weapons-crew": {
+          "x": 344,
+          "y": 168,
+          "width": 149,
+          "height": 24
+        },
+        "collection.column.open": {
+          "x": 494,
+          "y": 168,
+          "width": 150,
+          "height": 24
+        },
+        "collection.row-slot.1": {
+          "x": 44,
+          "y": 192,
+          "width": 600,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 44,
+          "y": 236,
+          "width": 600,
+          "height": 44
+        },
+        "collection.row-slot.3": {
+          "x": 44,
+          "y": 236,
+          "width": 600,
+          "height": 44
+        },
+        "collection.row-slot.4": {
+          "x": 44,
+          "y": 236,
+          "width": 600,
+          "height": 44
+        },
+        "collection.row-slot.5": {
+          "x": 44,
+          "y": 236,
+          "width": 600,
+          "height": 44
+        },
+        "action.overview": {
           "x": 548,
           "y": 296,
           "width": 148,
@@ -871,6 +1207,9 @@
       "thumbTravelPx": 30
     }
   },
+  "actions": [
+    "action.overview"
+  ],
   "parts": [
     "window",
     "title",

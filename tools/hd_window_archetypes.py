@@ -2355,8 +2355,8 @@ def _resolve_part_rect(node, segments):
                     return _resolve_part_rect(field, segments[2:])
         if segment == "headerArt" and segments[1:] == ["image"]:
             return _resolve_part_rect(node["headerArt"], [])
-        if segment.startswith("row-stepper-") and node.get("rowSteppers"):
-            index = min(int(segment.removeprefix("row-stepper-")), len(node["rowSteppers"])) - 1
+        if segment == "row-stepper" and len(segments) == 2 and node.get("rowSteppers"):
+            index = min(int(segments[1]), len(node["rowSteppers"])) - 1
             stepper = node["rowSteppers"][index]
             left, right = stepper["decrement"], stepper["increment"]
             return _make_rect(left["x"], left["y"], _right(right) - left["x"], left["height"])

@@ -253,6 +253,13 @@
         "width": 936,
         "height": 286
       },
+      "detailPanel": {
+        "x": 172,
+        "y": 280,
+        "width": 306,
+        "height": 286
+      },
+      "contextDock": null,
       "collection": {
         "columnHeaders": [
           {
@@ -420,7 +427,21 @@
               }
             ]
           }
-        ]
+        ],
+        "scroll": {
+          "track": {
+            "x": 1090,
+            "y": 316,
+            "width": 18,
+            "height": 220
+          },
+          "thumb": {
+            "x": 1090,
+            "y": 316,
+            "width": 18,
+            "height": 220
+          }
+        }
       },
       "toolbarBar": {
         "x": 172,
@@ -436,6 +457,7 @@
           "height": 44
         }
       },
+      "controlParts": {},
       "footer": {
         "x": 140,
         "y": 578,
@@ -483,6 +505,164 @@
       "toolbar": {},
       "actions": {
         "cancel": {
+          "x": 950,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "partRects": {
+        "window": {
+          "x": 140,
+          "y": 50,
+          "width": 1000,
+          "height": 620
+        },
+        "title": {
+          "x": 172,
+          "y": 68,
+          "width": 936,
+          "height": 44
+        },
+        "summaryBar": {
+          "x": 172,
+          "y": 116,
+          "width": 936,
+          "height": 36
+        },
+        "tabBar": {
+          "x": 172,
+          "y": 160,
+          "width": 936,
+          "height": 48
+        },
+        "toolbarBar": {
+          "x": 172,
+          "y": 218,
+          "width": 936,
+          "height": 52
+        },
+        "collectionViewport": {
+          "x": 172,
+          "y": 280,
+          "width": 936,
+          "height": 286
+        },
+        "footer": {
+          "x": 140,
+          "y": 578,
+          "width": 1000,
+          "height": 92
+        },
+        "summary.slots": {
+          "x": 172,
+          "y": 116,
+          "width": 467,
+          "height": 36
+        },
+        "summary.named": {
+          "x": 640,
+          "y": 116,
+          "width": 468,
+          "height": 36
+        },
+        "tab.overview": {
+          "x": 172,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "tab.weapons": {
+          "x": 329,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "tab.crew": {
+          "x": 486,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "tab.equipment": {
+          "x": 643,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "tab.armor": {
+          "x": 800,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "tab.pilots": {
+          "x": 957,
+          "y": 160,
+          "width": 151,
+          "height": 48
+        },
+        "control.mode": {
+          "x": 172,
+          "y": 222,
+          "width": 220,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 1090,
+          "y": 316,
+          "width": 18,
+          "height": 220
+        },
+        "collection.scroll.thumb": {
+          "x": 1090,
+          "y": 316,
+          "width": 18,
+          "height": 220
+        },
+        "collection.column.slot": {
+          "x": 172,
+          "y": 280,
+          "width": 440,
+          "height": 36
+        },
+        "collection.column.preset": {
+          "x": 613,
+          "y": 280,
+          "width": 441,
+          "height": 36
+        },
+        "collection.row-slot.1": {
+          "x": 172,
+          "y": 316,
+          "width": 882,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 172,
+          "y": 360,
+          "width": 882,
+          "height": 44
+        },
+        "collection.row-slot.3": {
+          "x": 172,
+          "y": 404,
+          "width": 882,
+          "height": 44
+        },
+        "collection.row-slot.4": {
+          "x": 172,
+          "y": 448,
+          "width": 882,
+          "height": 44
+        },
+        "collection.row-slot.5": {
+          "x": 172,
+          "y": 492,
+          "width": 882,
+          "height": 44
+        },
+        "action.cancel": {
           "x": 950,
           "y": 602,
           "width": 158,
@@ -537,6 +717,13 @@
         "width": 652,
         "height": 112
       },
+      "detailPanel": {
+        "x": 44,
+        "y": 168,
+        "width": 250,
+        "height": 112
+      },
+      "contextDock": null,
       "collection": {
         "columnHeaders": [
           {
@@ -617,7 +804,21 @@
               }
             ]
           }
-        ]
+        ],
+        "scroll": {
+          "track": {
+            "x": 678,
+            "y": 192,
+            "width": 18,
+            "height": 88
+          },
+          "thumb": {
+            "x": 678,
+            "y": 192,
+            "width": 18,
+            "height": 44
+          }
+        }
       },
       "toolbarBar": {
         "x": 44,
@@ -633,6 +834,7 @@
           "height": 44
         }
       },
+      "controlParts": {},
       "footer": {
         "x": 20,
         "y": 284,
@@ -680,6 +882,164 @@
       "toolbar": {},
       "actions": {
         "cancel": {
+          "x": 548,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "partRects": {
+        "window": {
+          "x": 20,
+          "y": 8,
+          "width": 700,
+          "height": 344
+        },
+        "title": {
+          "x": 44,
+          "y": 8,
+          "width": 652,
+          "height": 32
+        },
+        "summaryBar": {
+          "x": 44,
+          "y": 44,
+          "width": 652,
+          "height": 24
+        },
+        "tabBar": {
+          "x": 44,
+          "y": 72,
+          "width": 652,
+          "height": 44
+        },
+        "toolbarBar": {
+          "x": 44,
+          "y": 120,
+          "width": 652,
+          "height": 44
+        },
+        "collectionViewport": {
+          "x": 44,
+          "y": 168,
+          "width": 652,
+          "height": 112
+        },
+        "footer": {
+          "x": 20,
+          "y": 284,
+          "width": 700,
+          "height": 68
+        },
+        "summary.slots": {
+          "x": 44,
+          "y": 44,
+          "width": 325,
+          "height": 24
+        },
+        "summary.named": {
+          "x": 370,
+          "y": 44,
+          "width": 326,
+          "height": 24
+        },
+        "tab.overview": {
+          "x": 44,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "tab.weapons": {
+          "x": 153,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "tab.crew": {
+          "x": 262,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "tab.equipment": {
+          "x": 371,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "tab.armor": {
+          "x": 480,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "tab.pilots": {
+          "x": 589,
+          "y": 72,
+          "width": 107,
+          "height": 44
+        },
+        "control.mode": {
+          "x": 44,
+          "y": 120,
+          "width": 180,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 678,
+          "y": 192,
+          "width": 18,
+          "height": 88
+        },
+        "collection.scroll.thumb": {
+          "x": 678,
+          "y": 192,
+          "width": 18,
+          "height": 44
+        },
+        "collection.column.slot": {
+          "x": 44,
+          "y": 168,
+          "width": 299,
+          "height": 24
+        },
+        "collection.column.preset": {
+          "x": 344,
+          "y": 168,
+          "width": 300,
+          "height": 24
+        },
+        "collection.row-slot.1": {
+          "x": 44,
+          "y": 192,
+          "width": 600,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 44,
+          "y": 236,
+          "width": 600,
+          "height": 44
+        },
+        "collection.row-slot.3": {
+          "x": 44,
+          "y": 236,
+          "width": 600,
+          "height": 44
+        },
+        "collection.row-slot.4": {
+          "x": 44,
+          "y": 236,
+          "width": 600,
+          "height": 44
+        },
+        "collection.row-slot.5": {
+          "x": 44,
+          "y": 236,
+          "width": 600,
+          "height": 44
+        },
+        "action.cancel": {
           "x": 548,
           "y": 296,
           "width": 148,
@@ -771,6 +1131,9 @@
       "thumbTravelPx": 44
     }
   },
+  "actions": [
+    "action.cancel"
+  ],
   "parts": [
     "window",
     "title",
