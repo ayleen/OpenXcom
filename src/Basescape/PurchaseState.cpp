@@ -812,7 +812,12 @@ void PurchaseState::btnOkClick(Action *)
 		if (!errorMessage.empty())
 		{
 			RuleInterface* menuInterface = _game->getMod()->getInterface("buyMenu");
-			_game->pushState(new ErrorMessageState(errorMessage, _palette, menuInterface->getElement("errorMessage")->color, "BACK13.SCR", menuInterface->getElement("errorPalette")->color));
+			_game->pushState(new ErrorMessageState(errorMessage, _palette, menuInterface->getElement("errorMessage")->color, "BACK13.SCR", menuInterface->getElement("errorPalette")->color
+#ifdef __EMSCRIPTEN__
+				, 0, nullptr, Calypso::calypsoLogisticsErrorForm(_hdLayout ? this : nullptr,
+					_txtTitle->getText(), errorMessage, tr("STR_OK"))
+#endif
+				));
 			return;
 		}
 	}
@@ -1297,14 +1302,17 @@ void PurchaseState::increaseByValue(int change)
 	{
 		_timerInc->stop();
 		RuleInterface *menuInterface = _game->getMod()->getInterface("buyMenu");
-		_game->pushState(new ErrorMessageState(
-			errorMessage,
+		_game->pushState(new ErrorMessageState(errorMessage,
 			_palette,
 			menuInterface->getElement("errorMessage")->color,
 			"BACK13.SCR",
 			menuInterface->getElement("errorPalette")->color,
 			menuInterface->getElement("errorMessage")->color2
-		));
+#ifdef __EMSCRIPTEN__
+			, nullptr, Calypso::calypsoLogisticsErrorForm(_hdLayout ? this : nullptr,
+				_txtTitle->getText(), errorMessage, tr("STR_OK"))
+#endif
+			));
 	}
 }
 

@@ -1206,13 +1206,17 @@ void SellState::changeByValue(int change, int dir)
 			_timerInc->stop();
 			_timerDec->stop();
 			RuleInterface* menuInterface = _game->getMod()->getInterface("buyMenu");
-			_game->pushState(new ErrorMessageState(
-				tr(tmpItem->getSellActionMessage()),
+			const std::string reason = tr(tmpItem->getSellActionMessage());
+			_game->pushState(new ErrorMessageState(reason,
 				_palette,
 				menuInterface->getElement("errorMessage")->color,
 				"BACK13.SCR",
-				menuInterface->getElement("errorPalette")->color)
-			);
+				menuInterface->getElement("errorPalette")->color
+#ifdef __EMSCRIPTEN__
+				, 0, nullptr, Calypso::calypsoLogisticsErrorForm(_hdLayout ? this : nullptr,
+					_txtTitle->getText(), reason, tr("STR_OK"))
+#endif
+				));
 
 			return;
 		}
