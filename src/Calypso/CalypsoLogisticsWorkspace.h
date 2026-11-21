@@ -18,6 +18,8 @@ class BasescapeState;
 class Game;
 class PurchaseState;
 class SellState;
+class State;
+struct ErrorMessageHdForm;
 class TextButton;
 class TransferBaseState;
 class TransferItemsState;
@@ -192,6 +194,8 @@ public:
 
 #ifdef __EMSCRIPTEN__
 
+ErrorMessageHdForm calypsoLogisticsErrorForm(const State* owner, const std::string& section,
+	const std::string& message, const std::string& ok);
 CalypsoLogisticsWorkspaceSession& calypsoLogisticsWorkspace();
 bool calypsoLogisticsWorkspaceOpen(Game* game, Base* base,
 	CalypsoLogisticsTab initialTab);

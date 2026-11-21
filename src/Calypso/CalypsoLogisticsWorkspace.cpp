@@ -1,6 +1,7 @@
 
 #ifdef __EMSCRIPTEN__
 #include "CalypsoLogisticsWorkspace.h"
+#include "../Menu/ErrorMessageState.h"
 #include "CalypsoMarketState.h"
 #include "../Basescape/BasescapeState.h"
 #include "../Basescape/PurchaseState.h"
@@ -263,6 +264,28 @@ public:
 		g_session.clear(); g_game = nullptr; g_base = nullptr; g_destination = nullptr;
 	}
 };
+
+ErrorMessageHdForm calypsoLogisticsErrorForm(const State* owner, const std::string& section,
+	const std::string& message, const std::string& ok)
+{
+	ErrorMessageHdForm form;
+	if (!owner) return form;
+	form.hdUnderlayState = owner;
+	form.protocol = section;
+	form.actionLabel = ok;
+	const auto separator = message.find_first_of("\n\x02");
+	if (separator != std::string::npos && separator > 0 && separator + 1 < message.size())
+	{
+		form.title = message.substr(0, separator);
+		form.bodyLines.push_back(message.substr(separator + 1));
+	}
+	else
+	{
+		form.title = section;
+		form.bodyLines.push_back(message);
+	}
+	return form;
+}
 
 CalypsoLogisticsWorkspaceSession& calypsoLogisticsWorkspace() { return g_session; }
 bool calypsoLogisticsWorkspaceOpen(Game* game, Base* base, CalypsoLogisticsTab tab)

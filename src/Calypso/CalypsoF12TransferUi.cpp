@@ -134,6 +134,29 @@ CalypsoLogicalRect findDesignRect(const Entry* entries, int count, const char* i
 	return {};
 }
 
+/// A destination click uses engine-logical coordinates. Project the same
+/// slot edges as the overlay after the native window has been scaled.
+void configureDestinationRows(TextList* list, Window* window, bool wide,
+	const CalypsoF12TransferBaseGen::CalypsoF12TransferBaseGenLayout& layout)
+{
+	namespace Gen = CalypsoF12TransferBaseGen;
+	const double scale = static_cast<double>(window->getWidth()) / layout.window.w;
+	const Projector project{{window->getX(), window->getY(), window->getWidth(), window->getHeight()},
+		layout.window.x, layout.window.y, scale};
+	const auto* slots = wide ? Gen::kRowSlotsWide : Gen::kRowSlotsCompact;
+	const int count = wide ? Gen::kRowSlotWideCount : Gen::kRowSlotCompactCount;
+	std::vector<int> boundaries;
+	for (int i = 0; i < count; ++i)
+		boundaries.push_back(project(slots[i]).y - list->getY());
+	const auto last = project(slots[count - 1]);
+	boundaries.push_back(last.y + last.h - list->getY());
+	list->configureCalypsoHdSelectionList(
+		std::max(1, (int)std::llround(layout.scrollBarWidth * scale)),
+		std::max(1, (int)std::llround(layout.minThumbHeight * scale)),
+		std::max(1, (int)std::llround(layout.rowHeight * scale)), boundaries.front(),
+		boundaries.back() - boundaries.front(), count, boundaries);
+}
+
 /// Conforms the native transfer list to the generated table geometry so painted
 /// cells and native hit-testing agree: design-space columns/arrow, minimum
 /// row stride from the live small font, and the shared HD scroll seam.
@@ -164,6 +187,7 @@ void conformTransferList(
 		const int spacing = font ? font->getSpacing() : 0;
 		list->setMinimumRowHeight(std::max(fontH, rowHeight - spacing));
 	}
+	if (designArrowX < 0) return; // Destination rows are configured after scaling.
 	const int projectedBar = std::max(1, (int)std::llround(scrollBarWidth * uiScale));
 	const int projectedThumb = std::max(1, (int)std::llround(minThumbHeight * uiScale));
 	const int rowStride = std::max(1, (int)std::llround(rowHeight * uiScale));
@@ -495,6 +519,7 @@ void CalypsoF12TransferBaseUi::configure(TransferBaseState& state)
 	calypsoLogisticsWorkspaceRestoreDestination(state);
 	state.enableUiScaling(generated->designWidth, generated->designHeight, 1.0f,
 		/*subtractVanillaCenter=*/false);
+	configureDestinationRows(state._lstBases, state._window, state._hdWideLayout, *generated);
 	auto* adapter = new CalypsoF12TransferBaseUi(&state);
 	state._hdAdapter = adapter;
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter);
@@ -512,6 +537,7 @@ bool CalypsoF12TransferBaseUi::resize(TransferBaseState& state)
 	if (!generated) return false;
 	state.recaptureUiScaling(generated->designWidth, generated->designHeight, 1.0f,
 		/*subtractVanillaCenter=*/false);
+	configureDestinationRows(state._lstBases, state._window, state._hdWideLayout, *generated);
 	return true;
 }
 

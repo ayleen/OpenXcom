@@ -551,7 +551,13 @@ void TransferItemsState::btnOkClick(Action *)
 		if (_iQty > 0.0 ? freeStoresTo < -0.00001 : freeStoresFrom < -0.00001)
 		{
 			RuleInterface *menuInterface = _game->getMod()->getInterface("transferMenu");
-			_game->pushState(new ErrorMessageState(tr("STR_NOT_ENOUGH_STORE_SPACE"), _palette, menuInterface->getElement("errorMessage")->color, "BACK13.SCR", menuInterface->getElement("errorPalette")->color));
+			const std::string reason = tr("STR_NOT_ENOUGH_STORE_SPACE");
+			_game->pushState(new ErrorMessageState(reason, _palette, menuInterface->getElement("errorMessage")->color, "BACK13.SCR", menuInterface->getElement("errorPalette")->color
+#ifdef __EMSCRIPTEN__
+				, 0, nullptr, Calypso::calypsoLogisticsErrorForm(_hdLayout ? this : nullptr,
+					_txtTitle->getText(), reason, tr("STR_OK"))
+#endif
+				));
 			return;
 		}
 	}
@@ -1021,7 +1027,12 @@ void TransferItemsState::increaseByValue(int change)
 	{
 		_timerInc->stop();
 		RuleInterface *menuInterface = _game->getMod()->getInterface("transferMenu");
-		_game->pushState(new ErrorMessageState(errorMessage, _palette, menuInterface->getElement("errorMessage")->color, "BACK13.SCR", menuInterface->getElement("errorPalette")->color));
+		_game->pushState(new ErrorMessageState(errorMessage, _palette, menuInterface->getElement("errorMessage")->color, "BACK13.SCR", menuInterface->getElement("errorPalette")->color
+#ifdef __EMSCRIPTEN__
+			, 0, nullptr, Calypso::calypsoLogisticsErrorForm(_hdLayout ? this : nullptr,
+				_txtTitle->getText(), errorMessage, tr("STR_OK"))
+#endif
+			));
 		_errorShown = true;
 	}
 }
