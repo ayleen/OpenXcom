@@ -239,6 +239,7 @@ void CalypsoF21DestructionUi::configure(BaseDestroyedState& state, bool allowPhy
 	if (!state._hdLayout) return;
 
 	state._hdWideLayout = currentF21LayoutClass() == CalypsoLayoutClass::Wide;
+	state._hdHarnessGeneration = calypsoHarnessSession().generation;
 	CalypsoF21DestructionLayout layout = calypsoF21DestructionLayout(
 		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 	calypsoF21DestructionApplyHarnessShift(layout,

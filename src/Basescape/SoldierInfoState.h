@@ -23,11 +23,14 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF04SoldierInfoUi; }
+
 class Base;
 class Surface;
 class TextButton;
 class Text;
 class TextEdit;
+class TextList;
 class Bar;
 class Soldier;
 
@@ -37,6 +40,9 @@ class Soldier;
  */
 class SoldierInfoState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF04SoldierInfoUi;
+#endif
 private:
 	Base *_base;
 	size_t _soldierId;
@@ -54,9 +60,9 @@ private:
 	Text *_txtStuns;
 	TextEdit *_edtSoldier;
 
-	Text *_txtTimeUnits, *_txtStamina, *_txtHealth, *_txtBravery, *_txtReactions, *_txtFiring, *_txtThrowing, *_txtMelee, *_txtStrength, *_txtPsiStrength, *_txtPsiSkill, *_txtMana;
-	Text *_numTimeUnits, *_numStamina, *_numHealth, *_numBravery, *_numReactions, *_numFiring, *_numThrowing, *_numMelee, *_numStrength, *_numPsiStrength, *_numPsiSkill, *_numMana;
-	Bar *_barTimeUnits, *_barStamina, *_barHealth, *_barBravery, *_barReactions, *_barFiring, *_barThrowing, *_barMelee, *_barStrength, *_barPsiStrength, *_barPsiSkill, *_barMana;
+	Text *_txtTimeUnits, *_txtStamina, *_txtHealth, *_txtBravery, *_txtReactions, *_txtFiring, *_txtThrowing, *_txtMelee, *_txtStrength, *_txtPsiStrength, *_txtPsiSkill, *_txtMana = nullptr;
+	Text *_numTimeUnits, *_numStamina, *_numHealth, *_numBravery, *_numReactions, *_numFiring, *_numThrowing, *_numMelee, *_numStrength, *_numPsiStrength, *_numPsiSkill, *_numMana = nullptr;
+	Bar *_barTimeUnits, *_barStamina, *_barHealth, *_barBravery, *_barReactions, *_barFiring, *_barThrowing, *_barMelee, *_barStrength, *_barPsiStrength, *_barPsiSkill, *_barMana = nullptr;
 
 public:
 	/// Creates the Soldier Info state.
@@ -93,6 +99,18 @@ public:
 	void btnFlagClick(Action *action);
 	/// Handler for clicking the rank.
 	void btnRankClick(Action *action);
+
+#ifdef __EMSCRIPTEN__
+private:
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF04SoldierInfoUi *_hdAdapter = nullptr;
+	TextList *_hdInspectorList = nullptr;
+	std::vector<TextButton*> _hdProfileActions;
+	void hdProfileActionClick(Action *action);
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

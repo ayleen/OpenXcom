@@ -65,6 +65,11 @@
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
 #endif
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF11MarketUi.h"
+#include "../Calypso/CalypsoLogisticsWorkspace.h"
+#include "../Calypso/CalypsoHdHarnessHostState.h"
+#endif
 
 namespace OpenXcom
 {
@@ -385,6 +390,9 @@ void SellState::delayedInit()
 	_cbxCategory->onKeyboardRelease((ActionHandler)&SellState::btnQuickSearchToggle, Options::keyToggleQuickSearch);
 
 	updateList();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF11SellUi::configure(*this);
+#endif
 }
 
 /**
@@ -392,9 +400,19 @@ void SellState::delayedInit()
  */
 SellState::~SellState()
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF11SellUi::teardown(*this);
+#endif
 	delete _timerInc;
 	delete _timerDec;
 }
+#ifdef __EMSCRIPTEN__
+void SellState::calypsoWorkspaceTabClick(Action *action)
+{
+	Calypso::calypsoLogisticsWorkspaceTab(*this,
+		action ? static_cast<TextButton*>(action->getSender()) : nullptr);
+}
+#endif
 
 /**
 * Resets stuff when coming back from other screens.
@@ -685,6 +703,9 @@ void SellState::updateList()
  */
 void SellState::btnOkClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoLogisticsWorkspaceClear();
+#endif
 	_game->getSavedGame()->setFunds(_game->getSavedGame()->getFunds() + _total);
 
 	auto cleanUpContainer = [&](ItemContainer* container, const RuleItem* rule, int toRemove) -> int
@@ -901,6 +922,9 @@ void SellState::btnOkClick(Action *)
  */
 void SellState::btnCancelClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoLogisticsWorkspaceClear();
+#endif
 	_game->popState();
 }
 
@@ -1319,5 +1343,12 @@ void SellState::cbxCategoryChange(Action *)
 
 	updateList();
 }
+#ifdef __EMSCRIPTEN__
+void SellState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF11SellUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

@@ -3,33 +3,34 @@
   "id": "f06-soldier-diary",
   "familyId": 6,
   "version": "hd.2026-08-29.1",
-  "archetype": "small-confirmation",
+  "archetype": "selection-list",
   "protocol": {
     "authority": "CALYPSO COMMAND",
-    "record": "TACTICAL NOTICE",
-    "code": "F06-SD-01",
+    "record": "SERVICE HISTORY",
+    "code": "SH-06",
     "revision": "1.0.21",
     "effectiveDate": "15.07.2061"
   },
-  "title": "DIARY ENTRY",
-  "body": [
-    "New diary entry",
-    "has been recorded."
-  ],
-  "icon": {
-    "kind": "info",
-    "glyph": "i",
-    "tone": "primary"
-  },
-  "buttons": [
+  "title": "Service Diary",
+  "actions": [
     {
-      "id": "ok",
-      "label": "OK",
+      "id": "cancel",
+      "label": "CANCEL",
       "tone": "safe",
-      "action": "ok"
+      "action": "cancel"
     }
   ],
-  "visibleButtons": [
-    "ok"
-  ]
+  "collection": {
+    "mode": "list",
+    "selectionRole": "mission",
+    "columns": [
+      {
+        "id": "name",
+        "label": "Mission"
+      }
+    ],
+    "items": [
+      { "id": "no-diary-entries", "label": "No diary entries", "enabled": false }
+    ]
+  }
 }

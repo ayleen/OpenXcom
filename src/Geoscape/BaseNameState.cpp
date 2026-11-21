@@ -132,8 +132,7 @@ BaseNameState::BaseNameState(Base *base, Globe *globe, bool first, bool fixedLoc
 BaseNameState::~BaseNameState()
 {
 #ifdef __EMSCRIPTEN__
-	if (_hdLayout) Calypso::hdHarnessDomHide();
-	Calypso::calypsoHdHarnessClose();
+	Calypso::calypsoHdHarnessTeardownForTarget(this, _hdHarnessGeneration);
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
 #endif

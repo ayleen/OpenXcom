@@ -1,0 +1,133 @@
+{
+  "schema": 1,
+  "id": "f07-craft-info",
+  "familyId": 7,
+  "version": "hd.2026-08-29.1",
+  "archetype": "tabbed-management",
+  "title": "Ketos-1",
+  "actions": [
+    {
+      "id": "rename",
+      "label": "Rename",
+      "tone": "primary",
+      "action": "rename"
+    },
+    {
+      "id": "more",
+      "label": "More",
+      "tone": "normal",
+      "action": "more"
+    },
+    {
+      "id": "cancel",
+      "label": "OK",
+      "tone": "safe",
+      "action": "cancel"
+    }
+  ],
+  "tabs": [
+    {
+      "id": "overview",
+      "label": "Overview"
+    },
+    {
+      "id": "weapons",
+      "label": "Weapons"
+    },
+    {
+      "id": "crew",
+      "label": "Crew"
+    },
+    {
+      "id": "equipment",
+      "label": "Equipment"
+    },
+    {
+      "id": "armor",
+      "label": "Armor"
+    },
+    {
+      "id": "pilots",
+      "label": "Pilots"
+    }
+  ],
+  "selectedTab": "overview",
+  "summary": [
+    {
+      "id": "base",
+      "label": "Base",
+      "value": "Batumi"
+    },
+    {
+      "id": "status",
+      "label": "Status",
+      "value": "Ready"
+    },
+    {
+      "id": "damage",
+      "label": "Damage",
+      "value": "0%"
+    },
+    {
+      "id": "fuel",
+      "label": "Fuel",
+      "value": "100%"
+    }
+  ],
+  "collection": {
+    "mode": "grid",
+    "selectionRole": "select",
+    "items": [
+      {
+        "id": "mount-1",
+        "label": "Mount 01"
+      },
+      {
+        "id": "mount-2",
+        "label": "Mount 02"
+      },
+      {
+        "id": "mount-3",
+        "label": "Mount 03"
+      },
+      {
+        "id": "mount-4",
+        "label": "Mount 04"
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [],
+  "detail": {
+    "id": "mount",
+    "label": "Selected mount",
+    "title": "Mantis Projector",
+    "subtitle": "Slot 01",
+    "metrics": [
+      {
+        "id": "ammo",
+        "label": "Ammo",
+        "value": "100 / 100"
+      },
+      {
+        "id": "status",
+        "label": "Status",
+        "value": "Ready"
+      }
+    ],
+    "actions": [
+      {
+        "id": "change",
+        "label": "Change",
+        "tone": "primary",
+        "action": "change"
+      },
+      {
+        "id": "reference",
+        "label": "Reference",
+        "tone": "normal",
+        "action": "reference"
+      }
+    ]
+  }
+}

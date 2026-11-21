@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http:///www.gnu.org/licenses/>.
  */
+#include <cstdint>
 #include "../Engine/State.h"
 
 namespace OpenXcom
@@ -55,6 +56,7 @@ private:
 	friend class Calypso::CalypsoF21TransactionUi;
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
+	std::uint64_t _hdHarnessGeneration = 0;
 	Text *_hdProtocol = nullptr, *_hdTitle = nullptr, *_hdSlot = nullptr, *_hdCoords = nullptr,
 		*_hdAfter = nullptr, *_hdNameHint = nullptr;
 	Calypso::CalypsoF21TransactionUi* _hdAdapter = nullptr;

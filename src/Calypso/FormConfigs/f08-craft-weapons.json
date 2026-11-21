@@ -1,0 +1,125 @@
+{
+  "schema": 1,
+  "id": "f08-craft-weapons",
+  "familyId": 8,
+  "version": "hd.2026-08-29.1",
+  "archetype": "tabbed-management",
+  "title": "Weapons",
+  "actions": [
+    {
+      "id": "cancel",
+      "label": "OK",
+      "tone": "safe",
+      "action": "cancel"
+    }
+  ],
+  "tabs": [
+    {
+      "id": "overview",
+      "label": "Overview"
+    },
+    {
+      "id": "weapons",
+      "label": "Weapons"
+    },
+    {
+      "id": "crew",
+      "label": "Crew"
+    },
+    {
+      "id": "equipment",
+      "label": "Equipment"
+    },
+    {
+      "id": "armor",
+      "label": "Armor"
+    },
+    {
+      "id": "pilots",
+      "label": "Pilots"
+    }
+  ],
+  "selectedTab": "weapons",
+  "summary": [
+    {
+      "id": "mounts",
+      "label": "Mounts",
+      "value": "2"
+    },
+    {
+      "id": "ammo",
+      "label": "Ammo",
+      "value": "100%"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "select",
+    "columns": [
+      {
+        "id": "type",
+        "label": "Type"
+      },
+      {
+        "id": "launchers",
+        "label": "Launchers"
+      },
+      {
+        "id": "clips",
+        "label": "Clips"
+      }
+    ],
+    "items": [
+      {
+        "id": "none",
+        "values": [
+          "None",
+          "-",
+          "-"
+        ]
+      },
+      {
+        "id": "mantis",
+        "values": [
+          "Mantis",
+          "2",
+          "8"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [],
+  "detail": {
+    "id": "mount",
+    "label": "Selected mount",
+    "title": "Mantis Projector",
+    "subtitle": "Slot 01",
+    "metrics": [
+      {
+        "id": "ammo",
+        "label": "Ammo",
+        "value": "100 / 100"
+      },
+      {
+        "id": "stock",
+        "label": "Stock",
+        "value": "2"
+      }
+    ],
+    "actions": [
+      {
+        "id": "change",
+        "label": "Change",
+        "tone": "primary",
+        "action": "change"
+      },
+      {
+        "id": "more",
+        "label": "More",
+        "tone": "normal",
+        "action": "more"
+      }
+    ]
+  }
+}

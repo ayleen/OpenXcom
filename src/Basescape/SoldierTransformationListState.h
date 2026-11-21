@@ -24,6 +24,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF05SoldierTransformationListUi; }
+
 class TextButton;
 class ToggleTextButton;
 class Window;
@@ -40,6 +42,9 @@ class RuleSoldierTransformation;
  */
 class SoldierTransformationListState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF05SoldierTransformationListUi;
+#endif
 private:
 	Base* _base;
 	ComboBox* _screenActions;
@@ -73,6 +78,14 @@ public:
 	void btnOkClick(Action* action);
 	/// Handler for clicking the Transformations list.
 	void lstTransformationsClick(Action* action);
+#ifdef __EMSCRIPTEN__
+private:
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF05SoldierTransformationListUi *_hdAdapter = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

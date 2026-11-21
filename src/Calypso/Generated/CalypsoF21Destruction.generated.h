@@ -9,6 +9,10 @@ inline constexpr const char* kFormId = "f21-destruction";
 inline constexpr int kFamilyId = 21;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f21-destruction.json";
+inline constexpr const char* kProtocol = "CALYPSO COMMAND · LOSS RECORD LR-21";
+inline constexpr const char* kTitle = "BASE DAMAGED";
+inline constexpr const char* kMessage[] = { "ALIEN MISSILES HAVE DAMAGED OUR BASE · ATLANTIS POST", "This base is permanently deleted. No refund. No undo." };
+inline constexpr int kMessageCount = 2;
 
 inline constexpr const char* kDensityProfile = "standard";
 inline constexpr int kPresentationScaleNumerator = 1;

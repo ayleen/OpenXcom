@@ -22,9 +22,13 @@
 #include "../Menu/OptionsBaseState.h"
 #include <vector>
 #include <string>
+#include <cstdint>
 
 namespace OpenXcom
 {
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoF11SellUi; class CalypsoLogisticsWorkspace; }
+#endif
 
 class TextButton;
 class Window;
@@ -58,6 +62,15 @@ private:
 	std::vector<std::string> _cats;
 	size_t _vanillaCategories;
 	size_t _sel;
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF11SellUi;
+	friend class Calypso::CalypsoLogisticsWorkspace;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF11SellUi *_hdAdapter = nullptr;
+	TextButton *_hdWorkspaceTabs[3] = {nullptr, nullptr, nullptr};
+	std::uint64_t _hdHarnessGeneration = 0;
+#endif
 	int64_t _total;
 	double _spaceChange;
 	Timer *_timerInc, *_timerDec;
@@ -86,6 +99,11 @@ public:
 	void init() override;
 	/// Runs the timers.
 	void think() override;
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+	/// Hidden native owners for the shared Logistics workspace tab strip.
+	void calypsoWorkspaceTabClick(Action *action);
+#endif
 	/// Updates the item list.
 	void updateList();
 	/// Handler for clicking the OK button.

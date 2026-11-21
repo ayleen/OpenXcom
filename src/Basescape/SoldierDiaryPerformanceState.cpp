@@ -34,6 +34,9 @@
 #include "../Mod/RuleCommendations.h"
 #include "../Engine/Action.h"
 #include "../Ufopaedia/Ufopaedia.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF06DiaryPerformanceUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -105,6 +108,9 @@ SoldierDiaryPerformanceState::SoldierDiaryPerformanceState(Base *base, size_t so
 	}
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF06DiaryPerformanceUi::configure(*this);
+#endif
 
 	// Set up objects
 	setWindowBackground(_window, "soldierDiaryPerformance");
@@ -193,7 +199,10 @@ SoldierDiaryPerformanceState::SoldierDiaryPerformanceState(Base *base, size_t so
  */
 SoldierDiaryPerformanceState::~SoldierDiaryPerformanceState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -507,6 +516,11 @@ void SoldierDiaryPerformanceState::lstInfoMouseOut(Action *)
 */
 void SoldierDiaryPerformanceState::lstInfoMouseClick(Action *)
 {
+	// Honest empty state: no commendation row exists to open.
+	if (_lstCommendations->getSelectedRow() >= _commendationsNames.size())
+	{
+		return;
+	}
 	_doNotReset = true;
 	Ufopaedia::openArticle(_game, _commendationsNames[_lstCommendations->getSelectedRow()]);
 }
@@ -527,3 +541,13 @@ void SoldierDiaryPerformanceState::think()
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void SoldierDiaryPerformanceState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF06DiaryPerformanceUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

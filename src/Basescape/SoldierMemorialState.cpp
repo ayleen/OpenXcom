@@ -34,6 +34,9 @@
 #include "../Savegame/GameTime.h"
 #include "SoldierInfoState.h"
 #include "../Menu/StatisticsState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF06SoldierMemorialUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -73,6 +76,9 @@ SoldierMemorialState::SoldierMemorialState()
 	add(_lstSoldiers, "list", "soldierMemorial");
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF06SoldierMemorialUi::configure(*this);
+#endif
 
 	// Set up objects
 	setWindowBackground(_window, "soldierMemorial");
@@ -123,7 +129,10 @@ SoldierMemorialState::SoldierMemorialState()
  */
 SoldierMemorialState::~SoldierMemorialState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -189,6 +198,12 @@ void SoldierMemorialState::btnStatisticsClick(Action *)
  */
 void SoldierMemorialState::lstSoldiersClick(Action *)
 {
+	// Honest empty state: row activation is disabled when no one has been
+	// lost (no fake rows exist to open).
+	if (_lstSoldiers->getSelectedRow() >= _indices.size())
+	{
+		return;
+	}
 	_game->pushState(new SoldierInfoState(0, _indices[_lstSoldiers->getSelectedRow()]));
 }
 
@@ -230,5 +245,13 @@ void SoldierMemorialState::fillMemorialList()
 		_indices.push_back(index);
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void SoldierMemorialState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF06SoldierMemorialUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

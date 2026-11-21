@@ -22,6 +22,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF08CraftEquipmentLoadUi; }
+
 class TextButton;
 class ToggleTextButton;
 class Window;
@@ -50,6 +52,15 @@ public:
 	void btnCancelClick(Action *action);
 	/// Handler for clicking the Loadout list.
 	void lstLoadoutClick(Action *action);
+#ifdef __EMSCRIPTEN__
+private:
+	friend class Calypso::CalypsoF08CraftEquipmentLoadUi;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF08CraftEquipmentLoadUi *_hdAdapter = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

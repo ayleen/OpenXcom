@@ -38,6 +38,9 @@
 #include "../Savegame/SavedGame.h"
 #include "SoldierInfoState.h"
 #include "SoldierMemorialState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF04SoldiersUi.h"
+#endif
 #include "SoldierTransformationState.h"
 #include "SoldierTransformationListState.h"
 #include "../Battlescape/InventoryState.h"
@@ -245,6 +248,9 @@ SoldiersState::SoldiersState(Base *base) : _base(base), _origSoldierOrder(*_base
 	_lstSoldiers->onMouseClick((ActionHandler)&SoldiersState::lstSoldiersClick);
 	_lstSoldiers->onMouseClick((ActionHandler)&SoldiersState::lstSoldiersClick, SDL_BUTTON_RIGHT);
 	_lstSoldiers->onMousePress((ActionHandler)&SoldiersState::lstSoldiersMousePress);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF04SoldiersUi::configure(*this);
+#endif
 }
 
 /**
@@ -256,6 +262,10 @@ SoldiersState::~SoldiersState()
 	{
 		delete sortFunctor;
 	}
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -790,5 +800,13 @@ void SoldiersState::lstSoldiersMousePress(Action *action)
 		}
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void SoldiersState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF04SoldiersUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

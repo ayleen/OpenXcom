@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "id": "f04-soldiers",
+  "familyId": 4,
+  "version": "hd.2026-08-29.1",
+  "archetype": "selection-list",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "PERSONNEL DOSSIER",
+    "code": "PD-04",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "Personnel",
+  "actions": [
+    {
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe",
+      "action": "cancel"
+    }
+  ],
+  "collection": {
+    "mode": "list",
+    "selectionRole": "soldier",
+    "columns": [
+      {
+        "id": "name",
+        "label": "Soldier"
+      }
+    ],
+    "items": [
+      { "id": "no-soldiers", "label": "No soldiers", "enabled": false }
+    ]
+  }
+}

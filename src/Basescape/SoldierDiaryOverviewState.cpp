@@ -50,7 +50,7 @@ namespace OpenXcom
  * @param soldierInfoState Pointer to the Soldier Info screen.
  */
 SoldierDiaryOverviewState::SoldierDiaryOverviewState(Base *base, size_t soldierId, SoldierInfoState *soldierInfoState) :
-	_base(base), _soldierId(soldierId), _soldierInfoState(soldierInfoState), _doNotReset(false)
+	_base(base), _soldierId(soldierId), _soldierInfoState(soldierInfoState), _soldier(0), _doNotReset(false)
 {
 	if (_base == 0)
 	{
@@ -75,6 +75,14 @@ SoldierDiaryOverviewState::SoldierDiaryOverviewState(Base *base, size_t soldierI
 		_txtDeathTitle = new Text(150, 9, 16, 36);
 		_txtDeathDate = new Text(90, 9, 218, 36);
 		_txtDeathInfo = new Text(292, 9, 16, 44);
+	}
+	else
+	{
+		// Live personnel own no death block; null so HD readers (and only
+		// they) can tell "absent" from "hidden".
+		_txtDeathTitle = 0;
+		_txtDeathDate = 0;
+		_txtDeathInfo = 0;
 	}
 	int offset = (!_base) ? 24 : 0;
 	_txtMission = new Text(114, 9, 16, 36 + offset);

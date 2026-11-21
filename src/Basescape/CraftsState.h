@@ -22,6 +22,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF07CraftsUi; }
+
 class TextButton;
 class Window;
 class Text;
@@ -53,6 +55,15 @@ public:
 	void btnOkClick(Action *action);
 	/// Handler for clicking the Crafts list.
 	void lstCraftsClick(Action *action);
+#ifdef __EMSCRIPTEN__
+private:
+	friend class Calypso::CalypsoF07CraftsUi;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF07CraftsUi *_hdAdapter = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

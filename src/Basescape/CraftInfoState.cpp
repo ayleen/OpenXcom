@@ -46,6 +46,9 @@
 #include "CraftArmorState.h"
 #include "CraftPilotsState.h"
 #include "../Ufopaedia/Ufopaedia.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF07CraftInfoUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -204,6 +207,9 @@ CraftInfoState::CraftInfoState(Base *base, size_t craftId) : _base(base), _craft
 	{
 		_txtWName[i]->setWordWrap(true);
 	}
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF07CraftInfoUi::configure(*this);
+#endif
 }
 
 /**
@@ -211,7 +217,10 @@ CraftInfoState::CraftInfoState(Base *base, size_t craftId) : _base(base), _craft
  */
 CraftInfoState::~CraftInfoState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -453,6 +462,9 @@ void CraftInfoState::init()
 			_txtWAmmo[i]->setText("");
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF07CraftInfoUi::refreshForInit(*this);
+#endif
 
 }
 
@@ -732,5 +744,13 @@ void CraftInfoState::edtCraftChange(Action *action)
 		_edtCraft->setText(_craft->getName(_game->getLanguage()));
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void CraftInfoState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF07CraftInfoUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

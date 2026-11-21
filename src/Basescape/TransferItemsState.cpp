@@ -42,6 +42,8 @@
 #include "../Engine/Timer.h"
 #include "../Menu/ErrorMessageState.h"
 #include "TransferConfirmState.h"
+#include "../Calypso/CalypsoF12TransferUi.h"
+#include "../Calypso/CalypsoLogisticsWorkspace.h"
 #include "../Engine/Options.h"
 #include "../fmath.h"
 #include "../Mod/RuleInterface.h"
@@ -282,6 +284,9 @@ TransferItemsState::TransferItemsState(Base *baseFrom, Base *baseTo, DebriefingS
 	_timerInc->onTimer((StateHandler)&TransferItemsState::increase);
 	_timerDec = new Timer(250);
 	_timerDec->onTimer((StateHandler)&TransferItemsState::decrease);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF12TransferItemsUi::configure(*this);
+#endif
 }
 
 /**
@@ -289,9 +294,19 @@ TransferItemsState::TransferItemsState(Base *baseFrom, Base *baseTo, DebriefingS
  */
 TransferItemsState::~TransferItemsState()
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF12TransferItemsUi::teardown(*this);
+#endif
 	delete _timerInc;
 	delete _timerDec;
 }
+#ifdef __EMSCRIPTEN__
+void TransferItemsState::calypsoWorkspaceTabClick(Action *action)
+{
+	Calypso::calypsoLogisticsWorkspaceTab(*this,
+		action ? static_cast<TextButton*>(action->getSender()) : nullptr);
+}
+#endif
 
 /**
  * Resets stuff when coming back from other screens.
@@ -549,6 +564,9 @@ void TransferItemsState::btnOkClick(Action *)
  */
 void TransferItemsState::completeTransfer()
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoLogisticsWorkspaceClear();
+#endif
 	int time = (int)floor(6 + _distance / 10.0);
 	_game->getSavedGame()->setFunds(_game->getSavedGame()->getFunds() - getTotal());
 	for (const auto& transferRow : _items)
@@ -677,6 +695,9 @@ void TransferItemsState::completeTransfer()
  */
 void TransferItemsState::btnCancelClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoLogisticsWorkspaceClear();
+#endif
 	_game->popState();
 	_game->popState();
 }
@@ -1134,4 +1155,11 @@ void TransferItemsState::cbxCategoryChange(Action *)
 	updateList();
 }
 
+#ifdef __EMSCRIPTEN__
+void TransferItemsState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF12TransferItemsUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 }

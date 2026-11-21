@@ -22,6 +22,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF07CraftPilotsUi; }
+
 class Base;
 class TextButton;
 class Window;
@@ -60,6 +62,16 @@ public:
 	void btnAddClick(Action *action);
 	/// Handler for clicking the RemoveAll button.
 	void btnRemoveAllClick(Action *action);
+#ifdef __EMSCRIPTEN__
+private:
+	friend class Calypso::CalypsoF07CraftPilotsUi;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF07CraftPilotsUi *_hdAdapter = nullptr;
+	TextList *_hdInspectorList = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

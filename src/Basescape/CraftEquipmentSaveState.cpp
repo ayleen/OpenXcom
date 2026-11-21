@@ -31,6 +31,9 @@
 #include "../Interface/TextList.h"
 #include "../Savegame/ItemContainer.h"
 #include "../Savegame/SavedGame.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF08CraftEquipmentSaveUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -105,6 +108,9 @@ CraftEquipmentSaveState::CraftEquipmentSaveState(CraftEquipmentState *parent) : 
 			}
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF08CraftEquipmentSaveUi::configure(*this);
+#endif
 }
 
 /**
@@ -112,7 +118,10 @@ CraftEquipmentSaveState::CraftEquipmentSaveState(CraftEquipmentState *parent) : 
 */
 CraftEquipmentSaveState::~CraftEquipmentSaveState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -144,6 +153,11 @@ void CraftEquipmentSaveState::lstLoadoutPress(Action *action)
 {
 	_previousSelectedRow = _selectedRow;
 	_selectedRow = _lstLoadout->getSelectedRow();
+#ifdef __EMSCRIPTEN__
+	// Reselecting always re-arms the overwrite review: a commit needs two
+	// Save activations for the currently selected slot.
+	hdDisarmSave();
+#endif
 	if (_previousSelectedRow > -1)
 	{
 		_lstLoadout->setCellText(_previousSelectedRow, 0, _selected);
@@ -183,6 +197,15 @@ void CraftEquipmentSaveState::edtSaveKeyPress(Action *action)
 	if (action->getDetails()->key.keysym.sym == SDLK_RETURN ||
 		action->getDetails()->key.keysym.sym == SDLK_KP_ENTER)
 	{
+#ifdef __EMSCRIPTEN__
+		// The Return key travels the same overwrite gate as the Save
+		// button; gate-off behavior is unchanged.
+		if (_hdLayout)
+		{
+			hdSaveClickGate(action);
+			return;
+		}
+#endif
 		saveTemplate();
 	}
 }
@@ -200,5 +223,6 @@ void CraftEquipmentSaveState::saveTemplate()
 		_game->popState();
 	}
 }
+
 
 }

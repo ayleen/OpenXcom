@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http:///www.gnu.org/licenses/>.
  */
+#include <cstdint>
 #include "../Engine/State.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoF21LayoutBase.h"
@@ -51,6 +52,7 @@ private:
 	friend class Calypso::CalypsoF21DestructionUi;
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
+	std::uint64_t _hdHarnessGeneration = 0;
 	Text* _hdProtocol = nullptr;
 	Text* _hdTitle = nullptr;
 	Text* _hdWarning = nullptr;

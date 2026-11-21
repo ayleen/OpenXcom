@@ -37,6 +37,9 @@
 #include "../Savegame/Base.h"
 #include "../Savegame/SavedGame.h"
 #include "../Ufopaedia/Ufopaedia.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF08CraftWeaponsUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -141,6 +144,9 @@ CraftWeaponsState::CraftWeaponsState(Base *base, size_t craft, size_t weapon) : 
 	}
 	_lstWeapons->onMouseClick((ActionHandler)&CraftWeaponsState::lstWeaponsClick);
 	_lstWeapons->onMouseClick((ActionHandler)&CraftWeaponsState::lstWeaponsMiddleClick, SDL_BUTTON_MIDDLE);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF08CraftWeaponsUi::configure(*this);
+#endif
 }
 
 /**
@@ -148,7 +154,10 @@ CraftWeaponsState::CraftWeaponsState(Base *base, size_t craft, size_t weapon) : 
  */
 CraftWeaponsState::~CraftWeaponsState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -313,5 +322,13 @@ void CraftWeaponsState::lstWeaponsMiddleClick(Action *)
 		Ufopaedia::openArticle(_game, articleId);
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void CraftWeaponsState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF08CraftWeaponsUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

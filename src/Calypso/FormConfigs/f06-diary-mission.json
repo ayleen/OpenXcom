@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "id": "f06-diary-mission",
+  "familyId": 6,
+  "version": "hd.2026-08-29.1",
+  "archetype": "selection-list",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "SERVICE HISTORY",
+    "code": "SH-06M",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "Mission Detail",
+  "actions": [
+    {
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe",
+      "action": "cancel"
+    }
+  ],
+  "collection": {
+    "mode": "list",
+    "selectionRole": "record",
+    "columns": [
+      {
+        "id": "name",
+        "label": "Record"
+      }
+    ],
+    "items": [
+      { "id": "no-mission-record", "label": "No mission record", "enabled": false }
+    ]
+  }
+}

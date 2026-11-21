@@ -9,6 +9,9 @@ inline constexpr const char* kFormId = "f21-name";
 inline constexpr int kFamilyId = 21;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f21-name.json";
+inline constexpr const char* kProtocol = "CALYPSO COMMAND · BASE REGISTRY BR-21";
+inline constexpr const char* kTitle = "NAME YOUR FIRST BASE";
+inline constexpr int kMessageCount = 0;
 
 inline constexpr const char* kDensityProfile = "standard";
 inline constexpr int kPresentationScaleNumerator = 1;

@@ -1,0 +1,97 @@
+{
+  "schema": 1,
+  "id": "f07-crafts",
+  "familyId": 7,
+  "version": "hd.2026-08-29.1",
+  "archetype": "tabbed-management",
+  "title": "Forces",
+  "actions": [
+    {
+      "id": "overview",
+      "label": "Base Overview",
+      "tone": "safe",
+      "action": "cancel"
+    }
+  ],
+  "tabs": [
+    {
+      "id": "divers",
+      "label": "Divers"
+    },
+    {
+      "id": "submarines",
+      "label": "Submarines"
+    }
+  ],
+  "selectedTab": "submarines",
+  "summary": [
+    {
+      "id": "active-base",
+      "label": "Active Base",
+      "value": "Batumi"
+    },
+    {
+      "id": "funds",
+      "label": "Funds",
+      "value": "$27,550,246"
+    },
+    {
+      "id": "strength",
+      "label": "Strength",
+      "value": "1 ready"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "select",
+    "columns": [
+      {
+        "id": "submarine",
+        "label": "Submarine"
+      },
+      {
+        "id": "status",
+        "label": "Status"
+      },
+      {
+        "id": "weapons-crew",
+        "label": "Wpn-Crew"
+      },
+      {
+        "id": "open",
+        "label": "Open"
+      }
+    ],
+    "items": [
+      {
+        "id": "ketos-1",
+        "values": [
+          "Ketos-1",
+          "Ready",
+          "2/2 · 1",
+          "›"
+        ]
+      },
+      {
+        "id": "ketos-2",
+        "values": [
+          "Ketos-2",
+          "Out",
+          "2/2 · 0",
+          "›"
+        ]
+      },
+      {
+        "id": "nereid-1",
+        "values": [
+          "Nereid-1",
+          "Ready",
+          "0/0 · 14",
+          "›"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": []
+}

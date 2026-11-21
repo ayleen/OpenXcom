@@ -23,6 +23,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF07PilotSelectUi; }
+
 class Base;
 class Soldier;
 class TextButton;
@@ -53,6 +55,15 @@ public:
 	void btnCancelClick(Action *action);
 	/// Handler for clicking the Pilot list.
 	void lstPilotClick(Action *action);
+#ifdef __EMSCRIPTEN__
+private:
+	friend class Calypso::CalypsoF07PilotSelectUi;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF07PilotSelectUi *_hdAdapter = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

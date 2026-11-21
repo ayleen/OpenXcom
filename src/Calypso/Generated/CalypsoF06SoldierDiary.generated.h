@@ -4,20 +4,23 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF06SoldierDiaryGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kFormId = "f06-soldier-diary";
 inline constexpr int kFamilyId = 6;
-inline constexpr const char* kArchetype = "small-confirmation";
+inline constexpr const char* kArchetype = "selection-list";
 inline constexpr const char* kSourceConfig = "FormConfigs/f06-soldier-diary.json";
 
-inline constexpr const char* kDensityProfile = "brief-acknowledgement";
-inline constexpr int kPresentationScaleNumerator = 2;
-inline constexpr int kPresentationScaleDenominator = 3;
-inline constexpr float kPresentationScale = 0.666667f;
+inline constexpr const char* kProtocol = "CALYPSO COMMAND · SERVICE HISTORY SH-06";
+inline constexpr const char* kTitle = "Service Diary";
+
+inline constexpr const char* kDensityProfile = "standard";
+inline constexpr int kPresentationScaleNumerator = 1;
+inline constexpr int kPresentationScaleDenominator = 1;
+inline constexpr float kPresentationScale = 1.000000f;
 
 struct CalypsoF06SoldierDiaryGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
 inline constexpr CalypsoF06SoldierDiaryGenButton kButtons[] = {
-    { "ok", "OK", "safe", "ok", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
+    { "cancel", "CANCEL", "safe", "cancel", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
 };
 inline constexpr int kButtonCount = 1;
 
@@ -31,18 +34,39 @@ inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
 inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
 inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
 inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
+inline constexpr std::uint32_t kMutedText = 0xA9D8C7FFu;
+inline constexpr std::uint32_t kScrollThumb = 0x74FFB099u;
+inline constexpr std::uint32_t kScrollTrack = 0x061B1CD6u;
+inline constexpr std::uint32_t kSelection = 0x74FFB033u;
+inline constexpr std::uint32_t kText = 0xE8FFF5FFu;
 
 struct CalypsoF06SoldierDiaryGenRect { int x; int y; int w; int h; };
-struct CalypsoF06SoldierDiaryGenLayout { int designWidth; int designHeight; CalypsoF06SoldierDiaryGenRect window; CalypsoF06SoldierDiaryGenRect status; CalypsoF06SoldierDiaryGenRect warning; CalypsoF06SoldierDiaryGenRect title; CalypsoF06SoldierDiaryGenRect message; CalypsoF06SoldierDiaryGenRect footer;
+struct CalypsoF06SoldierDiaryGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; int minThumbHeight; CalypsoF06SoldierDiaryGenRect window; CalypsoF06SoldierDiaryGenRect status; CalypsoF06SoldierDiaryGenRect title; CalypsoF06SoldierDiaryGenRect list; CalypsoF06SoldierDiaryGenRect footer;
 };
 inline constexpr CalypsoF06SoldierDiaryGenLayout kLayouts[] = {
-    { 1280, 720, { 524, 269, 232, 158 }, { 524, 269, 232, 25 }, { 545, 309, 22, 21 }, { 577, 305, 158, 29 }, { 545, 338, 190, 40 }, { 524, 379, 232, 48 } }, // wide
-    { 740, 360, { 266, 97, 208, 147 }, { 266, 97, 208, 23 }, { 285, 131, 18, 19 }, { 313, 128, 142, 25 }, { 285, 153, 170, 40 }, { 266, 196, 208, 48 } }, // compact
+    { 1280, 720, 44, 6, 18, 44, { 340, 130, 600, 448 }, { 340, 130, 600, 38 }, { 372, 176, 536, 44 }, { 372, 228, 536, 264 }, { 340, 508, 600, 70 } }, // wide
+    { 740, 360, 44, 4, 18, 44, { 70, 20, 600, 320 }, { 70, 20, 600, 34 }, { 102, 60, 536, 38 }, { 102, 104, 536, 176 }, { 70, 286, 600, 54 } }, // compact
 };
+inline constexpr CalypsoF06SoldierDiaryGenRect kRowSlotsWide[] = {
+    { 372, 228, 536, 44 }, // row-slot-1
+    { 372, 272, 536, 44 }, // row-slot-2
+    { 372, 316, 536, 44 }, // row-slot-3
+    { 372, 360, 536, 44 }, // row-slot-4
+    { 372, 404, 536, 44 }, // row-slot-5
+    { 372, 448, 536, 44 }, // row-slot-6
+};
+inline constexpr int kRowSlotWideCount = 6;
+inline constexpr CalypsoF06SoldierDiaryGenRect kRowSlotsCompact[] = {
+    { 102, 104, 536, 44 }, // row-slot-1
+    { 102, 148, 536, 44 }, // row-slot-2
+    { 102, 192, 536, 44 }, // row-slot-3
+    { 102, 236, 536, 44 }, // row-slot-4
+};
+inline constexpr int kRowSlotCompactCount = 4;
 struct CalypsoF06SoldierDiaryGenButtonRect { const char* id; CalypsoF06SoldierDiaryGenRect rect; };
 inline constexpr CalypsoF06SoldierDiaryGenButtonRect kButtonRects[][ 1 ] = {
-    { { "ok", { 629, 388, 106, 29 } } }, // wide
-    { { "ok", { 357, 205, 98, 29 } } }, // compact
+    { { "cancel", { 750, 521, 158, 44 } } }, // wide
+    { { "cancel", { 490, 291, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

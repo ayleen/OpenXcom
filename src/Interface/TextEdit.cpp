@@ -25,6 +25,7 @@
 #include "../Engine/Options.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTextEdit.h"
+#include "../Calypso/CalypsoHdInteractionState.h"
 #endif
 #include "../Calypso/CalypsoTextInput.h"
 #include "../fallthrough.h"
@@ -61,7 +62,11 @@ TextEdit::TextEdit(State *state, int width, int height, int x, int y) : Interact
 {
 	_isFocused = false;
 	_text = new Text(width, height, 0, 0);
+#ifdef __EMSCRIPTEN__
+	_timer = new Timer(Calypso::kTextCaretBlinkPeriodMs / 2);
+#else
 	_timer = new Timer(100);
+#endif
 	_timer->onTimer((SurfaceHandler)&TextEdit::blink);
 	_caret = new Text(16, 17, 0, 0);
 	_caret->setText("|");

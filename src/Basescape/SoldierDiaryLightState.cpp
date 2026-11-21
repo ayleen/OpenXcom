@@ -28,6 +28,9 @@
 #include "../Interface/TextList.h"
 #include "../Savegame/Soldier.h"
 #include "../Savegame/SoldierDiary.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF06DiaryLightUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -55,6 +58,9 @@ SoldierDiaryLightState::SoldierDiaryLightState(Soldier* soldier) : _soldier(sold
 	add(_lstStats, "list", "soldierDiaryLight");
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF06DiaryLightUi::configure(*this);
+#endif
 
 	// Set up objects
 	setWindowBackground(_window, "soldierDiaryLight");
@@ -87,7 +93,10 @@ SoldierDiaryLightState::SoldierDiaryLightState(Soldier* soldier) : _soldier(sold
  */
 SoldierDiaryLightState::~SoldierDiaryLightState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -100,3 +109,13 @@ void SoldierDiaryLightState::btnOkClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void SoldierDiaryLightState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF06DiaryLightUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

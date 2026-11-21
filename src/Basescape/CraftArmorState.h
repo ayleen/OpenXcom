@@ -24,6 +24,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF08CraftArmorUi; }
+
 class TextButton;
 class Window;
 class Text;
@@ -79,6 +81,15 @@ public:
 	/// Handler for clicking the De-equip All Armor button.
 	void btnDeequipAllArmorClick(Action *action);
 	void btnDeequipCraftArmorClick(Action *action);
+#ifdef __EMSCRIPTEN__
+private:
+	friend class Calypso::CalypsoF08CraftArmorUi;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF08CraftArmorUi *_hdAdapter = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

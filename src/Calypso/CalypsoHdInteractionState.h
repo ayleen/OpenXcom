@@ -18,6 +18,7 @@
  * Pure, dependency-free, natively unit tested (CalypsoHdInteractionStateTest).
  */
 #include <cstddef>
+#include <cstdint>
 
 namespace OpenXcom
 {
@@ -104,6 +105,23 @@ inline const char* calypsoFocusRingToken(CalypsoActionTone tone)
 inline float calypsoInteractionOpacity(CalypsoInteractionState state)
 {
 	return state == CalypsoInteractionState::Disabled ? 0.55f : 1.0f;
+}
+
+/// Canonical search-caret blink cadence: restrained, shared by engine and
+/// harness presentation instead of any screen-local timer literal. The native
+/// TextEdit stays the focus owner; this only gates the painted caret.
+constexpr std::uint32_t kTextCaretBlinkPeriodMs = 1000;
+
+/// Gap between the rendered text advance and the painted caret bar, in design
+/// px before visual scaling. The caret must sit strictly right of the last
+/// glyph instead of intersecting it.
+constexpr double kTextCaretGapPx = 2.0;
+
+/// True while the shared blink cadence shows the caret at the given clock
+/// reading. Pure and allocation-free; 50% duty cycle.
+inline bool calypsoTextCaretBlinkOn(std::uint32_t nowMs)
+{
+	return (nowMs % kTextCaretBlinkPeriodMs) < kTextCaretBlinkPeriodMs / 2;
 }
 
 } // namespace Calypso

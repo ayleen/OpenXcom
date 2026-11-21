@@ -32,6 +32,9 @@
 #include "../Savegame/Base.h"
 #include "../Mod/Armor.h"
 #include "../Mod/RuleSoldier.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF05SoldierAvatarUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -67,6 +70,9 @@ SoldierAvatarState::SoldierAvatarState(Base *base, size_t soldier) : _base(base)
 	add(_lstAvatar, "list", "soldierAvatar");
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF05SoldierAvatarUi::configure(*this);
+#endif
 
 	// Set up objects
 	setWindowBackground(_window, "soldierAvatar");
@@ -184,7 +190,10 @@ void SoldierAvatarState::initPreview(Soldier *s)
  */
 SoldierAvatarState::~SoldierAvatarState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -229,3 +238,13 @@ void SoldierAvatarState::lstAvatarClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void SoldierAvatarState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF05SoldierAvatarUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

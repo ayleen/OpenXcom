@@ -23,6 +23,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF06DiaryPerformanceUi; }
 
 class TextButton;
 class Window;
@@ -41,6 +42,9 @@ enum SoldierDiaryDisplay { DIARY_KILLS, DIARY_MISSIONS, DIARY_COMMENDATIONS };
  */
 class SoldierDiaryPerformanceState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF06DiaryPerformanceUi;
+#endif
 private:
 	Base *_base;
 	size_t _soldierId;
@@ -91,6 +95,15 @@ public:
 	void lstInfoMouseClick(Action *action);
 	/// Runs state functionality every cycle.
 	void think() override;
+
+#ifdef __EMSCRIPTEN__
+private:
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF06DiaryPerformanceUi *_hdAdapter = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

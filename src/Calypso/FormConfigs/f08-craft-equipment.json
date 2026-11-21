@@ -1,0 +1,146 @@
+{
+  "schema": 1,
+  "id": "f08-craft-equipment",
+  "familyId": 8,
+  "version": "hd.2026-08-29.1",
+  "archetype": "tabbed-management",
+  "title": "Equipment",
+  "actions": [
+    {
+      "id": "search",
+      "label": "Search",
+      "tone": "normal",
+      "action": "search"
+    },
+    {
+      "id": "clear",
+      "label": "Clear",
+      "tone": "normal",
+      "action": "clear"
+    },
+    {
+      "id": "cancel",
+      "label": "OK",
+      "tone": "safe",
+      "action": "cancel"
+    }
+  ],
+  "tabs": [
+    {
+      "id": "overview",
+      "label": "Overview"
+    },
+    {
+      "id": "weapons",
+      "label": "Weapons"
+    },
+    {
+      "id": "crew",
+      "label": "Crew"
+    },
+    {
+      "id": "equipment",
+      "label": "Equipment"
+    },
+    {
+      "id": "armor",
+      "label": "Armor"
+    },
+    {
+      "id": "pilots",
+      "label": "Pilots"
+    }
+  ],
+  "selectedTab": "equipment",
+  "summary": [
+    {
+      "id": "stores",
+      "label": "Stores",
+      "value": "640"
+    },
+    {
+      "id": "aboard",
+      "label": "Aboard",
+      "value": "119"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "inspect",
+    "columns": [
+      {
+        "id": "item",
+        "label": "Item"
+      },
+      {
+        "id": "stores",
+        "label": "Stores"
+      },
+      {
+        "id": "aboard",
+        "label": "Aboard"
+      }
+    ],
+    "items": [
+      {
+        "id": "harpoon",
+        "values": [
+          "Jet Harpoon",
+          "12",
+          "4"
+        ]
+      },
+      {
+        "id": "pod",
+        "values": [
+          "Harpoon Pod",
+          "20",
+          "8"
+        ]
+      }
+    ]
+  },
+  "controls": [
+    {
+      "id": "filter",
+      "label": "Filter",
+      "kind": "select",
+      "action": "filter",
+      "value": "all",
+      "options": [
+        {
+          "id": "all",
+          "label": "All items"
+        },
+        {
+          "id": "weapons",
+          "label": "Weapons"
+        },
+        {
+          "id": "ammo",
+          "label": "Ammo"
+        }
+      ]
+    }
+  ],
+  "toolbar": [
+    {
+      "id": "inventory",
+      "label": "Inventory",
+      "tone": "normal",
+      "action": "inventory"
+    },
+    {
+      "id": "load",
+      "label": "Load",
+      "tone": "primary",
+      "action": "load"
+    },
+    {
+      "id": "save",
+      "label": "Save",
+      "tone": "safe",
+      "action": "save"
+    }
+  ]
+}

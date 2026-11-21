@@ -58,6 +58,11 @@
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
 #endif
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF11MarketUi.h"
+#include "../Calypso/CalypsoLogisticsWorkspace.h"
+#include "../Calypso/CalypsoHdHarnessHostState.h"
+#endif
 
 namespace OpenXcom
 {
@@ -389,6 +394,9 @@ PurchaseState::PurchaseState(Base *base, CannotReequipState *parent, const std::
 	_timerInc->onTimer((StateHandler)&PurchaseState::increase);
 	_timerDec = new Timer(250);
 	_timerDec->onTimer((StateHandler)&PurchaseState::decrease);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF11PurchaseUi::configure(*this);
+#endif
 }
 
 /**
@@ -396,9 +404,19 @@ PurchaseState::PurchaseState(Base *base, CannotReequipState *parent, const std::
  */
 PurchaseState::~PurchaseState()
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF11PurchaseUi::teardown(*this);
+#endif
 	delete _timerInc;
 	delete _timerDec;
 }
+#ifdef __EMSCRIPTEN__
+void PurchaseState::calypsoWorkspaceTabClick(Action *action)
+{
+	Calypso::calypsoLogisticsWorkspaceTab(*this,
+		action ? static_cast<TextButton*>(action->getSender()) : nullptr);
+}
+#endif
 
 /**
  * Resets stuff when coming back from other screens.
@@ -777,6 +795,9 @@ void PurchaseState::updateList()
  */
 void PurchaseState::btnOkClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoLogisticsWorkspaceClear();
+#endif
 	if (!_missingItemsMap.empty())
 	{
 		std::string errorMessage;
@@ -896,6 +917,9 @@ void PurchaseState::btnOkClick(Action *)
  */
 void PurchaseState::btnCancelClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoLogisticsWorkspaceClear();
+#endif
 	_game->popState();
 }
 
@@ -1372,5 +1396,12 @@ void PurchaseState::cbxCategoryChange(Action *)
 {
 	updateList();
 }
+#ifdef __EMSCRIPTEN__
+void PurchaseState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF11PurchaseUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

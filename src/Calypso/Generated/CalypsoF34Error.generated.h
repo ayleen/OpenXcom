@@ -9,6 +9,10 @@ inline constexpr const char* kFormId = "f34-error";
 inline constexpr int kFamilyId = 34;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f34-error.json";
+inline constexpr const char* kProtocol = "CALYPSO COMMAND · SITE SAFETY NOTICE ERR-34";
+inline constexpr const char* kTitle = "OPERATIONAL WARNING";
+inline constexpr const char* kMessage[] = { "Calypso sea-floor facilities", "cannot be built on land." };
+inline constexpr int kMessageCount = 2;
 
 inline constexpr const char* kDensityProfile = "brief-acknowledgement";
 inline constexpr int kPresentationScaleNumerator = 2;

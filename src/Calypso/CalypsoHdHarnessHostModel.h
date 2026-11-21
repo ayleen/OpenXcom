@@ -60,7 +60,6 @@ enum class CalypsoHarnessScenario
 	F30NoExperience = 76,
 	F24ProductionComplete = 77,
 	F05SoldierTransform = 78,
-	F06SoldierDiary = 79,
 	F12TransferConfirm = 80,
 	F13Containment = 82,
 	F24ItemsArriving = 83,
@@ -72,6 +71,15 @@ enum class CalypsoHarnessScenario
 	// placement (PlaceFacilityState, real fixture owners, implemented presentation).
 	F03BuildFacilities = 86,
 	F03PlaceFacility = 87,
+	// F11 logistics market (PurchaseState/SellState over a real fixture base).
+	F11Purchase = 88,
+	F11Sell = 89,
+	// F36 economy counterparty picker (CalypsoMarketState over a real fixture base).
+	F36Market = 90,
+	// F12 transfer slice: destination picker and items list over real fixture
+	// bases; the confirm dialog (80) composes its HD-owned items underlay.
+	F12TransferBase = 103,
+	F12TransferItems = 104,
 	F09ResearchQueue = 91,
 	F09ResearchCatalogue = 92,
 	F09ResearchStaffing = 93,
@@ -83,7 +91,39 @@ enum class CalypsoHarnessScenario
 	F14GlobalResearch = 99,
 	F14ResearchDiary = 100,
 	F14GlobalProduction = 101,
-	F15TechTree = 102
+	F15TechTree = 102,
+	// F06 personnel diary and memorial (production selection-list routes).
+	F06SoldierMemorial = 108,
+	F06DiaryOverview = 109,
+	F06DiaryLight = 110,
+	F06DiaryMission = 111,
+	F06DiaryPerformance = 112,
+	// F07 submarine roster, overview, and pilots (production
+	// selection-list routes; live-save fixtures, honest empty states).
+	F07Crafts = 113,
+	F07CraftInfo = 114,
+	F07PilotSelect = 115,
+	F07CraftPilots = 116,
+	// F08 submarine crew, loadout, and armament (production
+	// selection-list routes; live-save fixtures, honest empty states).
+	// All six routes are now in scope: crew, armor, weapons, equipment,
+	// and the two preset pickers.
+	F08CraftSoldiers = 117,
+	F08CraftArmor = 118,
+	F08CraftWeapons = 119,
+	F08CraftEquipment = 120,
+	F08CraftEquipmentLoad = 121,
+	F08CraftEquipmentSave = 122,
+	// F04 roster and F05 appearance/transformation (production
+	// selection-list routes; live-save fixtures, honest empty states).
+	// F05SoldierTransform (78) stays the small-confirmation project
+	// selector confirmation and is untouched by this range.
+	F04Soldiers = 123,
+	F05SoldierArmor = 124,
+	F05SoldierAvatar = 125,
+	F05TransformSelect = 126,
+	F05TransformationList = 127,
+	F05TransformationReview = 128
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -115,7 +155,6 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F30NoExperience)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F24ProductionComplete)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F05SoldierTransform)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F06SoldierDiary)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F12TransferConfirm)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F09ResearchQueue)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F09ResearchCatalogue)
@@ -134,7 +173,33 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::GeoscapeHd)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F01Basescape)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F03BuildFacilities)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F03PlaceFacility);
+		|| id == static_cast<int>(CalypsoHarnessScenario::F03PlaceFacility)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F06SoldierMemorial)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F06DiaryOverview)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F06DiaryLight)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F06DiaryMission)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F06DiaryPerformance)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F07Crafts)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F07CraftInfo)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F07PilotSelect)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F07CraftPilots)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F08CraftSoldiers)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F08CraftArmor)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F08CraftWeapons)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F08CraftEquipment)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F08CraftEquipmentLoad)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F08CraftEquipmentSave)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F04Soldiers)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F05SoldierArmor)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F05SoldierAvatar)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F05TransformSelect)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F05TransformationList)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F05TransformationReview)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F11Purchase)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F11Sell)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F36Market)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F12TransferBase)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F12TransferItems);
 }
 
 struct CalypsoHarnessSwitchRequest
@@ -152,6 +217,7 @@ struct CalypsoHarnessSession
 	bool hostUp = false;
 	bool targetUp = false;
 	const void* activeTarget = nullptr;
+	const void* activeHost = nullptr;
 	std::uint64_t generation = 0;
 	bool layoutExplicit = false;
 	CalypsoLayoutClass requestedLayout = CalypsoLayoutClass::Compact;
@@ -282,7 +348,6 @@ inline bool calypsoHarnessMarkTargetUp(CalypsoHarnessSession& s, const void* tar
 	if (!s.hostUp || s.targetUp) return false;
 	s.targetUp = true;
 	s.activeTarget = target;
-	++s.generation;
 	return true;
 }
 
@@ -303,11 +368,14 @@ inline void calypsoHarnessNavigationTargetClosed(CalypsoHarnessSession& s)
 
 /// Close: the target popped (or the host was torn down). Resets the session so
 /// a later fresh open works; the host pops itself and clears harness globals.
+/// Advances the generation so deferred teardown of a superseded target — or
+/// any teardown carrying a stale generation — can never match a newer preview.
 inline void calypsoHarnessClose(CalypsoHarnessSession& s)
 {
 	s.hostUp = false;
 	s.targetUp = false;
 	s.activeTarget = nullptr;
+	s.activeHost = nullptr;
 	s.layoutExplicit = false;
 	s.requestedLayout = CalypsoLayoutClass::Compact;
 	s.motionDisabled = false;
@@ -321,8 +389,12 @@ inline void calypsoHarnessClose(CalypsoHarnessSession& s)
 	s.rdF01ShellDate.clear();
 	s.navigationDestinationActive = false;
 	s.navigationDestination = nullptr;
+	++s.generation;
 }
 
+/// Target-scoped close: resets the session only when (target, gen) is still
+/// the active preview. Deferred destruction of a superseded target — or any
+/// teardown carrying a stale generation — is a no-op. Returns true on close.
 inline bool calypsoHarnessCloseForTarget(CalypsoHarnessSession& s, const void* target, std::uint64_t gen)
 {
 	if (s.activeTarget != target || s.generation != gen) return false;

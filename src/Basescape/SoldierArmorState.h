@@ -23,6 +23,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF05SoldierArmorUi; }
+
 enum SoldierArmorOrigin
 {
 	SA_GEOSCAPE,
@@ -61,6 +63,9 @@ struct ArmorItem
  */
 class SoldierArmorState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF05SoldierArmorUi;
+#endif
 private:
 	Base *_base;
 	size_t _soldier;
@@ -96,6 +101,21 @@ public:
 	void lstArmorClickMiddle(Action *action);
 	/// Handler for clicking the Name arrow.
 	void sortNameClick(Action *action);
+#ifdef __EMSCRIPTEN__
+	/// HD inspect-then-commit gate: first tap on a row only selects it for
+	/// inspection, a second tap on the inspected armor invokes the unchanged
+	/// lstArmorClick commit. Touch affordance only; desktop middle-click
+	/// Reference and keyboard paths are untouched.
+	void hdArmorClickGate(Action *action);
+private:
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF05SoldierArmorUi *_hdAdapter = nullptr;
+	/// Armor rule type inspected by the HD gate (stable id, never translated).
+	std::string _hdInspectedArmor;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

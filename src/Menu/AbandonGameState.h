@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <cstdint>
 #include "../Engine/State.h"
 #include "OptionsBaseState.h"
 
@@ -55,6 +56,10 @@ private:
 	bool _hdLayout = false;
 	/// Last applied layout class (Compact/Wide), recomputed on resize.
 	bool _hdWideLayout = false;
+	/// Harness preview generation observed at configure time; the destructor
+	/// tears down only while this state is still the active preview, so a
+	/// deferred destruction never hides or closes a newer preview.
+	std::uint64_t _hdHarnessGeneration = 0;
 	/// HD-only data-loss copy (absent on the logical fallback).
 	Text* _hdMessage = nullptr;
 	/// HD-only command protocol strip (absent on the logical fallback).

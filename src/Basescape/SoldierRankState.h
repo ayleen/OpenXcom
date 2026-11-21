@@ -23,6 +23,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF04SoldierRankUi; }
+
 struct RankItem
 {
 	RankItem(SoldierRank _rank, const std::string& _name, int _openings, bool _promotionAllowed)
@@ -43,6 +45,9 @@ class Window;
 
 class SoldierRankState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF04SoldierRankUi;
+#endif
 private:
 	Base *_base;
 	size_t _soldierId;
@@ -64,6 +69,15 @@ private:
 	void lstRankClick(Action* action);
 	/// Handler for middle clicking the ranks list (opens ufopedia article if possible).
 	void lstRankClickMiddle(Action* action);
+
+#ifdef __EMSCRIPTEN__
+private:
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF04SoldierRankUi *_hdAdapter = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

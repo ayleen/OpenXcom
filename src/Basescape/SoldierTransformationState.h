@@ -23,6 +23,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF05SoldierTransformationUi; }
+
 class TextButton;
 class Window;
 class Text;
@@ -37,6 +39,9 @@ class RuleSoldierTransformation;
  */
 class SoldierTransformationState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF05SoldierTransformationUi;
+#endif
 private:
 	RuleSoldierTransformation *_transformationRule;
 	Base *_base;
@@ -68,7 +73,23 @@ public:
 	void btnLeftArrowClick(Action *action);
 	/// Handler for pressing the Right arrow button
 	void btnRightArrowClick(Action *action);
-
+#ifdef __EMSCRIPTEN__
+	/// HD explicit-confirm gate (C1): the first Start activation only arms
+	/// the commit and relabels the button, the second activation on the same
+	/// soldier/project invokes the unchanged btnStartClick commit. Arming is
+	/// identity-bound, so personnel cycling always re-arms.
+	void hdStartClickGate(Action *action);
+private:
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF05SoldierTransformationUi *_hdAdapter = nullptr;
+	TextList *_hdInspectorList = nullptr;
+	bool _hdStartArmed = false;
+	Soldier *_hdArmedSoldier = nullptr;
+	const RuleSoldierTransformation *_hdArmedRule = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }
