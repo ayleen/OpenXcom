@@ -489,5 +489,26 @@ bool CalypsoF05SoldierTransformationUi::resize(SoldierTransformationState& state
 }
 
 } // namespace Calypso
+
+void SoldierTransformationState::hdStartClickGate(Action *action)
+{
+	if (_hdStartArmed && _hdArmedSoldier == _sourceSoldier && _hdArmedRule == _transformationRule)
+	{
+		_hdStartArmed = false;
+		btnStartClick(action);
+		return;
+	}
+	_hdStartArmed = true;
+	_hdArmedSoldier = _sourceSoldier;
+	_hdArmedRule = _transformationRule;
+	if (_btnStart)
+		_btnStart->setText(tr("STR_CAL_F05_CONFIRM_START"));
+}
+void SoldierTransformationState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF05SoldierTransformationUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+
 } // namespace OpenXcom
 #endif

@@ -415,5 +415,46 @@ bool CalypsoF08CraftEquipmentSaveUi::resize(CraftEquipmentSaveState& state)
 }
 
 } // namespace Calypso
+
+void CraftEquipmentSaveState::hdDisarmSave()
+{
+	_hdSaveArmed = false;
+	_hdArmedRow = -1;
+	if (_btnSave)
+		_btnSave->setText(tr("STR_SAVE_UC"));
+}
+void CraftEquipmentSaveState::hdSaveClickGate(Action *)
+{
+	// Mirror btnSaveClick: nothing is selected, nothing happens.
+	if (_selectedRow < 0 || _selectedRow >= SavedGame::MAX_CRAFT_LOADOUT_TEMPLATES)
+		return;
+	ItemContainer* slot = _game->getSavedGame()->getGlobalCraftLoadout(_selectedRow);
+	if (!slot || slot->empty())
+	{
+		// Empty slots commit directly through the unchanged save path.
+		hdDisarmSave();
+		saveTemplate();
+		return;
+	}
+	// Non-empty slots require the explicit two-press review (C1) before
+	// the existing save mutation runs: the first activation only arms and
+	// relabels, the second activation on the same slot commits.
+	if (_hdSaveArmed && _hdArmedRow == _selectedRow)
+	{
+		hdDisarmSave();
+		saveTemplate();
+		return;
+	}
+	_hdSaveArmed = true;
+	_hdArmedRow = _selectedRow;
+	if (_btnSave)
+		_btnSave->setText(tr("STR_CAL_F08_CONFIRM_OVERWRITE"));
+}
+void CraftEquipmentSaveState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF08CraftEquipmentSaveUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+
 } // namespace OpenXcom
 #endif

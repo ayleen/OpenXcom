@@ -50,6 +50,16 @@ void TextList::clearCalypsoHdArrowTargets()
 	_hdArrowDesignH = 0;
 }
 
+void TextList::projectCalypsoHdArrow(int offset, int &x, int &width, int &height) const
+{
+	if (offset < 0) return;
+	const auto target = Calypso::calypsoHdArrowProjectTarget(
+		getX(), offset, _hdArrowDesignW, _hdArrowDesignH, scale());
+	x = target.x;
+	width = target.w;
+	height = target.h;
+}
+
 void TextList::calypsoHdLayoutArrows()
 {
 	if (_hdArrowRelLeftX < 0 && _hdArrowRelRightX < 0)

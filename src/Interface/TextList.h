@@ -133,6 +133,7 @@ private:
 	/// Re-projects existing HD arrow buttons from the stored list-relative
 	/// design offsets through the live scale(). No-op unless targets are set.
 	void calypsoHdLayoutArrows();
+	void projectCalypsoHdArrow(int offset, int &x, int &width, int &height) const;
 	/// In-flight HD stepper gesture (press side/text row); a click fires
 	/// only when release lands on the same target. Release always clears.
 	Calypso::CalypsoHdStepperPress _hdArrowPress;

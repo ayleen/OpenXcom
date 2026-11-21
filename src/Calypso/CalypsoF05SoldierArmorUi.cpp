@@ -314,5 +314,29 @@ bool CalypsoF05SoldierArmorUi::resize(SoldierArmorState& state)
 }
 
 } // namespace Calypso
+
+void SoldierArmorState::hdArmorClickGate(Action *action)
+{
+	std::string current;
+	const size_t sel = _lstArmor ? _lstArmor->getSelectedRow() : 0;
+	if (_lstArmor && sel < _indices.size())
+	{
+		const int native = _indices[sel];
+		if (native >= 0 && (size_t)native < _armors.size())
+			current = _armors[(size_t)native].type;
+	}
+	if (!current.empty() && current == _hdInspectedArmor)
+	{
+		lstArmorClick(action);
+		return;
+	}
+	_hdInspectedArmor = current;
+}
+void SoldierArmorState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF05SoldierArmorUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+
 } // namespace OpenXcom
 #endif

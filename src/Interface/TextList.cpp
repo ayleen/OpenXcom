@@ -473,27 +473,8 @@ void TextList::addRow(int cols, ...)
 		int leftX = getX() + _arrowPos, leftW = 11, leftH = 8;
 		int rightX = getX() + _arrowPos + 12, rightW = 11, rightH = 8;
 #ifdef __EMSCRIPTEN__
-		if (_hdArrowRelLeftX >= 0)
-		{
-			// List-relative design offsets projected through the live
-			// scale: identical math to calypsoHdLayoutArrows below, so
-			// creation-time and relayout rects always agree.
-			const Calypso::CalypsoHdArrowProjection left =
-				Calypso::calypsoHdArrowProjectTarget(getX(), _hdArrowRelLeftX,
-					_hdArrowDesignW, _hdArrowDesignH, (double)scale());
-			leftX = left.x;
-			leftW = left.w;
-			leftH = left.h;
-		}
-		if (_hdArrowRelRightX >= 0)
-		{
-			const Calypso::CalypsoHdArrowProjection right =
-				Calypso::calypsoHdArrowProjectTarget(getX(), _hdArrowRelRightX,
-					_hdArrowDesignW, _hdArrowDesignH, (double)scale());
-			rightX = right.x;
-			rightW = right.w;
-			rightH = right.h;
-		}
+		projectCalypsoHdArrow(_hdArrowRelLeftX, leftX, leftW, leftH);
+		projectCalypsoHdArrow(_hdArrowRelRightX, rightX, rightW, rightH);
 #endif
 		ArrowButton *a1 = new ArrowButton(shape1, leftW, leftH, leftX, getY());
 		a1->setListButton();
