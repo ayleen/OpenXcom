@@ -26,6 +26,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF15TechTreeUi; }
+
 class TextButton;
 class Window;
 class Text;
@@ -43,6 +45,9 @@ enum TTVMode { TTV_NONE, TTV_RESEARCH, TTV_MANUFACTURING, TTV_FACILITIES, TTV_IT
 class TechTreeViewerState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF15TechTreeUi;
+#endif
 	TextButton *_btnOk, *_btnNew;
 	Window *_window;
 	Text *_txtTitle, *_txtSelectedTopic, *_txtProgress, *_txtCostIndicator;
@@ -56,6 +61,24 @@ private:
 	std::unordered_set<std::string> _disabledResearch;
 	std::unordered_set<std::string> _alreadyAvailableResearch, _alreadyAvailableManufacture, _alreadyAvailableFacilities, _alreadyAvailableCrafts;
 	std::unordered_set<std::string> _protectedItems, _alreadyAvailableItems;
+	/// Typed presentation metadata for the HD viewer (re-review P1). Parallel
+	/// to the native rows of each list: one entry per addRow, derived from the
+	/// same palette color the native owner painted (blue = structural header,
+	/// grey = hidden/disabled); no text is re-derived and no hidden name is
+	/// published. Plain data, so native builds keep it too.
+	struct RowMeta
+	{
+		bool structural = false;
+		bool hidden = false;
+	};
+	std::vector<RowMeta> _calypsoLeftRows, _calypsoRightRows, _calypsoFullRows;
+#ifdef __EMSCRIPTEN__
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF15TechTreeUi *_hdAdapter = nullptr;
+#endif
+	/// Records one emitted row; `color` 0 means the default (item) color.
+	void calypsoRecordRow(TextList *list, std::size_t row, Uint8 color);
 	void initLists();
 	void onSelectLeftTopic(Action *action);
 	void onSelectRightTopic(Action *action);
@@ -73,6 +96,9 @@ public:
 	void btnBackClick(Action *action);
 	/// Handler for clicking the New button.
 	void btnNewClick(Action *action);
+	const std::vector<RowMeta> &calypsoLeftRows() const { return _calypsoLeftRows; }
+	const std::vector<RowMeta> &calypsoRightRows() const { return _calypsoRightRows; }
+	const std::vector<RowMeta> &calypsoFullRows() const { return _calypsoFullRows; }
 	/// Sets the selected topic.
 	void setSelectedTopic(const std::string &selectedTopic, TTVMode topicType);
 	/// Gets the color coding for the given research topic.
@@ -90,6 +116,9 @@ public:
 	bool isProtectedAndDiscoveredItem(const std::string &topic) const;
 	/// Is given craft discovered/available for both purchase and usage/equipment?
 	bool isDiscoveredCraft(const std::string &topic) const;
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

@@ -38,10 +38,14 @@
 #include "../Savegame/ItemContainer.h"
 #include "../Engine/Timer.h"
 #include "../Menu/ErrorMessageState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoRdErrorForm.h"
+#endif
 #include "../Mod/RuleInterface.h"
 #include <climits>
 #ifdef __EMSCRIPTEN__
-#include "../Calypso/CalypsoF10ManufactureCheckUi.h"
+#include "../Calypso/CalypsoF10ProductionUi.h"
+#include "../Calypso/CalypsoStrategicNavigation.h"
 #endif
 
 namespace OpenXcom
@@ -67,6 +71,13 @@ ManufactureInfoState::ManufactureInfoState (Base *base, RuleManufacture *item) :
 ManufactureInfoState::ManufactureInfoState (Base *base, Production *production) : _base(base), _item(0), _production(production)
 {
 	buildUi();
+}
+void ManufactureInfoState::init()
+{
+	State::init();
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
 }
 
 /**
@@ -251,7 +262,7 @@ void ManufactureInfoState::buildUi()
 	_timerMoreUnit->onTimer((StateHandler)&ManufactureInfoState::onMoreUnit);
 	_timerLessUnit->onTimer((StateHandler)&ManufactureInfoState::onLessUnit);
 #ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF10ManufactureCheckUi::configure(*this);
+	Calypso::CalypsoF10ProductionUi::configure(*this);
 #endif
 }
 
@@ -300,6 +311,22 @@ int ManufactureInfoState::getMonthlyNetFunds () const
 	float itemsPerMonth = (float)manHoursPerMonth / (float)item->getManufactureTime();
 
 	return (saleValue - item->getManufactureCost()) * itemsPerMonth;
+}
+void ManufactureInfoState::applyDeferredProductionOptions()
+{
+	if (!_production)
+	{
+		return;
+	}
+	_production->setSellItems(_btnSell->getPressed());
+	if (_btnFallback->getPressed())
+	{
+		for (auto* p : _base->getProductions())
+		{
+			p->setFallback(false);
+		}
+		_production->setFallback(true);
+	}
 }
 
 /**
@@ -350,15 +377,7 @@ void ManufactureInfoState::btnOkClick(Action *)
 	{
 		_production->startItem(_base, _game->getSavedGame(), _game->getMod());
 	}
-	_production->setSellItems(_btnSell->getPressed());
-	if (_btnFallback->getPressed())
-	{
-		for (auto* p : _base->getProductions())
-		{
-			p->setFallback(false);
-		}
-		_production->setFallback(true);
-	}
+	applyDeferredProductionOptions();
 	exitState();
 }
 
@@ -390,6 +409,9 @@ void ManufactureInfoState::setAssignedEngineer()
 	else s4 << _production->getAmountTotal();
 	_txtTodo->setText(s4.str());
 	_txtMonthlyProfit->setText(tr("STR_MONTHLY_PROFIT").arg(Unicode::formatFunding(getMonthlyNetFunds()).c_str()));
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
 }
 
 /**
@@ -421,7 +443,12 @@ void ManufactureInfoState::moreEngineer(int change)
 			_palette,
 			_game->getMod()->getInterface("basescape")->getElement("errorMessage")->color,
 			"BACK17.SCR",
-			_game->getMod()->getInterface("basescape")->getElement("errorPalette")->color)
+			_game->getMod()->getInterface("basescape")->getElement("errorPalette")->color
+#ifdef __EMSCRIPTEN__
+			, 0, nullptr, Calypso::calypsoRdErrorForm(this, tr("STR_PRODUCTION"),
+				tr("STR_CALYPSO_RD_NO_WORKSPACE"), tr("STR_CALYPSO_RD_WORKSPACE_REMEDY"), tr("STR_OK"))
+#endif
+			)
 		);
 	}
 }
@@ -517,7 +544,12 @@ void ManufactureInfoState::moreUnit(int change)
 	if (_production->getRules()->getProducedCraft() && _base->getAvailableHangars() - _base->getUsedHangars() <= 0)
 	{
 		_timerMoreUnit->stop();
-		_game->pushState(new ErrorMessageState(tr("STR_NO_FREE_HANGARS_FOR_CRAFT_PRODUCTION"), _palette, _game->getMod()->getInterface("basescape")->getElement("errorMessage")->color, "BACK17.SCR", _game->getMod()->getInterface("basescape")->getElement("errorPalette")->color));
+		_game->pushState(new ErrorMessageState(tr("STR_NO_FREE_HANGARS_FOR_CRAFT_PRODUCTION"), _palette, _game->getMod()->getInterface("basescape")->getElement("errorMessage")->color, "BACK17.SCR", _game->getMod()->getInterface("basescape")->getElement("errorPalette")->color
+#ifdef __EMSCRIPTEN__
+			, 0, nullptr, Calypso::calypsoRdErrorForm(this, tr("STR_PRODUCTION"),
+				tr("STR_CALYPSO_RD_NO_PENS"), tr("STR_CALYPSO_RD_PENS_REMEDY"), tr("STR_OK"))
+#endif
+			));
 	}
 	else
 	{
@@ -767,13 +799,3 @@ void ManufactureInfoState::think()
 }
 
 }
-
-#ifdef __EMSCRIPTEN__
-namespace OpenXcom {
-void ManufactureInfoState::resize(int &dX, int &dY)
-{
-	if (Calypso::CalypsoF10ManufactureCheckUi::resize(*this)) return;
-	State::resize(dX, dY);
-}
-}
-#endif

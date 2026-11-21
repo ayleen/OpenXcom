@@ -1,0 +1,216 @@
+# GPL-only R&D research acceptance fragment.
+# The harness selects fixed native profiles 1-19; this file adds only the
+# redistributable research/item rules those profiles need.
+
+# Enable the native sorting branch for the profile-14 false-highlight matrix;
+# profile-9 keeps highlight enabled so the campaign exercises both branches.
+enableNewResearchSorting: true
+
+items:
+  - type: STR_CALYPSO_RD_ITEM
+    size: 1
+    costBuy: 400
+    costSell: 200
+    transferTime: 24
+  - type: STR_CALYPSO_RD_DEP_ROOT
+    size: 1
+  - type: STR_CALYPSO_RD_DEP_L1
+    size: 1
+  - type: STR_CALYPSO_RD_DEP_L2
+    size: 1
+  - type: STR_CALYPSO_RD_DEP_L3
+    size: 1
+  - type: STR_CALYPSO_RD_DEP_L4
+    size: 1
+  - type: STR_CALYPSO_RD_DEP_L5
+    size: 1
+  - type: STR_CALYPSO_RD_DEP_CYCLE
+    size: 1
+  - type: STR_CALYPSO_RD_DEP_SECRET
+    size: 1
+  - type: STR_CALYPSO_RD_DEP_ROOT_RULE
+    size: 1
+  - type: STR_CALYPSO_RD_DEP_L2_RULE
+    size: 1
+  - type: STR_CALYPSO_RD_DEP_L3_RULE
+    size: 1
+  - type: STR_CALYPSO_RD_DEP_L4_RULE
+    size: 1
+  - type: STR_CALYPSO_RD_DEP_L5_RULE
+    size: 1
+  - type: STR_CALYPSO_RD_DEP_NONE_OUTPUT
+    size: 1
+
+research:
+  - name: STR_CALYPSO_RD_ITEM
+    cost: 120
+    points: 12
+    neededItem: STR_CALYPSO_RD_ITEM
+    needItem: true
+    destroyItem: true
+  - name: STR_CALYPSO_RD_DIARY_ALPHA
+    cost: 1
+    points: 1
+  - name: STR_CALYPSO_RD_DIARY_BETA
+    cost: 1
+    points: 1
+  - name: STR_CALYPSO_RD_DIARY_UNICODE
+    cost: 1
+    points: 1
+  - name: STR_CALYPSO_RD_DIARY_LONG
+    cost: 1
+    points: 1
+  - name: STR_CALYPSO_RD_DIARY_LONG_2
+    cost: 1
+    points: 1
+  - name: STR_CALYPSO_RD_DIARY_LONG_3
+    cost: 1
+    points: 1
+  - name: STR_CALYPSO_RD_DIARY_LONG_4
+    cost: 1
+    points: 1
+  - name: STR_CALYPSO_RD_DIARY_LONG_5
+    cost: 1
+    points: 1
+  - name: STR_CALYPSO_RD_DEP_SECRET_RESEARCH
+    cost: 1
+    points: 1
+
+manufacture:
+  - name: STR_CALYPSO_RD_DEP_ROOT_RULE
+    category: STR_EQUIPMENT
+    time: 120
+    requiredItems: {STR_CALYPSO_RD_DEP_ROOT: 1}
+    producedItems: {STR_CALYPSO_RD_DEP_L1: 1}
+  - name: STR_CALYPSO_RD_DEP_L2_RULE
+    category: STR_EQUIPMENT
+    time: 120
+    requiredItems: {STR_CALYPSO_RD_DEP_ROOT_RULE: 1}
+    producedItems: {STR_CALYPSO_RD_DEP_L2: 1}
+  - name: STR_CALYPSO_RD_DEP_L3_RULE
+    category: STR_EQUIPMENT
+    time: 120
+    requiredItems: {STR_CALYPSO_RD_DEP_L2_RULE: 1}
+    producedItems: {STR_CALYPSO_RD_DEP_L3: 1}
+  - name: STR_CALYPSO_RD_DEP_L4_RULE
+    category: STR_EQUIPMENT
+    time: 120
+    requiredItems: {STR_CALYPSO_RD_DEP_L3_RULE: 1}
+    producedItems: {STR_CALYPSO_RD_DEP_L4: 1}
+  - name: STR_CALYPSO_RD_DEP_L5_RULE
+    category: STR_EQUIPMENT
+    time: 120
+    requiredItems: {STR_CALYPSO_RD_DEP_L4_RULE: 1}
+    producedItems: {STR_CALYPSO_RD_DEP_L5: 1}
+  - name: STR_CALYPSO_RD_DEP_CYCLE_RULE
+    category: STR_EQUIPMENT
+    time: 120
+    requiredItems: {STR_CALYPSO_RD_DEP_CYCLE: 1}
+    producedItems: {STR_CALYPSO_RD_DEP_CYCLE: 1}
+  - name: STR_CALYPSO_RD_DEP_SECRET_RULE
+    category: STR_EQUIPMENT
+    time: 120
+    requiredItems: {STR_CALYPSO_RD_DEP_SECRET: 1}
+    producedItems: {STR_CALYPSO_RD_DEP_L1: 1}
+    requires: [STR_CALYPSO_RD_DEP_SECRET_RESEARCH]
+  - name: STR_CALYPSO_RD_DEP_NONE_RULE
+    category: STR_EQUIPMENT
+    time: 120
+    producedItems: {STR_CALYPSO_RD_DEP_NONE_OUTPUT: 1}
+
+# D02 also traverses a real base-facility dependency.  It intentionally uses
+# the cycle item, so the facility appears at depth one while the manufacture
+# graph still terminates through its visited-set guard.
+facilities:
+  - type: STR_CALYPSO_RD_DEP_CYCLE_FACILITY
+    spriteShape: 1
+    spriteFacility: 19
+    buildCost: 1000
+    buildTime: 0
+    fireSound: -1
+    hitSound: -1
+    mapName: XBASES02
+    buildCostItems:
+      STR_CALYPSO_RD_DEP_CYCLE:
+        build: 1
+        refund: 1
+
+# A real craft-weapon rule keeps G04 on the native Ufopaedia path.  The
+# launcher deliberately reuses the GPL fixture item from the master rules;
+# no proprietary craft or image data is required.
+craftWeapons:
+  - type: STR_MAELSTROM_TORPEDOES
+    sprite: 0
+    damage: 1
+    range: 1
+    accuracy: 50
+    reloadCautious: 1
+    reloadStandard: 1
+    reloadAggressive: 1
+    ammoMax: 1
+    rearmRate: 1
+    launcher: STR_MAELSTROM_TORPEDOES
+    projectileType: 0
+    projectileSpeed: 8
+
+ufopaedia:
+  - id: STR_MAELSTROM_TORPEDOES
+    type_id: 2
+    section: STR_XCOM_CRAFT_ARMAMENT
+    text: STR_MAELSTROM_TORPEDOES_UFOPEDIA
+    image_id: CALYPSO_RD_ARTICLE_CPAL
+
+interfaces:
+  - type: articleCraftWeapon
+    elements:
+      - id: button
+        color: 16
+      - id: text
+        color: 239
+        color2: 244
+      - id: list
+        color: 239
+        color2: 244
+
+extraSprites:
+  # The _CPAL suffix makes ArticleDefinition use the palette carried by this
+  # GPL paletted fixture rather than depending on a Battlepedia palette.
+  - type: CALYPSO_RD_ARTICLE_CPAL
+    width: 480
+    height: 160
+    singleImage: true
+    files:
+      0: Resources/calypso-hud-test-pal8.png
+
+extraStrings:
+  - type: en-US
+    strings:
+      STR_CALYPSO_RD_ITEM: "CALYPSO R&D ITEM"
+      STR_MAELSTROM_TORPEDOES_UFOPEDIA: "MAELSTROM TORPEDOES UFOPEDIA"
+      STR_CALYPSO_RD_DIARY_ALPHA: "CALYPSO DIARY ALPHA"
+      STR_CALYPSO_RD_DIARY_BETA: "CALYPSO DIARY BETA"
+      STR_CALYPSO_RD_DIARY_UNICODE: "ИССЛЕДОВАНИЕ ОКЕАНА"
+      STR_CALYPSO_RD_DIARY_LONG: "CALYPSO DIARY LONG NATIVE ACCEPTANCE ENTRY WITH A DELIBERATELY WIDE NAME"
+      STR_CALYPSO_RD_DIARY_LONG_2: "CALYPSO DIARY LONG SECOND NATIVE ACCEPTANCE ENTRY"
+      STR_CALYPSO_RD_DIARY_LONG_3: "CALYPSO DIARY LONG THIRD NATIVE ACCEPTANCE ENTRY"
+      STR_CALYPSO_RD_DIARY_LONG_4: "CALYPSO DIARY LONG FOURTH NATIVE ACCEPTANCE ENTRY"
+      STR_CALYPSO_RD_DIARY_LONG_5: "CALYPSO DIARY LONG FIFTH NATIVE ACCEPTANCE ENTRY"
+      STR_CALYPSO_RD_DEP_SECRET_RESEARCH: "SECRET DEPENDENCY RESEARCH"
+      STR_CALYPSO_RD_DEP_ROOT: "DEPENDENCY ROOT"
+      STR_CALYPSO_RD_DEP_L1: "DEPENDENCY LEVEL 1"
+      STR_CALYPSO_RD_DEP_L2: "DEPENDENCY LEVEL 2"
+      STR_CALYPSO_RD_DEP_L3: "DEPENDENCY LEVEL 3"
+      STR_CALYPSO_RD_DEP_L4: "DEPENDENCY LEVEL 4"
+      STR_CALYPSO_RD_DEP_L5: "DEPENDENCY LEVEL 5"
+      STR_CALYPSO_RD_DEP_CYCLE: "DEPENDENCY CYCLE"
+      STR_CALYPSO_RD_DEP_SECRET: "HIDDEN DEPENDENCY"
+      STR_CALYPSO_RD_DEP_ROOT_RULE: "DEPENDENCY ROOT RULE"
+      STR_CALYPSO_RD_DEP_L2_RULE: "DEPENDENCY LEVEL 2 RULE"
+      STR_CALYPSO_RD_DEP_L3_RULE: "DEPENDENCY LEVEL 3 RULE"
+      STR_CALYPSO_RD_DEP_L4_RULE: "DEPENDENCY LEVEL 4 RULE"
+      STR_CALYPSO_RD_DEP_L5_RULE: "DEPENDENCY LEVEL 5 RULE"
+      STR_CALYPSO_RD_DEP_CYCLE_RULE: "DEPENDENCY CYCLE RULE"
+      STR_CALYPSO_RD_DEP_CYCLE_FACILITY: "DEPENDENCY CYCLE FACILITY"
+      STR_CALYPSO_RD_DEP_SECRET_RULE: "HIDDEN DEPENDENCY RULE"
+      STR_CALYPSO_RD_DEP_NONE_RULE: "NO DEPENDENCY RULE"
+      STR_CALYPSO_RD_DEP_NONE_OUTPUT: "NO DEPENDENCY OUTPUT"

@@ -22,6 +22,10 @@
 namespace OpenXcom
 {
 
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoF10ProductionUi; }
+#endif
+
 class TextButton;
 class Window;
 class Text;
@@ -35,8 +39,14 @@ class Base;
 class ManufactureState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF10ProductionUi;
+#endif
 	Base *_base;
 	TextButton *_btnNew, *_btnOk;
+#ifdef __EMSCRIPTEN__
+	TextButton *_btnGlobalOverview = nullptr, *_btnOpenProduction = nullptr, *_btnTechTree = nullptr;
+#endif
 	Window *_window;
 	Text *_txtTitle, *_txtAvailable, *_txtAllocated, *_txtSpace, *_txtFunds, *_txtItem, *_txtEngineers, *_txtProduced, *_txtCost, *_txtTimeLeft;
 	TextList *_lstManufacture;
@@ -58,6 +68,12 @@ public:
 	void btnNewProductionClick(Action * action);
 	/// Fills the list of base productions.
 	void fillProductionList(size_t scrl);
+#ifdef __EMSCRIPTEN__
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF10ProductionUi *_hdAdapter = nullptr;
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

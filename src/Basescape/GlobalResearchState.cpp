@@ -33,6 +33,10 @@
 #include "../Mod/RuleResearch.h"
 #include "TechTreeViewerState.h"
 #include "GlobalResearchDiaryState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF14GlobalOperationsUi.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
 
 namespace OpenXcom
 {
@@ -102,6 +106,9 @@ GlobalResearchState::GlobalResearchState(bool openedFromBasescape) : _openedFrom
 	_lstResearch->setWordWrap(true);
 	_lstResearch->onMouseClick((ActionHandler)&GlobalResearchState::onSelectBase, SDL_BUTTON_LEFT);
 	_lstResearch->onMouseClick((ActionHandler)&GlobalResearchState::onOpenTechTreeViewer, SDL_BUTTON_MIDDLE);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF14GlobalOperationsUi::configure(*this);
+#endif
 }
 
 /**
@@ -109,6 +116,10 @@ GlobalResearchState::GlobalResearchState(bool openedFromBasescape) : _openedFrom
  */
 GlobalResearchState::~GlobalResearchState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -135,7 +146,9 @@ void GlobalResearchState::btnOkClick(Action *)
  */
 void GlobalResearchState::onSelectBase(Action *)
 {
-	Base *base = _bases[_lstResearch->getSelectedRow()];
+	const size_t selectedRow = _lstResearch->getSelectedRow();
+	if (selectedRow >= _bases.size()) return;
+	Base *base = _bases[selectedRow];
 
 	if (base)
 	{
@@ -159,7 +172,9 @@ void GlobalResearchState::onSelectBase(Action *)
  */
 void GlobalResearchState::onOpenTechTreeViewer(Action *)
 {
-	const RuleResearch *selectedTopic = _topics[_lstResearch->getSelectedRow()];
+	const size_t selectedRow = _lstResearch->getSelectedRow();
+	if (selectedRow >= _topics.size()) return;
+	const RuleResearch *selectedTopic = _topics[selectedRow];
 
 	if (selectedTopic)
 	{
@@ -175,6 +190,9 @@ void GlobalResearchState::init()
 {
 	State::init();
 	fillProjectList();
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
 }
 
 /**
@@ -232,5 +250,13 @@ void GlobalResearchState::fillProjectList()
 	_txtAllocated->setText(tr("STR_SCIENTISTS_ALLOCATED").arg(allocatedScientists));
 	_txtSpace->setText(tr("STR_LABORATORY_SPACE_AVAILABLE").arg(freeLaboratories));
 }
+
+#ifdef __EMSCRIPTEN__
+void GlobalResearchState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF14GlobalOperationsUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

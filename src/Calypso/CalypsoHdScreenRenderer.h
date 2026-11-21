@@ -37,6 +37,10 @@ public:
 	bool retryableReadiness() const override;
 	void collect(CalypsoHdFrameBuilder& builder) const override;
 	void setModel(CalypsoHdScreenRenderModel model);
+	/// Read-only QA evidence for the active full-screen fixture. Production
+	/// callers continue to render through collect(); this does not expose
+	/// behavior ownership or permit model mutation.
+	const CalypsoHdScreenRenderModel& model() const { return _model; }
 
 	/// Fail-closed covered-state ownership (rendering contract, 2026-08-25):
 	/// while the live strategic chrome is covered by any other state it keeps

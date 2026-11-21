@@ -23,6 +23,8 @@
  */
 #include "CalypsoUiMetrics.h"
 #include <cstdint>
+#include <string>
+#include <utility>
 
 namespace OpenXcom
 {
@@ -59,7 +61,6 @@ enum class CalypsoHarnessScenario
 	F24ProductionComplete = 77,
 	F05SoldierTransform = 78,
 	F12TransferConfirm = 80,
-	F10ManufactureCheck = 81,
 	F13Containment = 82,
 	F24ItemsArriving = 83,
 	GeoscapeHd = 84,
@@ -70,38 +71,50 @@ enum class CalypsoHarnessScenario
 	// placement (PlaceFacilityState, real fixture owners, implemented presentation).
 	F03BuildFacilities = 86,
 	F03PlaceFacility = 87,
+	F09ResearchQueue = 91,
+	F09ResearchCatalogue = 92,
+	F09ResearchStaffing = 93,
+	F10ProductionQueue = 94,
+	F10ProductionCatalogue = 95,
+	F10ProductionRequirements = 96,
+	F10ProductionControls = 97,
+	F10ProductionDependencies = 98,
+	F14GlobalResearch = 99,
+	F14ResearchDiary = 100,
+	F14GlobalProduction = 101,
+	F15TechTree = 102,
 	// F06 personnel diary and memorial (production selection-list routes).
-	F06SoldierMemorial = 88,
-	F06DiaryOverview = 89,
-	F06DiaryLight = 90,
-	F06DiaryMission = 91,
-	F06DiaryPerformance = 92,
+	F06SoldierMemorial = 108,
+	F06DiaryOverview = 109,
+	F06DiaryLight = 110,
+	F06DiaryMission = 111,
+	F06DiaryPerformance = 112,
 	// F07 submarine roster, overview, and pilots (production
 	// selection-list routes; live-save fixtures, honest empty states).
-	F07Crafts = 93,
-	F07CraftInfo = 94,
-	F07PilotSelect = 95,
-	F07CraftPilots = 96,
+	F07Crafts = 113,
+	F07CraftInfo = 114,
+	F07PilotSelect = 115,
+	F07CraftPilots = 116,
 	// F08 submarine crew, loadout, and armament (production
 	// selection-list routes; live-save fixtures, honest empty states).
 	// All six routes are now in scope: crew, armor, weapons, equipment,
 	// and the two preset pickers.
-	F08CraftSoldiers = 97,
-	F08CraftArmor = 98,
-	F08CraftWeapons = 99,
-	F08CraftEquipment = 100,
-	F08CraftEquipmentLoad = 101,
-	F08CraftEquipmentSave = 102,
+	F08CraftSoldiers = 117,
+	F08CraftArmor = 118,
+	F08CraftWeapons = 119,
+	F08CraftEquipment = 120,
+	F08CraftEquipmentLoad = 121,
+	F08CraftEquipmentSave = 122,
 	// F04 roster and F05 appearance/transformation (production
 	// selection-list routes; live-save fixtures, honest empty states).
 	// F05SoldierTransform (78) stays the small-confirmation project
 	// selector confirmation and is untouched by this range.
-	F04Soldiers = 103,
-	F05SoldierArmor = 104,
-	F05SoldierAvatar = 105,
-	F05TransformSelect = 106,
-	F05TransformationList = 107,
-	F05TransformationReview = 108
+	F04Soldiers = 123,
+	F05SoldierArmor = 124,
+	F05SoldierAvatar = 125,
+	F05TransformSelect = 126,
+	F05TransformationList = 127,
+	F05TransformationReview = 128
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -134,7 +147,18 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F24ProductionComplete)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F05SoldierTransform)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F12TransferConfirm)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F10ManufactureCheck)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F09ResearchQueue)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F09ResearchCatalogue)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F09ResearchStaffing)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F10ProductionQueue)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F10ProductionCatalogue)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F10ProductionRequirements)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F10ProductionControls)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F10ProductionDependencies)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F14GlobalResearch)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F14ResearchDiary)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F14GlobalProduction)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F15TechTree)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F13Containment)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F24ItemsArriving)
 		|| id == static_cast<int>(CalypsoHarnessScenario::GeoscapeHd)
@@ -164,6 +188,15 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F05TransformationReview);
 }
 
+struct CalypsoHarnessSwitchRequest
+{
+ int scenario = 0;
+ CalypsoLayoutClass layout = CalypsoLayoutClass::Compact;
+ bool sideBySide = false;
+ bool motionDisabled = false;
+ int motionHoldPct = -1;
+};
+
 /// Mutable session state of one harness run.
 struct CalypsoHarnessSession
 {
@@ -183,10 +216,101 @@ struct CalypsoHarnessSession
 	/// the right. Session-level since F21; the F33 adapter keeps its own
 	/// mirrored global for continuity.
 	bool sideBySide = false;
+	/// A queued acceptance profile affects only the next constructed target.
+	int rdPendingProfile = 0;
+	int rdActiveProfile = 0;
+	int rdActiveScenario = 0;
+	/// Language requested for the next target.  It is intentionally queued so
+	/// switching tears down the old target before loading the new locale.
+	std::string rdPendingLanguage;
+	/// Apply the harness-only long-name overlay after the queued locale loads.
+	/// This is set only by the L08 language switch and never affects ordinary
+	/// gameplay or canonical captures.
+	bool rdLocaleStress = false;
+	/// V01-only F01 shell identity override. It is applied by the browser
+	/// capture to the active QA base-command-shell target and is cleared with
+	/// the harness session; production targets never consume it.
+	std::string rdF01ShellBase;
+	std::string rdF01ShellTime;
+	std::string rdF01ShellDate;
+	/// Navigation acceptance keeps a real Geoscape/Basescape destination above
+	/// the opaque host after the target pops, so the browser can observe the
+	/// actual destination before the fixture lease is released.
+	bool navigationDestinationActive = false;
+	const void *navigationDestination = nullptr;
+	CalypsoHarnessSwitchRequest pendingSwitch;
 };
 
 inline bool calypsoHarnessHostUp(const CalypsoHarnessSession& s) { return s.hostUp; }
 inline bool calypsoHarnessTargetUp(const CalypsoHarnessSession& s) { return s.targetUp; }
+
+inline bool calypsoHarnessHasLiveTarget(const CalypsoHarnessSession& s)
+{
+ return s.hostUp && s.targetUp;
+}
+
+inline bool calypsoHarnessNavigationDestinationUp(const CalypsoHarnessSession& s,
+	const void *top)
+{
+	return s.hostUp && !s.targetUp && s.navigationDestinationActive
+		&& top != nullptr && top == s.navigationDestination;
+}
+
+inline bool calypsoHarnessQueueSwitch(CalypsoHarnessSession& s, int scenario,
+ CalypsoLayoutClass layout, bool sideBySide, const void* top)
+{
+ const bool activeTarget = s.hostUp && s.targetUp && top && top == s.activeTarget;
+ const bool activeDestination = calypsoHarnessNavigationDestinationUp(s, top);
+ if ((!activeTarget && !activeDestination) || s.pendingSwitch.scenario
+  || !calypsoHarnessScenarioValid(scenario)) return false;
+ s.pendingSwitch = {scenario, layout, sideBySide, s.motionDisabled, s.motionHoldPct};
+ return true;
+}
+
+inline CalypsoHarnessSwitchRequest calypsoHarnessTakeSwitch(CalypsoHarnessSession& s)
+{
+ const auto request = s.pendingSwitch;
+ s.pendingSwitch = {};
+ return request;
+}
+
+inline bool calypsoHarnessReturnedToHost(const CalypsoHarnessSession& s,
+	const void* host, const void* topState)
+{
+	return s.hostUp && s.targetUp && host && host == topState;
+}
+
+
+inline bool calypsoHarnessQueueRdProfile(CalypsoHarnessSession& s,
+	int profile, bool knownProfile)
+{
+	if (!s.hostUp || !knownProfile || profile < 0) return false;
+	s.rdPendingProfile = profile;
+	return true;
+}
+
+inline int calypsoHarnessTakeRdProfile(CalypsoHarnessSession& s)
+{
+	s.rdActiveProfile = s.rdPendingProfile;
+	s.rdPendingProfile = 0;
+	return s.rdActiveProfile;
+}
+
+inline bool calypsoHarnessQueueRdLanguage(CalypsoHarnessSession& s,
+	const std::string& language, bool knownLanguage)
+{
+	if (!s.hostUp || !knownLanguage || language.empty()) return false;
+	s.rdPendingLanguage = language;
+	return true;
+}
+
+inline std::string calypsoHarnessTakeRdLanguage(CalypsoHarnessSession& s)
+{
+	std::string language = std::move(s.rdPendingLanguage);
+	s.rdPendingLanguage.clear();
+	return language;
+}
+
 
 /// Request to open the harness: returns true only when this call brings the
 /// host UP (first request); later requests are no-ops (never stack).
@@ -194,18 +318,38 @@ inline bool calypsoHarnessRequestOpen(CalypsoHarnessSession& s)
 {
 	if (s.hostUp) return false;
 	s.hostUp = true;
+	// A queued locale switch is opened immediately after the previous target
+	// closes. Preserve its harness-only stress overlay through this boundary;
+	// calypsoHarnessTakeRdLanguage() consumes the pending language during the
+	// replacement target construction. Ordinary opens still start clean.
+	s.rdLocaleStress = s.rdLocaleStress && !s.rdPendingLanguage.empty();
 	return true;
 }
 
 /// The target preview appeared (host pushed it once). Returns true and marks
 /// the target up; a second call while already up is a no-op.
-inline bool calypsoHarnessTargetUp(CalypsoHarnessSession& s, const void* target = nullptr)
+inline bool calypsoHarnessMarkTargetUp(CalypsoHarnessSession& s, const void* target = nullptr)
 {
 	if (!s.hostUp || s.targetUp) return false;
 	s.targetUp = true;
 	s.activeTarget = target;
 	++s.generation;
 	return true;
+}
+
+inline void calypsoHarnessNavigationDestination(
+	CalypsoHarnessSession& s, const void *destination)
+{
+	s.navigationDestinationActive = destination != nullptr;
+	s.navigationDestination = destination;
+}
+
+/// Mark only the native target as closed while keeping host + destination
+/// alive for a close-edge snapshot and a subsequent switch.
+inline void calypsoHarnessNavigationTargetClosed(CalypsoHarnessSession& s)
+{
+	s.targetUp = false;
+	s.activeTarget = nullptr;
 }
 
 /// Close: the target popped (or the host was torn down). Resets the session so
@@ -220,6 +364,14 @@ inline void calypsoHarnessClose(CalypsoHarnessSession& s)
 	s.motionDisabled = false;
 	s.motionHoldPct = -1;
 	s.sideBySide = false;
+	s.rdActiveProfile = 0;
+	s.rdActiveScenario = 0;
+	s.rdLocaleStress = false;
+	s.rdF01ShellBase.clear();
+	s.rdF01ShellTime.clear();
+	s.rdF01ShellDate.clear();
+	s.navigationDestinationActive = false;
+	s.navigationDestination = nullptr;
 }
 
 inline bool calypsoHarnessCloseForTarget(CalypsoHarnessSession& s, const void* target, std::uint64_t gen)

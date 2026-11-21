@@ -19,6 +19,10 @@
 #include <algorithm>
 #include <locale>
 #include "NewManufactureListState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF10ProductionUi.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
 #include "../Interface/Window.h"
 #include "../Interface/TextButton.h"
 #include "../Interface/ToggleTextButton.h"
@@ -139,15 +143,21 @@ NewManufactureListState::NewManufactureListState(Base *base) : _base(base), _sho
 	_btnQuickSearch->setVisible(Options::oxceQuickSearchButton);
 
 	_btnOk->onKeyboardRelease((ActionHandler)&NewManufactureListState::btnQuickSearchToggle, Options::keyToggleQuickSearch);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF10ProductionUi::configure(*this);
+#endif
 }
 
-/**
- * Initializes state (fills list of possible productions).
- */
+NewManufactureListState::~NewManufactureListState()
+{
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
+}
 void NewManufactureListState::init()
 {
 	State::init();
-
 	if (_doInit)
 	{
 		fillProductionList(_refreshCategories);
@@ -193,11 +203,11 @@ void NewManufactureListState::lstProdClick(Action* action)
  */
 void NewManufactureListState::lstProdClickLeft(Action *)
 {
-	_lstScroll = _lstManufacture->getScroll();
-
 	ManufacturingFilterType basicFilter = (ManufacturingFilterType)(_cbxFilter->getSelected());
 	if (basicFilter == MANU_FILTER_FACILITY_REQUIRED)
 		return;
+	if (_lstManufacture->getSelectedRow() >= _displayedStrings.size()) return;
+	_lstScroll = _lstManufacture->getScroll();
 
 	RuleManufacture* rule = _game->getMod()->getManufacture(_displayedStrings[_lstManufacture->getSelectedRow()]);
 
@@ -249,6 +259,7 @@ void NewManufactureListState::lstProdClickRight(Action *)
 	}
 	else
 	{
+		if (_lstManufacture->getSelectedRow() >= _displayedStrings.size()) return;
 		// change status
 		const std::string rule = _displayedStrings[_lstManufacture->getSelectedRow()];
 		int oldState = _game->getSavedGame()->getManufactureRuleStatus(rule);
@@ -273,6 +284,9 @@ void NewManufactureListState::lstProdClickRight(Action *)
 			_lstManufacture->setRowColor(_lstManufacture->getSelectedRow(), _colorNormal);
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
 }
 
 /**
@@ -281,6 +295,7 @@ void NewManufactureListState::lstProdClickRight(Action *)
 */
 void NewManufactureListState::lstProdClickMiddle(Action *)
 {
+	if (_lstManufacture->getSelectedRow() >= _displayedStrings.size()) return;
 	_doInit = false;
 
 	std::string articleId = _displayedStrings[_lstManufacture->getSelectedRow()];
@@ -294,6 +309,13 @@ void NewManufactureListState::lstProdClickMiddle(Action *)
 		_game->pushState(new TechTreeViewerState(0, selectedTopic));
 	}
 }
+#ifdef __EMSCRIPTEN__
+void NewManufactureListState::onUfopaedia(Action *)
+{
+	if (_displayedStrings.empty() || _lstManufacture->getSelectedRow() >= _displayedStrings.size()) return;
+	Ufopaedia::openArticle(_game, _displayedStrings[_lstManufacture->getSelectedRow()]);
+}
+#endif
 
 /**
 * Updates the production list to match the basic filter
@@ -529,6 +551,9 @@ void NewManufactureListState::fillProductionList(bool refreshCategories)
 		_cbxCategory->setOptions(_catStrings, true);
 		_cbxCategory->onChange((ActionHandler)&NewManufactureListState::cbxCategoryChange);
 	}
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
 }
 
 }

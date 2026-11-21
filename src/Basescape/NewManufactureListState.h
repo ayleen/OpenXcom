@@ -23,6 +23,10 @@
 namespace OpenXcom
 {
 
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoF10ProductionUi; }
+#endif
+
 class Base;
 class TextButton;
 class ToggleTextButton;
@@ -39,9 +43,15 @@ class ComboBox;
 class NewManufactureListState : public TouchState
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF10ProductionUi;
+#endif
 	Base *_base;
 	bool _showRequirements, _refreshCategories, _doInit;
 	TextButton *_btnOk;
+#ifdef __EMSCRIPTEN__
+	TextButton *_btnReview = nullptr, *_btnTechTree = nullptr, *_btnUfopaedia = nullptr, *_btnMarkAllSeen = nullptr;
+#endif
 	ToggleTextButton *_btnShowOnlyNew;
 	TextEdit *_btnQuickSearch;
 	Window *_window;
@@ -55,10 +65,16 @@ private:
 	std::vector<std::string> _displayedStrings;
 	Uint8 _colorNormal, _colorNew;
 	Uint8 _colorHidden, _colorFacilityRequired;
+#ifdef __EMSCRIPTEN__
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF10ProductionUi *_hdAdapter = nullptr;
+#endif
 
 public:
 	/// Creates the state.
 	NewManufactureListState(Base *base);
+	~NewManufactureListState();
 	/// Initializes state.
 	void init() override;
 	/// Handler for clicking the OK button.
@@ -68,19 +84,25 @@ public:
 	void btnQuickSearchApply(Action *action);
 	/// Handlers for clicking on the list.
 	void lstProdClick(Action* action);
-	void lstProdClickLeft (Action * action);
-	void lstProdClickRight(Action * action);
-	void lstProdClickMiddle(Action * action);
+	void lstProdClickLeft (Action *action);
+	void lstProdClickRight(Action *action);
+	void lstProdClickMiddle(Action *action);
+#ifdef __EMSCRIPTEN__
+	void onUfopaedia(Action *action);
+#endif
 	/// Handler for changing the category filter
-	void cbxCategoryChange (Action * action);
+	void cbxCategoryChange (Action *action);
 	/// Handler for changing the basic filter
-	void cbxFilterChange(Action * action);
+	void cbxFilterChange(Action *action);
 	/// Handler for clicking the [Show Only New] button.
 	void btnShowOnlyNewClick(Action *action);
 	/// Handler for clicking the [Mark All As Seen] button.
 	void btnMarkAllAsSeenClick(Action *action);
 	/// Fills the list of possible productions.
 	void fillProductionList(bool refreshCategories);
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

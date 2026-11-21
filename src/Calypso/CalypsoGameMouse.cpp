@@ -23,6 +23,9 @@ void Game::refreshCalypsoMousePosition()
 
 bool Game::dispatchCalypsoMouseWheel()
 {
+	// DOM bridge input can arrive outside the latched Game::iterate loop.
+	if (!_states.empty() && Calypso::CalypsoHdUiOverlay::instance().routeFailedForState(_states.back()))
+		return false;
 	if (!_mouseActive) return false;
 	_runningState = RUNNING;
 	Sint32 wheelY = _event.wheel.y;
@@ -74,6 +77,9 @@ bool Game::dispatchCalypsoMouseWheel()
 
 bool Game::dispatchCalypsoMouseMotion(int x, int y, int xrel, int yrel)
 {
+	// DOM bridge input can arrive outside the latched Game::iterate loop.
+	if (!_states.empty() && Calypso::CalypsoHdUiOverlay::instance().routeFailedForState(_states.back()))
+		return false;
 	if (!_init || !_mouseActive || !_screen || !_cursor || !_fpsCounter
 		|| _states.empty())
 		return false;
@@ -101,6 +107,9 @@ bool Game::dispatchCalypsoMouseMotion(int x, int y, int xrel, int yrel)
 
 bool Game::dispatchCalypsoMouseButton(int x, int y, int button, bool pressed)
 {
+	// DOM bridge input can arrive outside the latched Game::iterate loop.
+	if (!_states.empty() && Calypso::CalypsoHdUiOverlay::instance().routeFailedForState(_states.back()))
+		return false;
 	if (!_init || !_mouseActive || !_screen || !_cursor || !_fpsCounter
 		|| _states.empty() || button < 1 || button > 5)
 		return false;

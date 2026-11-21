@@ -429,10 +429,25 @@ void TextList::addRow(int cols, ...)
 #endif
 
 	_texts.push_back(temp);
+#ifdef __EMSCRIPTEN__
+	const size_t logicalRow = _texts.size() - 1;
+	if (_hdFixedStride)
+	{
+		// Keep vanilla wrapping in the backup while the active HD map exposes
+		// exactly one fixed-stride entry for this logical item.
+		for (int i = 0; i < rows; ++i) _hdPhysicalRows.push_back(logicalRow);
+		_rows.push_back(logicalRow);
+	}
+	else
+	{
+		for (int i = 0; i < rows; ++i) _rows.push_back(logicalRow);
+	}
+#else
 	for (int i = 0; i < rows; ++i)
 	{
 		_rows.push_back(_texts.size() - 1);
 	}
+#endif
 
 	// Place arrow buttons
 	// Position defined w.r.t. main window, NOT TextList.
@@ -477,6 +492,10 @@ void TextList::addRow(int cols, ...)
  */
 void TextList::removeLastRow()
 {
+#ifdef __EMSCRIPTEN__
+	const bool hadTextRows = !_texts.empty();
+	const size_t logicalRow = hadTextRows ? _texts.size() - 1 : 0;
+#endif
 	if (!_texts.empty())
 	{
 		_texts.pop_back();
@@ -489,6 +508,16 @@ void TextList::removeLastRow()
 			_rows.pop_back();
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	if (_hdFixedStride && hadTextRows)
+	{
+		while (!_hdPhysicalRows.empty() && _hdPhysicalRows.back() == logicalRow)
+			_hdPhysicalRows.pop_back();
+		if (_selRow > _rows.size()) _selRow = _rows.size();
+		const size_t maxScroll = _rows.size() > _visibleRows ? _rows.size() - _visibleRows : 0;
+		if (_scroll > maxScroll) _scroll = maxScroll;
+	}
+#endif
 	if (_arrowPos != -1)
 	{
 		if (!_arrowLeft.empty())
@@ -525,16 +554,6 @@ void TextList::setColumns(int cols, ...)
 	va_end(args);
 }
 
-#ifdef __EMSCRIPTEN__
-void TextList::rebaseNativeSize(int nativeW, int nativeH)
-{
-	// Re-anchor the HD scale() denominator to the current design so authored
-	// design-space column widths are not re-scaled by the legacy 280 native width
-	// (external review #2). Only meaningful before rows are (re)built.
-	if (nativeW > 0) _nativeW = nativeW;
-	if (nativeH > 0) _nativeH = nativeH;
-}
-#endif
 
 void TextList::setMinimumRowHeight(int height)
 {
@@ -827,6 +846,25 @@ void TextList::updateSelector()
 	Text *selText = _texts[_rows[_selRow]].front();
 	int y = getY() + selText->getY();
 	int actualHeight = selText->getHeight() + _font->getSpacing();
+#ifdef __EMSCRIPTEN__
+	// HD popups may have fractional projected row heights. Use the same
+	// half-open boundaries as hit-testing so the native selector highlight does
+	// not fall back to the rounded uniform TextList stride.
+	if (_hdSelList && !_hdRowBoundaries.empty() && _selRow >= _scroll)
+	{
+		const std::size_t slot = _selRow - _scroll;
+		if (slot + 1 < _hdRowBoundaries.size())
+		{
+			const int top = _hdRowBoundaries[slot];
+			const int bottom = _hdRowBoundaries[slot + 1];
+			if (bottom > top)
+			{
+				y = getY() + top;
+				actualHeight = bottom - top;
+			}
+		}
+	}
+#endif
 	if (y < getY() || y + actualHeight > getY() + getHeight()) actualHeight /= 2;
 	if (y < getY()) y = getY();
 	if (_selector->getHeight() != actualHeight)
@@ -1028,6 +1066,14 @@ void TextList::clearList()
 	scrollUp(true, false);
 	_texts.clear();
 	_rows.clear();
+#ifdef __EMSCRIPTEN__
+	if (_hdFixedStride)
+	{
+		_hdPhysicalRows.clear();
+		_scroll = 0;
+		_selRow = 0;
+	}
+#endif
 	_redraw = true;
 }
 
@@ -1402,6 +1448,18 @@ void TextList::mousePress(Action *action, State *state)
 		if (action->getDetails()->button.button == SDL_BUTTON_WHEELUP) scrollUp(false, true);
 		else if (action->getDetails()->button.button == SDL_BUTTON_WHEELDOWN) scrollDown(false, true);
 	}
+#ifdef __EMSCRIPTEN__
+	if (_hdSelList)
+	{
+		// Only a pointer inside a painted row slot arms or dispatches a row
+		// action. Header, trailing blank remainder and out-of-list positions
+		// own no item — never clamp to the last row. Wheel scrolling above is
+		// unaffected.
+		const Calypso::CalypsoSelectionListRowHit hit = calypsoHdRowHit(action);
+		if (!hit.hit) return;
+		_selRow = static_cast<int>(hit.index);
+	}
+#endif
 	if (_selectable)
 	{
 		if (_selRow < _rows.size())
@@ -1443,6 +1501,14 @@ void TextList::mouseClick(Action *action, State *state)
 {
 #ifdef __EMSCRIPTEN__
 	if (calypsoHdSuppressClick(action)) return;
+	if (_hdSelList)
+	{
+		// Activate exactly the painted row under the pointer; every other
+		// position (header, blank remainder, below the last row) owns no item.
+		const Calypso::CalypsoSelectionListRowHit hit = calypsoHdRowHit(action);
+		if (!hit.hit) return;
+		_selRow = static_cast<int>(hit.index);
+	}
 #endif
 	if (_selectable)
 	{
@@ -1476,7 +1542,7 @@ void TextList::mouseOver(Action *action, State *state)
 		int rowHeight = std::max(_font->getHeight(), _minimumRowHeight)
 			+ _font->getSpacing(); // theoretical line height
 #ifdef __EMSCRIPTEN__
-		_selRow = calypsoHdHoverSelRow(action->getRelativeYMouse(), action->getYScale(), rowHeight);
+		if (calypsoHdApplyMouseOverSelection(action, state, rowHeight)) return;
 #else
 		_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / (rowHeight * action->getYScale()))));
 #endif
@@ -1504,7 +1570,7 @@ void TextList::mouseOut(Action *action, State *state)
  * get the scroll depth.
  * @return scroll depth.
  */
-size_t TextList::getScroll()
+size_t TextList::getScroll() const
 {
 	return _scroll;
 }

@@ -37,9 +37,10 @@
 #include "TechTreeViewerState.h"
 #include "../Ufopaedia/Ufopaedia.h"
 #include <algorithm>
-
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
+#include "../Calypso/CalypsoF10ProductionUi.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
 #endif
 
 namespace OpenXcom
@@ -128,6 +129,9 @@ ManufactureState::ManufactureState(Base *base) : _base(base)
 	_lstManufacture->onMouseClick((ActionHandler)&ManufactureState::lstManufactureClickLeft, SDL_BUTTON_LEFT);
 	_lstManufacture->onMouseClick((ActionHandler)&ManufactureState::lstManufactureClickMiddle, SDL_BUTTON_MIDDLE);
 	_lstManufacture->onMousePress((ActionHandler)&ManufactureState::lstManufactureMousePress);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF10ProductionUi::configure(*this);
+#endif
 }
 
 /**
@@ -135,7 +139,10 @@ ManufactureState::ManufactureState(Base *base) : _base(base)
  */
 ManufactureState::~ManufactureState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -234,6 +241,9 @@ void ManufactureState::fillProductionList(size_t scrl)
 
 	if (scrl)
 		_lstManufacture->scrollTo(scrl);
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
 }
 
 /**
@@ -243,6 +253,7 @@ void ManufactureState::fillProductionList(size_t scrl)
 void ManufactureState::lstManufactureClickLeft(Action *)
 {
 	const std::vector<Production*> productions(_base->getProductions());
+	if (_lstManufacture->getSelectedRow() >= productions.size()) return;
 	_game->pushState(new ManufactureInfoState(_base, productions[_lstManufacture->getSelectedRow()]));
 }
 
@@ -253,6 +264,7 @@ void ManufactureState::lstManufactureClickLeft(Action *)
 void ManufactureState::lstManufactureClickMiddle(Action *)
 {
 	const std::vector<Production*> productions(_base->getProductions());
+	if (_lstManufacture->getSelectedRow() >= productions.size()) return;
 	const RuleManufacture *selectedTopic = productions[_lstManufacture->getSelectedRow()]->getRules();
 	if (_game->isCtrlPressed())
 	{
@@ -275,6 +287,7 @@ void ManufactureState::lstManufactureMousePress(Action *action)
 	{
 		return;
 	}
+	if (_lstManufacture->getSelectedRow() >= _base->getProductions().size()) return;
 
 	int change = Options::oxceManufactureScrollSpeed;
 	if (_game->isCtrlPressed())

@@ -203,6 +203,14 @@ public:
 	{
 		return Calypso::CalypsoViewportAffinity::Inherit;
 	}
+	/// Shared Basescape child-screen navigation owners. The canonical chrome
+	/// binds these state methods so current top-state input remains native.
+	void calypsoHdNavigateWorldClick(Action *action);
+	void calypsoHdNavigateBasesClick(Action *action);
+	void calypsoHdNavigateOperationsClick(Action *action);
+	void calypsoHdNavigateAnalyticsClick(Action *action);
+	void calypsoHdNavigateArchiveClick(Action *action);
+	void calypsoHdNavigateSettingsClick(Action *action);
 #endif
 	/// Re-orients all the surfaces in the state.
 	virtual void recenter(int dX, int dY);

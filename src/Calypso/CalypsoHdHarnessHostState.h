@@ -13,8 +13,10 @@
  *   1. the generic export validates the scenario id and requests the session;
  *   2. it pushes this host, then the target preview, exactly once;
  *   3. the target owns ordinary input and pop behavior;
- *   4. when the target closes, calypsoHdHarnessClose() clears the session and
- *      the host pops itself on its next think;
+ *   4. when an ordinary target closes, calypsoHdHarnessClose() clears the
+ *      session and the host pops itself on its next think; navigation
+ *      acceptance targets retain a real destination briefly for the
+ *      close-edge snapshot, then clean it up on the next switch;
  *   5. repeated open requests never stack hosts or targets.
  *
  * Whole-file Emscripten guard (Phase 36 placement policy).
@@ -52,6 +54,11 @@ private:
 /// The shared session of the active harness run (single, process-wide).
 CalypsoHarnessSession& calypsoHarnessSession();
 
+/// Narrow G04-only paint exception for the native Ufopaedia owner. Registered
+/// Calypso HD states and every other native/background state remain suppressed
+/// while the opaque harness host is active.
+bool calypsoHdHarnessAllowsUnregisteredNativeArticle(const State *state);
+
 /// Create the target preview State for a stable scenario id. Returns nullptr
 /// for unknown ids (the generic export never guesses).
 State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id);
@@ -61,6 +68,10 @@ State* calypsoF21HarnessCreateTarget(CalypsoHarnessScenario id);
 
 // Phase 46.4: generated full-screen contract fixture.
 State* calypsoHdScreenHarnessCreateTarget(CalypsoHarnessScenario id);
+
+/// True only while the generated F01 Basescape screen model owns the active
+/// full-screen harness adapter. QA identity overrides use this narrow guard.
+bool calypsoHdScreenHarnessF01Active();
 
 /// Open the harness: session request -> push host -> push target once.
 /// Returns false when the harness is already open or no game is live.
@@ -74,6 +85,11 @@ bool calypsoHdHarnessReconfigure(CalypsoLayoutClass layout, bool sideBySide);
 /// Close the harness (called by the target's teardown): clears the session;
 /// the host pops itself on its next think.
 void calypsoHdHarnessClose();
+
+/// Navigation fixture hook: replace the harness-owned save only after the
+/// target has been popped, so the real Geoscape poll can reject a stale route
+/// by pointer identity without leaving native owner pointers dangling.
+bool calypsoHdHarnessReplaceSavedGameForNavigation();
 
 /// Show/hide the generated DOM reference surface for comparison modes.
 void calypsoHdHarnessDomShow();

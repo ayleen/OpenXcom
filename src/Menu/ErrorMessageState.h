@@ -46,6 +46,8 @@ struct ErrorMessageHdForm
 	/// popup. Separate from ErrorMessageState::_coveredState, which keeps its
 	/// unrelated BuildNewBase suppression meaning. Null means no underlay.
 	const void* hdUnderlayState = nullptr;
+	/// Reuse the underlay strategic rail input contract for explicit R&D errors.
+	bool allowStrategicNavigation = false;
 #endif
 
 	bool empty() const
@@ -89,6 +91,9 @@ public:
 	ErrorMessageState(const std::string &msg, SDL_Color *palette, Uint8 color,
 		const std::string &bg, int bgColor, Uint8 color2 = 0, State *coveredState = nullptr,
 		const ErrorMessageHdForm &hdForm = ErrorMessageHdForm());
+#ifdef __EMSCRIPTEN__
+	bool calypsoHdActive() const { return _hdLayout && _hdAdapter != nullptr; }
+#endif
 	/// Cleans up the Error state.
 	~ErrorMessageState();
 	/// Let the state know the window has been resized.

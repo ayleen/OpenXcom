@@ -82,6 +82,7 @@ private:
 	void trackEmscriptenViewportState(State *state);
 	void initializeEmscriptenTopState();
 	bool dispatchCalypsoMouseWheel();
+	int calypsoHdRouteFailedTick();
 	Calypso::CalypsoSceneViewportTracker _calypsoViewportScenes;
 #endif
 

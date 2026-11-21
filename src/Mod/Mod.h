@@ -1523,6 +1523,10 @@ public:
 	int getPerformanceBonus(int score) const { return (int)(score * _performanceBonusFactor); }
 	/// Should the player have the option to sort the 'New Research' list?
 	bool getEnableNewResearchSorting() const { return _enableNewResearchSorting; }
+#ifdef __EMSCRIPTEN__
+	/// Calypso harness-only fixture override; callers must restore the prior value.
+	void setEnableNewResearchSorting(bool enabled) { _enableNewResearchSorting = enabled; }
+#endif
 	/// Should custom categories be used in Buy/Sell/Transfer GUIs? 0=no, 1=yes, custom only, 2=both vanilla and custom.
 	int getDisplayCustomCategories() const { return _displayCustomCategories; }
 	/// Should weapons "inherit" categories of their ammo?

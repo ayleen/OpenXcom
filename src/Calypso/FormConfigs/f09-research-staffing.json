@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "id": "f09-research-staffing",
+  "familyId": 9,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-detail",
+  "presentation": "controls-summary",
+  "state": "ResearchInfoState",
+  "visual": {"shell": "base-operations", "headerArt": "base-research"},
+  "labelKeys": {"title": "STR_MAELSTROM_BATTERY", "cancel": "STR_CANCEL", "start": "STR_START_PROJECT", "removeAll": "STR_REMOVE_ALL", "allAvailable": "STR_ALL_AVAILABLE"},
+  "title": "MAELSTROM BATTERY",
+  "actions": [{"id": "cancel", "label": "CANCEL", "labelKey": "STR_CANCEL", "tone": "danger", "action": "cancel"}, {"id": "start-project", "label": "START PROJECT", "labelKey": "STR_START_PROJECT", "tone": "primary", "action": "start-project"}],
+  "controls": [{"id": "scientists", "label": "SCIENTISTS", "kind": "stepper", "value": 0, "minimum": 0, "maximum": 0, "action": "adjust-scientists"}],
+  "regions": [
+    {"id": "staffing", "role": "primary", "kind": "preview", "label": "RESEARCH STAFFING", "contentId": "research-project"},
+    {"id": "capacity", "role": "summary", "kind": "fields", "label": "RESEARCH STAFFING", "fields": [{"id": "available", "label": "SCIENTISTS AVAILABLE", "value": "0"}, {"id": "labs", "label": "LABORATORY SPACE", "value": "0"}, {"id": "allocated", "label": "SCIENTISTS ALLOCATED", "value": "0"}]},
+    {"id": "staffing-actions", "role": "navigation", "kind": "actions", "label": "STAFFING ACTIONS", "actions": [{"id": "remove-all", "label": "REMOVE ALL", "labelKey": "STR_REMOVE_ALL", "tone": "normal", "action": "remove-all"}, {"id": "all-available", "label": "USE ALL", "labelKey": "STR_ALL_AVAILABLE", "tone": "normal", "action": "all-available"}]}
+  ]
+}

@@ -22,6 +22,10 @@
 namespace OpenXcom
 {
 
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoF10ProductionUi; }
+#endif
+
 class Base;
 class RuleManufacture;
 class Window;
@@ -35,19 +39,32 @@ class TextList;
 class ManufactureStartState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF10ProductionUi;
+#endif
 	Base *_base;
 	RuleManufacture *_item;
 	Window *_window;
 	TextButton *_btnCancel, *_btnStart;
 	Text *_txtTitle, *_txtManHour, *_txtCost, *_txtWorkSpace, *_txtRequiredItemsTitle, *_txtItemNameColumn, *_txtUnitRequiredColumn, *_txtUnitAvailableColumn;
 	TextList *_lstRequiredItems;
+#ifdef __EMSCRIPTEN__
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF10ProductionUi *_hdAdapter = nullptr;
+#endif
 public:
 	/// Creates the State.
+	~ManufactureStartState();
 	ManufactureStartState(Base *base, RuleManufacture *item);
+	void init() override;
 	/// Handler for the Cancel button.
 	void btnCancelClick(Action *action);
 	/// Handler for the start button.
 	void btnStartClick(Action *action);
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

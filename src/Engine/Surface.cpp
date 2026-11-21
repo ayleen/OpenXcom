@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "Surface.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoHdRuntimeDiagnostics.h"
+#endif
 #include "ShadeTable.h"
 #include "ShadeTableCache.h"
 #include "ShaderDraw.h"
@@ -167,6 +170,9 @@ Surface::UniqueBufferPtr Surface::NewAlignedBuffer(int bpp, int width, int heigh
  */
 Surface::UniqueSurfacePtr Surface::NewSdlSurface(SDL_Surface* surface)
 {
+#ifdef __EMSCRIPTEN__
+	if (surface) ++Calypso::calypsoHdRuntimeDiagnostics().surfaceAllocations;
+#endif
 	return Surface::UniqueSurfacePtr(surface);
 }
 
@@ -186,6 +192,9 @@ Surface::UniqueSurfacePtr Surface::NewSdlSurface(const Surface::UniqueBufferPtr&
 	// SDL_PREALLOC prevents SDL_FreeSurface from freeing our aligned buffer.
 	Uint32 fmt = (bpp == 32) ? SDL_PIXELFORMAT_ARGB8888 : SDL_PIXELFORMAT_INDEX8;
 	auto surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, bpp, fmt);
+#ifdef __EMSCRIPTEN__
+	if (surface) ++Calypso::calypsoHdRuntimeDiagnostics().surfaceAllocations;
+#endif
 	if (!surface)
 	{
 		throw Exception(SDL_GetError());

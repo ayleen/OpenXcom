@@ -125,7 +125,8 @@ void ErrorMessageState::create(const std::string &str, SDL_Color *palette, Uint8
 	// strata, an HD popup over a live Battlescape could be painted over by
 	// projectile/smoke passes. Keep that route on its complete logical fallback;
 	// bgColor == -1 is the existing Battlescape-call-site contract.
-	Calypso::CalypsoErrorPopupUi::configure(*this, bgColor != -1);
+	Calypso::CalypsoErrorPopupUi::configure(*this,
+		bgColor != -1 || _hdForm.hdUnderlayState != nullptr);
 #endif
 }
 

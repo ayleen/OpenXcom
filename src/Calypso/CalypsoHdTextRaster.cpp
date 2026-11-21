@@ -9,6 +9,9 @@
 
 #include "CalypsoHdDiagnostics.h"
 #include "CalypsoHdTrackedText.h"
+#include "CalypsoHdRuntimeDiagnostics.h"
+#include "CalypsoHdHarnessHostState.h"
+#include <emscripten.h>
 
 #include "../Engine/FileMap.h"
 #include "../Engine/Logger.h"
@@ -72,6 +75,7 @@ void trimLineStart(std::string& text)
 SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text,
 	int wrapWidth, int lineHeightPx, int lineHeightMilliPx, int horizontalScalePermille,
 	int verticalScalePermille, int wrapMeasureScalePermille, bool explicitBreaksOnly,
+	bool guardRows,
 	SDL_Color color)
 {
 	if (!face || text.empty() || wrapWidth <= 0
@@ -167,12 +171,14 @@ SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text
 
 	// Actual rendered line surfaces are authoritative. TTF_FontHeight may be
 	// smaller than glyphs->h for a concrete face/port and must never size the
-	// final canvas on its own. Guard rows ensure later box clipping consumes
-	// transparency before it can shave a cap or the last baseline.
+	// final canvas on its own. Body-copy guard rows ensure later box clipping
+	// consumes transparency before it can shave a cap or the last baseline;
+	// fixed-height action cells deliberately use exact glyph bounds instead.
 	const int metricGlyphHeight = std::max(1,
 		static_cast<int>(TTF_FontHeight(face) * verticalScale + 0.5));
 	const int glyphHeight = std::max(metricGlyphHeight, maxRenderedGlyphHeight);
-	const int verticalGuardPx = std::max(2, (glyphHeight + 7) / 8);
+	const int verticalGuardPx = guardRows
+		? std::max(2, (glyphHeight + 7) / 8) : 0;
 	const int height = std::max(glyphHeight + verticalGuardPx * 2,
 		(static_cast<int>(rendered.size()) - 1) * lineSkip
 			+ glyphHeight + verticalGuardPx * 2);
@@ -322,6 +328,29 @@ TTF_Font* CalypsoHdTextRaster::faceFor(const std::string& vfsPath, int physicalP
 	return face;
 }
 
+CalypsoHdTextRaster::AuditMetrics CalypsoHdTextRaster::auditMetricsFor(
+	const CalypsoHdTextRasterKey& key)
+{
+	AuditMetrics result;
+	TTF_Font* face = faceFor(key.source.canonicalVfsPath, key.physicalPixelHeight,
+		key.source.resourceGeneration);
+	result.fontPath = key.source.canonicalVfsPath;
+	result.covered = face && calypsoFaceCoversText(face, key.text);
+	if (!result.covered && !key.source.fallbackVfsPath.empty())
+	{
+		face = faceFor(key.source.fallbackVfsPath, key.physicalPixelHeight,
+			key.source.resourceGeneration);
+		result.fontPath = key.source.fallbackVfsPath;
+		result.covered = face && calypsoFaceCoversText(face, key.text);
+	}
+	if (face)
+	{
+		result.fontHeight = TTF_FontHeight(face);
+		result.lineSkip = TTF_FontLineSkip(face);
+	}
+	return result;
+}
+
 SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 {
 	if (key.text.empty())
@@ -397,7 +426,7 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 		surf = renderWrappedWithLineHeight(face, key.text, key.wrapWidth,
 			key.lineHeightPx, key.lineHeightMilliPx, key.horizontalScalePermille,
 			key.verticalScalePermille, key.wrapMeasureScalePermille,
-			key.explicitBreaksOnly, c);
+			key.explicitBreaksOnly, key.guardRows, c);
 	}
 	else if (key.letterSpacingPx > 0 && key.wrapWidth == 0)
 	{
@@ -528,5 +557,14 @@ std::size_t CalypsoHdTextRaster::faceCount() const
 
 } // namespace Calypso
 } // namespace OpenXcom
+
+extern "C" EMSCRIPTEN_KEEPALIVE int calypso_harness_rd_text_audit(int enabled)
+{
+	using namespace OpenXcom::Calypso;
+	if (!calypsoHarnessHostUp(calypsoHarnessSession())) return 0;
+	calypsoHdRuntimeDiagnostics().textAuditEnabled = enabled != 0;
+	EM_ASM({ globalThis.__calypsoRdTextAudit = []; });
+	return 1;
+}
 
 #endif // __EMSCRIPTEN__

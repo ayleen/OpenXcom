@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "ManufactureDependenciesTreeState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF10ProductionUi.h"
+#endif
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
@@ -78,6 +81,9 @@ ManufactureDependenciesTreeState::ManufactureDependenciesTreeState(const std::st
 	_lstTopics->setMargin(0);
 	_lstTopics->setAlign(ALIGN_CENTER);
 
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF10ProductionUi::configure(*this);
+#endif
 	if (Options::oxceDisableProductionDependencyTree)
 	{
 		_txtTitle->setHeight(_txtTitle->getHeight() * 11);
@@ -85,12 +91,18 @@ ManufactureDependenciesTreeState::ManufactureDependenciesTreeState(const std::st
 		_txtTitle->setText(tr("STR_THIS_FEATURE_IS_DISABLED_3"));
 		_btnShowAll->setVisible(false);
 		_lstTopics->setVisible(false);
+		_calypsoPresentationRows.assign(1, {RowKind::FeatureDisabled, 0,
+			std::string(tr("STR_THIS_FEATURE_IS_DISABLED_3"))});
 		return;
 	}
 }
 
 ManufactureDependenciesTreeState::~ManufactureDependenciesTreeState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -104,6 +116,9 @@ void ManufactureDependenciesTreeState::init()
 	{
 		initList();
 	}
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
 }
 
 /**
@@ -126,14 +141,30 @@ void ManufactureDependenciesTreeState::btnShowAllClick(Action *)
 	_btnOk->setX(_btnShowAll->getX());
 	_btnShowAll->setVisible(false);
 	initList();
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
 }
 
 /**
 * Shows the tree.
 */
+void ManufactureDependenciesTreeState::calypsoAddRow(RowKind kind, int depth,
+	const std::string &text)
+{
+	_lstTopics->addRow(1, text.c_str());
+	if (kind != RowKind::Item)
+	{
+		_lstTopics->setRowColor(_calypsoPresentationRows.size(),
+			_lstTopics->getSecondaryColor());
+	}
+	_calypsoPresentationRows.push_back({kind, depth, text});
+}
+
 void ManufactureDependenciesTreeState::initList()
 {
 	_lstTopics->clearList();
+	_calypsoPresentationRows.clear();
 
 	// dependency map (item -> vector of items that needs this item)
 	std::unordered_map< std::string, std::vector<std::string> > deps;
@@ -148,7 +179,6 @@ void ManufactureDependenciesTreeState::initList()
 	}
 
 	// breadth-first tree search
-	int row = 0;
 	const std::vector<std::string> firstLevel = deps[_selectedItem];
 	std::vector<std::string> secondLevel;
 	std::vector<std::string> thirdLevel;
@@ -178,42 +208,36 @@ void ManufactureDependenciesTreeState::initList()
 
 	if (firstLevel.empty() && facilitiesLevel.empty())
 	{
-		_lstTopics->addRow(1, tr("STR_NO_DEPENDENCIES").c_str());
-		_lstTopics->setRowColor(row, _lstTopics->getSecondaryColor());
-		++row;
+		calypsoAddRow(RowKind::NoDependencies, 0, tr("STR_NO_DEPENDENCIES"));
 		return;
 	}
 
 	// first level
-	_lstTopics->addRow(1, tr("STR_DIRECT_DEPENDENCIES").c_str());
-	_lstTopics->setRowColor(row, _lstTopics->getSecondaryColor());
-	++row;
+	calypsoAddRow(RowKind::Header, 1, tr("STR_DIRECT_DEPENDENCIES"));
 
 	// first list all the dependent base facilities
 	for (auto* fac : facilitiesLevel)
 	{
 		if (_showAll || _game->getSavedGame()->isResearched(fac->getRequirements()))
 		{
-			_lstTopics->addRow(1, tr(fac->getType()).c_str());
+			calypsoAddRow(RowKind::Item, 1, tr(fac->getType()));
 		}
 		else
 		{
-			_lstTopics->addRow(1, "***");
+			calypsoAddRow(RowKind::Item, 1, "***");
 		}
-		++row;
 	}
 
 	for (const auto& name : firstLevel)
 	{
 		if (_showAll || _game->getSavedGame()->isResearched(_game->getMod()->getManufacture(name)->getRequirements()))
 		{
-			_lstTopics->addRow(1, tr(name).c_str());
+			calypsoAddRow(RowKind::Item, 1, tr(name));
 		}
 		else
 		{
-			_lstTopics->addRow(1, "***");
+			calypsoAddRow(RowKind::Item, 1, "***");
 		}
-		++row;
 
 		for (const auto& goDeeper : deps[name])
 		{
@@ -225,32 +249,26 @@ void ManufactureDependenciesTreeState::initList()
 		}
 	}
 
-	_lstTopics->addRow(1, "");
-	++row;
+	calypsoAddRow(RowKind::Separator, 0, "");
 	if (secondLevel.empty())
 	{
-		_lstTopics->addRow(1, tr("STR_END_OF_SEARCH").c_str());
-		_lstTopics->setRowColor(row, _lstTopics->getSecondaryColor());
-		++row;
+		calypsoAddRow(RowKind::End, 0, tr("STR_END_OF_SEARCH"));
 		return;
 	}
 
 	// second level
-	_lstTopics->addRow(1, tr("STR_LEVEL_2_DEPENDENCIES").c_str());
-	_lstTopics->setRowColor(row, _lstTopics->getSecondaryColor());
-	++row;
+	calypsoAddRow(RowKind::Header, 2, tr("STR_LEVEL_2_DEPENDENCIES"));
 
 	for (const auto& name : secondLevel)
 	{
 		if (_showAll || _game->getSavedGame()->isResearched(_game->getMod()->getManufacture(name)->getRequirements()))
 		{
-			_lstTopics->addRow(1, tr(name).c_str());
+			calypsoAddRow(RowKind::Item, 2, tr(name));
 		}
 		else
 		{
-			_lstTopics->addRow(1, "***");
+			calypsoAddRow(RowKind::Item, 2, "***");
 		}
-		++row;
 
 		for (const auto& goDeeper : deps[name])
 		{
@@ -262,32 +280,26 @@ void ManufactureDependenciesTreeState::initList()
 		}
 	}
 
-	_lstTopics->addRow(1, "");
-	++row;
+	calypsoAddRow(RowKind::Separator, 0, "");
 	if (thirdLevel.empty())
 	{
-		_lstTopics->addRow(1, tr("STR_END_OF_SEARCH").c_str());
-		_lstTopics->setRowColor(row, _lstTopics->getSecondaryColor());
-		++row;
+		calypsoAddRow(RowKind::End, 0, tr("STR_END_OF_SEARCH"));
 		return;
 	}
 
 	// third level
-	_lstTopics->addRow(1, tr("STR_LEVEL_3_DEPENDENCIES").c_str());
-	_lstTopics->setRowColor(row, _lstTopics->getSecondaryColor());
-	++row;
+	calypsoAddRow(RowKind::Header, 3, tr("STR_LEVEL_3_DEPENDENCIES"));
 
 	for (const auto& name : thirdLevel)
 	{
 		if (_showAll || _game->getSavedGame()->isResearched(_game->getMod()->getManufacture(name)->getRequirements()))
 		{
-			_lstTopics->addRow(1, tr(name).c_str());
+			calypsoAddRow(RowKind::Item, 3, tr(name));
 		}
 		else
 		{
-			_lstTopics->addRow(1, "***");
+			calypsoAddRow(RowKind::Item, 3, "***");
 		}
-		++row;
 
 		for (const auto& goDeeper : deps[name])
 		{
@@ -299,32 +311,26 @@ void ManufactureDependenciesTreeState::initList()
 		}
 	}
 
-	_lstTopics->addRow(1, "");
-	++row;
+	calypsoAddRow(RowKind::Separator, 0, "");
 	if (fourthLevel.empty())
 	{
-		_lstTopics->addRow(1, tr("STR_END_OF_SEARCH").c_str());
-		_lstTopics->setRowColor(row, _lstTopics->getSecondaryColor());
-		++row;
+		calypsoAddRow(RowKind::End, 0, tr("STR_END_OF_SEARCH"));
 		return;
 	}
 
 	// fourth level
-	_lstTopics->addRow(1, tr("STR_LEVEL_4_DEPENDENCIES").c_str());
-	_lstTopics->setRowColor(row, _lstTopics->getSecondaryColor());
-	++row;
+	calypsoAddRow(RowKind::Header, 4, tr("STR_LEVEL_4_DEPENDENCIES"));
 
 	for (const auto& name : fourthLevel)
 	{
 		if (_showAll || _game->getSavedGame()->isResearched(_game->getMod()->getManufacture(name)->getRequirements()))
 		{
-			_lstTopics->addRow(1, tr(name).c_str());
+			calypsoAddRow(RowKind::Item, 4, tr(name));
 		}
 		else
 		{
-			_lstTopics->addRow(1, "***");
+			calypsoAddRow(RowKind::Item, 4, "***");
 		}
-		++row;
 
 		for (const auto& goDeeper : deps[name])
 		{
@@ -336,19 +342,22 @@ void ManufactureDependenciesTreeState::initList()
 		}
 	}
 
-	_lstTopics->addRow(1, "");
-	++row;
+	calypsoAddRow(RowKind::Separator, 0, "");
 	if (fifthLevel.empty())
 	{
-		_lstTopics->addRow(1, tr("STR_END_OF_SEARCH").c_str());
-		_lstTopics->setRowColor(row, _lstTopics->getSecondaryColor());
-		++row;
+		calypsoAddRow(RowKind::End, 0, tr("STR_END_OF_SEARCH"));
 		return;
 	}
 
-	_lstTopics->addRow(1, tr("STR_MORE_DEPENDENCIES").c_str());
-	_lstTopics->setRowColor(row, _lstTopics->getSecondaryColor());
-	++row;
+	calypsoAddRow(RowKind::More, 0, tr("STR_MORE_DEPENDENCIES"));
 }
+
+#ifdef __EMSCRIPTEN__
+void ManufactureDependenciesTreeState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF10ProductionUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }
