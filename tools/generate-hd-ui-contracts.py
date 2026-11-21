@@ -2149,7 +2149,7 @@ def emit_tabbed_h(doc, rel, ns, prefix):
     out.append('inline constexpr const char* kCollectionMode = "'
                + (form.get("collection") or {}).get("mode", "") + '";')
     out.append("")
-    out.append("struct " + prefix + "GenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; "
+    out.append("struct " + prefix + "GenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; int rowOriginY; "
                + prefix + "GenRect window; " + prefix + "GenRect title; " + prefix + "GenRect summaryBar; "
                + prefix + "GenRect tabBar; " + prefix + "GenRect toolbarBar; " + prefix + "GenRect collectionViewport; "
                + prefix + "GenRect footer; " + prefix + "GenRect detailPanel;")
@@ -2161,6 +2161,7 @@ def emit_tabbed_h(doc, rel, ns, prefix):
         slots = (l.get("collection") or {}).get("rowSlots") or []
         row_height = slots[0]["rect"]["height"] if slots else 0
         track = (metrics.get(name) or {}).get("track") or {"width": 0}
+        row_origin = slots[0]["rect"]["y"] - l["collectionViewport"]["y"] if slots else 0
         # Layouts carry no standalone detailPanel rect: the panel geometry
         # lives in the detail fragment when a detail is declared, and the
         # header member stays zeroed otherwise (adapters skip empty rects).
@@ -2169,7 +2170,7 @@ def emit_tabbed_h(doc, rel, ns, prefix):
         detail_panel = ((l.get("detail") or {}).get("panel")
                         or {"x": 0, "y": 0, "width": 0, "height": 0})
         out.append("    { " + str(l["designWidth"]) + ", " + str(l["designHeight"]) + ", "
-                   + str(row_height) + ", " + str(len(slots)) + ", " + str(track.get("width", 0)) + ", "
+                   + str(row_height) + ", " + str(len(slots)) + ", " + str(track.get("width", 0)) + ", " + str(row_origin) + ", "
                    + "{ " + str(l["window"]["x"]) + ", " + str(l["window"]["y"]) + ", " + str(l["window"]["width"]) + ", " + str(l["window"]["height"]) + " }, "
                    + "{ " + str(l["title"]["x"]) + ", " + str(l["title"]["y"]) + ", " + str(l["title"]["width"]) + ", " + str(l["title"]["height"]) + " }, "
                    + "{ " + str(l["summaryBar"]["x"]) + ", " + str(l["summaryBar"]["y"]) + ", " + str(l["summaryBar"]["width"]) + ", " + str(l["summaryBar"]["height"]) + " }, "

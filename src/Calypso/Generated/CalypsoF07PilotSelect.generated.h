@@ -58,11 +58,11 @@ inline constexpr const char* kColumnIds[] = {"pilot", "firing"};
 inline constexpr int kColumnCount = 2;
 inline constexpr const char* kCollectionMode = "list";
 
-struct CalypsoF07PilotSelectGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; CalypsoF07PilotSelectGenRect window; CalypsoF07PilotSelectGenRect title; CalypsoF07PilotSelectGenRect summaryBar; CalypsoF07PilotSelectGenRect tabBar; CalypsoF07PilotSelectGenRect toolbarBar; CalypsoF07PilotSelectGenRect collectionViewport; CalypsoF07PilotSelectGenRect footer; CalypsoF07PilotSelectGenRect detailPanel;
+struct CalypsoF07PilotSelectGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; int rowOriginY; CalypsoF07PilotSelectGenRect window; CalypsoF07PilotSelectGenRect title; CalypsoF07PilotSelectGenRect summaryBar; CalypsoF07PilotSelectGenRect tabBar; CalypsoF07PilotSelectGenRect toolbarBar; CalypsoF07PilotSelectGenRect collectionViewport; CalypsoF07PilotSelectGenRect footer; CalypsoF07PilotSelectGenRect detailPanel;
 };
 inline constexpr CalypsoF07PilotSelectGenLayout kLayouts[] = {
-    { 1280, 720, 44, 5, 18, { 140, 50, 1000, 620 }, { 172, 68, 936, 44 }, { 172, 116, 936, 36 }, { 172, 160, 936, 48 }, { 172, 218, 936, 52 }, { 172, 280, 936, 286 }, { 140, 578, 1000, 92 }, { 0, 0, 0, 0 } }, // wide
-    { 740, 360, 44, 2, 18, { 20, 8, 700, 344 }, { 44, 8, 652, 32 }, { 44, 44, 652, 24 }, { 44, 72, 652, 44 }, { 44, 120, 652, 44 }, { 44, 168, 652, 112 }, { 20, 284, 700, 68 }, { 0, 0, 0, 0 } }, // compact
+    { 1280, 720, 44, 5, 18, 36, { 140, 50, 1000, 620 }, { 172, 68, 936, 44 }, { 172, 116, 936, 36 }, { 172, 160, 936, 48 }, { 172, 218, 936, 52 }, { 172, 280, 936, 286 }, { 140, 578, 1000, 92 }, { 0, 0, 0, 0 } }, // wide
+    { 740, 360, 44, 2, 18, 24, { 20, 8, 700, 344 }, { 44, 8, 652, 32 }, { 44, 44, 652, 24 }, { 44, 72, 652, 44 }, { 44, 120, 652, 44 }, { 44, 168, 652, 112 }, { 20, 284, 700, 68 }, { 0, 0, 0, 0 } }, // compact
 };
 inline constexpr CalypsoF07PilotSelectGenNamedRect kTabRects[][ 6 ] = {
     { { "overview", { 172, 160, 149, 48 } }, { "weapons", { 329, 160, 149, 48 } }, { "crew", { 486, 160, 149, 48 } }, { "equipment", { 643, 160, 149, 48 } }, { "armor", { 800, 160, 149, 48 } }, { "pilots", { 957, 160, 151, 48 } } }, // wide

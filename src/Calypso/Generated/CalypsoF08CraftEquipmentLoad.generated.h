@@ -58,11 +58,11 @@ inline constexpr const char* kColumnIds[] = {"slot", "preset"};
 inline constexpr int kColumnCount = 2;
 inline constexpr const char* kCollectionMode = "list";
 
-struct CalypsoF08CraftEquipmentLoadGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; CalypsoF08CraftEquipmentLoadGenRect window; CalypsoF08CraftEquipmentLoadGenRect title; CalypsoF08CraftEquipmentLoadGenRect summaryBar; CalypsoF08CraftEquipmentLoadGenRect tabBar; CalypsoF08CraftEquipmentLoadGenRect toolbarBar; CalypsoF08CraftEquipmentLoadGenRect collectionViewport; CalypsoF08CraftEquipmentLoadGenRect footer; CalypsoF08CraftEquipmentLoadGenRect detailPanel;
+struct CalypsoF08CraftEquipmentLoadGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; int rowOriginY; CalypsoF08CraftEquipmentLoadGenRect window; CalypsoF08CraftEquipmentLoadGenRect title; CalypsoF08CraftEquipmentLoadGenRect summaryBar; CalypsoF08CraftEquipmentLoadGenRect tabBar; CalypsoF08CraftEquipmentLoadGenRect toolbarBar; CalypsoF08CraftEquipmentLoadGenRect collectionViewport; CalypsoF08CraftEquipmentLoadGenRect footer; CalypsoF08CraftEquipmentLoadGenRect detailPanel;
 };
 inline constexpr CalypsoF08CraftEquipmentLoadGenLayout kLayouts[] = {
-    { 1280, 720, 44, 5, 18, { 140, 50, 1000, 620 }, { 172, 68, 936, 44 }, { 172, 116, 936, 36 }, { 172, 160, 936, 48 }, { 172, 218, 936, 52 }, { 172, 280, 936, 286 }, { 140, 578, 1000, 92 }, { 0, 0, 0, 0 } }, // wide
-    { 740, 360, 44, 2, 18, { 20, 8, 700, 344 }, { 44, 8, 652, 32 }, { 44, 44, 652, 24 }, { 44, 72, 652, 44 }, { 44, 120, 652, 44 }, { 44, 168, 652, 112 }, { 20, 284, 700, 68 }, { 0, 0, 0, 0 } }, // compact
+    { 1280, 720, 44, 5, 18, 36, { 140, 50, 1000, 620 }, { 172, 68, 936, 44 }, { 172, 116, 936, 36 }, { 172, 160, 936, 48 }, { 172, 218, 936, 52 }, { 172, 280, 936, 286 }, { 140, 578, 1000, 92 }, { 0, 0, 0, 0 } }, // wide
+    { 740, 360, 44, 2, 18, 24, { 20, 8, 700, 344 }, { 44, 8, 652, 32 }, { 44, 44, 652, 24 }, { 44, 72, 652, 44 }, { 44, 120, 652, 44 }, { 44, 168, 652, 112 }, { 20, 284, 700, 68 }, { 0, 0, 0, 0 } }, // compact
 };
 inline constexpr CalypsoF08CraftEquipmentLoadGenNamedRect kTabRects[][ 6 ] = {
     { { "overview", { 172, 160, 149, 48 } }, { "weapons", { 329, 160, 149, 48 } }, { "crew", { 486, 160, 149, 48 } }, { "equipment", { 643, 160, 149, 48 } }, { "armor", { 800, 160, 149, 48 } }, { "pilots", { 957, 160, 151, 48 } } }, // wide

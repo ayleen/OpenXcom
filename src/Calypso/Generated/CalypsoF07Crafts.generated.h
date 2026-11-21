@@ -57,11 +57,11 @@ inline constexpr const char* kColumnIds[] = {"submarine", "status", "weapons-cre
 inline constexpr int kColumnCount = 4;
 inline constexpr const char* kCollectionMode = "table";
 
-struct CalypsoF07CraftsGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; CalypsoF07CraftsGenRect window; CalypsoF07CraftsGenRect title; CalypsoF07CraftsGenRect summaryBar; CalypsoF07CraftsGenRect tabBar; CalypsoF07CraftsGenRect toolbarBar; CalypsoF07CraftsGenRect collectionViewport; CalypsoF07CraftsGenRect footer; CalypsoF07CraftsGenRect detailPanel;
+struct CalypsoF07CraftsGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; int rowOriginY; CalypsoF07CraftsGenRect window; CalypsoF07CraftsGenRect title; CalypsoF07CraftsGenRect summaryBar; CalypsoF07CraftsGenRect tabBar; CalypsoF07CraftsGenRect toolbarBar; CalypsoF07CraftsGenRect collectionViewport; CalypsoF07CraftsGenRect footer; CalypsoF07CraftsGenRect detailPanel;
 };
 inline constexpr CalypsoF07CraftsGenLayout kLayouts[] = {
-    { 1280, 720, 44, 5, 18, { 140, 50, 1000, 620 }, { 172, 68, 936, 44 }, { 172, 116, 936, 36 }, { 172, 160, 936, 48 }, { 172, 218, 936, 52 }, { 172, 280, 936, 286 }, { 140, 578, 1000, 92 }, { 0, 0, 0, 0 } }, // wide
-    { 740, 360, 44, 2, 18, { 20, 8, 700, 344 }, { 44, 8, 652, 32 }, { 44, 44, 652, 24 }, { 44, 72, 652, 44 }, { 44, 120, 652, 44 }, { 44, 168, 652, 112 }, { 20, 284, 700, 68 }, { 0, 0, 0, 0 } }, // compact
+    { 1280, 720, 44, 5, 18, 36, { 140, 50, 1000, 620 }, { 172, 68, 936, 44 }, { 172, 116, 936, 36 }, { 172, 160, 936, 48 }, { 172, 218, 936, 52 }, { 172, 280, 936, 286 }, { 140, 578, 1000, 92 }, { 0, 0, 0, 0 } }, // wide
+    { 740, 360, 44, 2, 18, 24, { 20, 8, 700, 344 }, { 44, 8, 652, 32 }, { 44, 44, 652, 24 }, { 44, 72, 652, 44 }, { 44, 120, 652, 44 }, { 44, 168, 652, 112 }, { 20, 284, 700, 68 }, { 0, 0, 0, 0 } }, // compact
 };
 inline constexpr CalypsoF07CraftsGenNamedRect kTabRects[][ 2 ] = {
     { { "divers", { 172, 160, 464, 48 } }, { "submarines", { 644, 160, 464, 48 } } }, // wide

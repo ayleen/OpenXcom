@@ -67,11 +67,11 @@ inline constexpr const char* kColumnIds[] = {"diver", "firing", "reactions", "br
 inline constexpr int kColumnCount = 5;
 inline constexpr const char* kCollectionMode = "table";
 
-struct CalypsoF07CraftPilotsGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; CalypsoF07CraftPilotsGenRect window; CalypsoF07CraftPilotsGenRect title; CalypsoF07CraftPilotsGenRect summaryBar; CalypsoF07CraftPilotsGenRect tabBar; CalypsoF07CraftPilotsGenRect toolbarBar; CalypsoF07CraftPilotsGenRect collectionViewport; CalypsoF07CraftPilotsGenRect footer; CalypsoF07CraftPilotsGenRect detailPanel;
+struct CalypsoF07CraftPilotsGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; int rowOriginY; CalypsoF07CraftPilotsGenRect window; CalypsoF07CraftPilotsGenRect title; CalypsoF07CraftPilotsGenRect summaryBar; CalypsoF07CraftPilotsGenRect tabBar; CalypsoF07CraftPilotsGenRect toolbarBar; CalypsoF07CraftPilotsGenRect collectionViewport; CalypsoF07CraftPilotsGenRect footer; CalypsoF07CraftPilotsGenRect detailPanel;
 };
 inline constexpr CalypsoF07CraftPilotsGenLayout kLayouts[] = {
-    { 1280, 720, 44, 5, 18, { 140, 50, 1000, 620 }, { 172, 68, 936, 44 }, { 172, 116, 936, 36 }, { 172, 160, 936, 48 }, { 172, 218, 936, 52 }, { 488, 280, 620, 286 }, { 140, 578, 1000, 92 }, { 172, 280, 306, 286 } }, // wide
-    { 740, 360, 44, 2, 18, { 20, 8, 700, 344 }, { 44, 8, 652, 32 }, { 44, 44, 652, 24 }, { 44, 72, 652, 44 }, { 44, 120, 652, 44 }, { 304, 168, 392, 112 }, { 20, 284, 700, 68 }, { 44, 168, 250, 112 } }, // compact
+    { 1280, 720, 44, 5, 18, 36, { 140, 50, 1000, 620 }, { 172, 68, 936, 44 }, { 172, 116, 936, 36 }, { 172, 160, 936, 48 }, { 172, 218, 936, 52 }, { 488, 280, 620, 286 }, { 140, 578, 1000, 92 }, { 172, 280, 306, 286 } }, // wide
+    { 740, 360, 44, 2, 18, 24, { 20, 8, 700, 344 }, { 44, 8, 652, 32 }, { 44, 44, 652, 24 }, { 44, 72, 652, 44 }, { 44, 120, 652, 44 }, { 304, 168, 392, 112 }, { 20, 284, 700, 68 }, { 44, 168, 250, 112 } }, // compact
 };
 inline constexpr CalypsoF07CraftPilotsGenNamedRect kTabRects[][ 6 ] = {
     { { "overview", { 172, 160, 149, 48 } }, { "weapons", { 329, 160, 149, 48 } }, { "crew", { 486, 160, 149, 48 } }, { "equipment", { 643, 160, 149, 48 } }, { "armor", { 800, 160, 149, 48 } }, { "pilots", { 957, 160, 151, 48 } } }, // wide

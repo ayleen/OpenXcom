@@ -173,7 +173,8 @@ inline void f06SeamSelectionList(
 	const int minThumbHeight = std::max(1, (int)std::llround(generated.minThumbHeight * uiScale));
 	const int rowStride = std::max(1, (int)std::llround(generated.rowHeight * uiScale));
 	const size_t visibleRows = generated.visibleRows > 0 ? (size_t)generated.visibleRows : 0;
-	list->configureCalypsoHdSelectionList(scrollBarWidth, minThumbHeight, rowStride, visibleRows);
+	list->configureCalypsoHdSelectionList(scrollBarWidth, minThumbHeight, rowStride,
+		0, rowStride * static_cast<int>(visibleRows), visibleRows);
 }
 
 /// Push one verbatim native Text into the painted rows when it is visible and

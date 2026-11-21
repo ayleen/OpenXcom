@@ -159,7 +159,8 @@ void conformCollectionList(
 	const int projectedThumb = std::max(1, (int)std::llround(minThumbHeight * uiScale));
 	const int rowStride = std::max(1, (int)std::llround(rowHeight * uiScale));
 	const size_t slots = visibleRows > 0 ? (size_t)visibleRows : 0;
-	list->configureCalypsoHdSelectionList(projectedBar, projectedThumb, rowStride, slots);
+	list->configureCalypsoHdSelectionList(projectedBar, projectedThumb, rowStride,
+		0, rowStride * static_cast<int>(slots), slots);
 }
 
 } // namespace
