@@ -17,6 +17,7 @@
 #include "../Interface/Window.h"
 #include "../Basescape/SoldierInfoState.h"
 #include "../Mod/Mod.h"
+#include "../Savegame/Soldier.h"
 #include "CalypsoF04SelectionListShell.h"
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoSmallConfirmationRenderer.h"
@@ -26,6 +27,13 @@
 
 namespace OpenXcom
 {
+void SoldierInfoState::hdProfileActionClick(Action *action)
+{
+	const auto row = _hdInspectorList->getSelectedRow();
+	if (row < _hdProfileActions.size() && _hdProfileActions[row]->getVisible())
+		_hdProfileActions[row]->mouseClick(action, this);
+}
+
 namespace Calypso
 {
 
@@ -257,8 +265,8 @@ void CalypsoF04SoldierInfoUi::collect(CalypsoHdFrameBuilder& builder) const
 		}
 		model.scrollOffset = _state->_hdInspectorList->getScroll();
 	}
-	model.hasSelection = false;
-	model.selectedRow = 0;
+	model.selectedRow = _state->_hdInspectorList->getSelectedRow();
+	model.hasSelection = model.selectedRow < _state->_hdProfileActions.size();
 
 	model.cutCornerPx = CalypsoF04SoldiersGen::kCutCornerPx;
 	model.protocolTextInsetPx = CalypsoF04SoldiersGen::kProtocolTextInsetPx;
@@ -304,6 +312,21 @@ void CalypsoF04SoldierInfoUi::refreshInspectorRows(SoldierInfoState& state)
 	TextList* const list = state._hdInspectorList;
 	if (!list) return;
 	list->clearList();
+	state._hdProfileActions.clear();
+	if (state._soldier)
+	{
+		auto addAction = [&](TextButton* owner, std::string label)
+		{
+			if (!owner->getVisible()) return;
+			state._hdProfileActions.push_back(owner);
+			list->addRow(1, (label + "  >").c_str());
+		};
+		addAction(state._btnArmor, state._btnArmor->getText());
+		addAction(state._btnDiary, state._btnDiary->getText());
+		addAction(state._btnBonuses, state.tr("STR_SOLDIER_BONUSES_FOR").arg(state._soldier->getName()));
+		addAction(state._btnTransformations, state.tr("STR_SELECT_TRANSFORMATION_FOR").arg(state._soldier->getName()));
+		addAction(state._btnSack, state._btnSack->getText());
+	}
 	for (const auto& text : inspectorRows(state))
 		list->addRow(1, text.c_str());
 	list->scrollTo(0);
@@ -412,12 +435,12 @@ void CalypsoF04SoldierInfoUi::configure(SoldierInfoState& state)
 	}
 	state._hdLayout = true;
 	state._hdWideLayout = f04HdWideLayout();
-	// Adapter-owned inspector list: carries the painted stat rows and owns
-	// scroll position; it binds no click handler and commits nothing.
+	// Profile actions forward to their existing native owners. Stat rows remain read-only.
 	if (!state._hdInspectorList)
 	{
 		state._hdInspectorList = new TextList(8, 8, -4096, -4096);
-		state._hdInspectorList->setSelectable(false);
+		state._hdInspectorList->setSelectable(true);
+		state._hdInspectorList->onMouseClick((ActionHandler)&SoldierInfoState::hdProfileActionClick);
 		state._hdInspectorList->setScrolling(true, 0);
 		state.add(state._hdInspectorList, "list", "soldierInfo");
 	}
