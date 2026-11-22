@@ -375,11 +375,6 @@ void CalypsoF36MarketUi::configure(CalypsoMarketState& state)
 	}
 	if (!state._game || !state._game->getMod() || !state._game->getLanguage())
 		CalypsoHdUiOverlay::instance().failHdRoute("F36 market prerequisites are unavailable");
-	if (!state._game->getMod()->isHdUiFamilyEnabled("F36"))
-	{
-		state._hdLayout = false;
-		return;
-	}
 	state._hdLayout = true;
 
 	state._hdWideLayout = currentLayoutClass() == CalypsoLayoutClass::Wide;
