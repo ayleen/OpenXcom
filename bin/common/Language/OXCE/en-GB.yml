@@ -1,5 +1,11 @@
 en-GB:
   STR_CAL_REPORT_MONTH: "Month"
+  STR_CAL_MEDIA_TITLE: "Cutscene"
+  STR_CAL_MEDIA_PAUSE: "Pause"
+  STR_CAL_MEDIA_RESUME: "Resume"
+  STR_CAL_MEDIA_NEXT: "Next"
+  STR_CAL_MEDIA_SKIP: "Skip"
+  STR_CAL_MEDIA_UNAVAILABLE: "Calypso could not play this cutscene."
 #=================== Basescape ===================
 #BasescapeState.cpp
   STR_CANNOT_DISMANTLE_FACILITY_UPGRADING: "CANNOT DISMANTLE FACILITY!{SMALLLINE}Facility cannot be removed during upgrading."

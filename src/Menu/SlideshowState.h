@@ -35,16 +35,27 @@ class SlideshowState : public State
 private:
 	const SlideshowHeader &_slideshowHeader;
 	const std::vector<SlideshowSlide> *_slideshowSlides;
+#ifndef __EMSCRIPTEN__
 	bool _wasLetterboxed;
+#endif
 	std::vector<InteractiveSurface *> _slides;
 	std::vector<Text *>_captions;
 	int _curScreen;
-	Timer *_transitionTimer;
+	Timer *_transitionTimer = nullptr;
+#ifdef __EMSCRIPTEN__
+	bool _opened = false, _closed = false;
+	std::string _ownedMusic;
+	void showHdSlide();
+#endif
 public:
 	/// Creates the Slideshow state.
 	SlideshowState(const SlideshowHeader &slideshowHeader, const std::vector<SlideshowSlide> *slideshowRule);
 	/// Cleans up the Slideshow state.
 	~SlideshowState();
+#ifdef __EMSCRIPTEN__
+	void init() override;
+	void mediaAction(int action);
+#endif
 	/// Handle timers.
 	void think() override;
 	/// Handler for waiting the screen.
