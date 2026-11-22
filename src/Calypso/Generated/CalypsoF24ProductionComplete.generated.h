@@ -4,51 +4,302 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF24ProductionCompleteGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kFormId = "f24-production-complete";
 inline constexpr int kFamilyId = 24;
-inline constexpr const char* kArchetype = "small-confirmation";
-inline constexpr const char* kSourceConfig = "FormConfigs/f24-production-complete.json";
+inline constexpr const char* kArchetype = "operations-workspace";
+inline constexpr const char* kNativeState = "ProductionCompleteState";
+inline constexpr const char* kVisualShell = "base-operations";
+inline constexpr const char* kHeaderArt = "logistics-group";
+inline constexpr const char* kSharedChromeId = "base-command-shell";
+inline constexpr const char* kSharedChromeVersion = "hd.2026-09-07.1";
 
-inline constexpr const char* kDensityProfile = "standard";
-inline constexpr int kPresentationScaleNumerator = 1;
-inline constexpr int kPresentationScaleDenominator = 1;
-inline constexpr float kPresentationScale = 1.000000f;
-
-struct CalypsoF24ProductionCompleteGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
-inline constexpr CalypsoF24ProductionCompleteGenButton kButtons[] = {
-    { "ok", "OK", "safe", "ok", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
-    { "goto", "GO TO BASE", "primary", "goto", 0x74FFB0FFu, 0x74FFB0FFu, 0x071013FFu },
-    { "summary", "SUMMARY", "safe", "summary", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
-};
-inline constexpr int kButtonCount = 3;
-
-inline constexpr float kCutCornerPx = 14.000000f;
-inline constexpr float kProtocolTextInsetPx = 26.000000f;
-inline constexpr std::uint32_t kPanelFillTop = 0x08191DEBu;
-inline constexpr std::uint32_t kPanelFillBottom = 0x041014E8u;
-inline constexpr std::uint32_t kFrame = 0x74FFB073u;
-inline constexpr std::uint32_t kProtocolText = 0xA9D8C7FFu;
-inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
-inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
-inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
-inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
-
+/// One design-space rectangle (design px).
 struct CalypsoF24ProductionCompleteGenRect { int x; int y; int w; int h; };
-struct CalypsoF24ProductionCompleteGenLayout { int designWidth; int designHeight; CalypsoF24ProductionCompleteGenRect window; CalypsoF24ProductionCompleteGenRect status; CalypsoF24ProductionCompleteGenRect warning; CalypsoF24ProductionCompleteGenRect title; CalypsoF24ProductionCompleteGenRect message; CalypsoF24ProductionCompleteGenRect footer;
+
+/// Generated policy for an operations toolbar chooser.
+struct CalypsoF24ProductionCompleteGenToolbarChooser
+{
+	int optionRowHeight;
+	int optionInsetX;
+	int optionInsetY;
+	int maxOptions;
+	int minPanelWidth;
+	CalypsoF24ProductionCompleteGenRect bounds;
 };
-inline constexpr CalypsoF24ProductionCompleteGenLayout kLayouts[] = {
-    { 1280, 720, { 361, 230, 558, 236 }, { 361, 230, 558, 38 }, { 393, 290, 32, 32 }, { 441, 284, 446, 44 }, { 393, 336, 494, 54 }, { 361, 404, 558, 62 } }, // wide
-    { 740, 360, { 108, 60, 524, 221 }, { 108, 60, 524, 34 }, { 136, 111, 28, 28 }, { 178, 106, 426, 38 }, { 136, 150, 468, 48 }, { 108, 215, 524, 66 } }, // compact
+
+/// The complete f24-production-complete.json layout for one class.
+struct CalypsoF24ProductionCompleteGenLayout
+{
+	int designWidth;
+	int designHeight;
+	CalypsoF24ProductionCompleteGenRect window;
+	CalypsoF24ProductionCompleteGenRect screenHeader;
+	CalypsoF24ProductionCompleteGenRect headerArt;
+	CalypsoF24ProductionCompleteGenRect title;
+	CalypsoF24ProductionCompleteGenRect summaryBar;
+	CalypsoF24ProductionCompleteGenRect toolbarBar;
+	CalypsoF24ProductionCompleteGenRect collectionViewport;
+	CalypsoF24ProductionCompleteGenRect footer;
+	CalypsoF24ProductionCompleteGenRect summary_base;
+	CalypsoF24ProductionCompleteGenRect summary_funds;
+	CalypsoF24ProductionCompleteGenRect tab_workspace_a;
+	CalypsoF24ProductionCompleteGenRect tab_workspace_b;
+	CalypsoF24ProductionCompleteGenRect toolbar_summary;
+	CalypsoF24ProductionCompleteGenRect collection_scroll_track;
+	CalypsoF24ProductionCompleteGenRect collection_scroll_thumb;
+	CalypsoF24ProductionCompleteGenRect collection_column_item;
+	CalypsoF24ProductionCompleteGenRect collection_column_quantity;
+	CalypsoF24ProductionCompleteGenRect collection_row_slot_1;
+	CalypsoF24ProductionCompleteGenRect collection_row_slot_2;
+	CalypsoF24ProductionCompleteGenRect action_base;
+	CalypsoF24ProductionCompleteGenRect action_done;
+	CalypsoF24ProductionCompleteGenToolbarChooser toolbarChooser;
 };
-struct CalypsoF24ProductionCompleteGenButtonRect { const char* id; CalypsoF24ProductionCompleteGenRect rect; };
-inline constexpr CalypsoF24ProductionCompleteGenButtonRect kButtonRects[][ 3 ] = {
-    { { "ok", { 393, 413, 158, 44 } }, { "goto", { 561, 413, 158, 44 } }, { "summary", { 729, 413, 158, 44 } } }, // wide
-    { { "ok", { 136, 225, 148, 44 } }, { "goto", { 296, 225, 148, 44 } }, { "summary", { 456, 225, 148, 44 } } }, // compact
+
+inline constexpr CalypsoF24ProductionCompleteGenLayout kLayouts[] =
+{
+	// wide
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 360, 78 }, { 130, 119, 480, 36 }, { 1000, 96, 256, 78 }, { 112, 190, 816, 44 }, { 112, 234, 1144, 412 }, { 112, 658, 1144, 44 }, { 1000, 96, 127, 78 }, { 1128, 96, 128, 78 }, { 92, 158, 414, 44 }, { 514, 158, 414, 44 }, { 738, 190, 190, 44 }, { 1238, 270, 18, 308 }, { 1238, 270, 18, 308 }, { 112, 234, 793, 36 }, { 906, 234, 296, 36 }, { 112, 270, 1090, 44 }, { 112, 314, 1090, 44 }, { 112, 658, 158, 44 }, { 1098, 658, 158, 44 }, { 44, 8, 0, 5, 240, { 112, 234, 1144, 412 } } },
+	// compact
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 420, 48, 100, 52 }, { 60, 61, 350, 26 }, { 520, 48, 212, 52 }, { 52, 108, 466, 44 }, { 52, 152, 680, 152 }, { 52, 312, 680, 44 }, { 520, 48, 105, 52 }, { 626, 48, 106, 52 }, { 52, 102, 230, 44 }, { 288, 102, 230, 44 }, { 414, 108, 104, 44 }, { 714, 180, 18, 88 }, { 714, 180, 18, 88 }, { 52, 152, 447, 28 }, { 500, 152, 180, 28 }, { 52, 180, 628, 44 }, { 52, 224, 628, 44 }, { 52, 312, 120, 44 }, { 612, 312, 120, 44 }, { 44, 8, 0, 5, 240, { 52, 52, 680, 260 } } },
 };
 inline constexpr int kLayoutCount = 2;
-inline constexpr int kMotionDurationMs = 200;
-inline constexpr float kMotionScaleFrom = 0.960000f;
+
+inline constexpr const char* kSourceConfig = "FormConfigs/f24-production-complete.json";
+inline constexpr const char* kPresentationProfile = "table-context";
+inline constexpr const char* kProvenanceTemplate = "FormTemplates/operations-workspace.json";
+inline constexpr int kProvenanceTemplateVersion = 4;
+inline constexpr const char* kProvenanceGeneratorKind = "operations";
+inline constexpr const char* kProfileId = "operations-ac";
+inline constexpr const char* kProfileVersion = "hd.2026-09-10.1";
+inline constexpr const char* kProfileThemeSource = "CommandCenter/CommandCenterTheme.h";
+inline constexpr const char* kProfileThemeSourceHash = "8c4eb7f074fe2868aac3d0835b324d42f4d57ca727dcea7ab1e16220c19e53b2";
+
+struct CalypsoF24ProductionCompleteGenActionTone
+{
+	const char* id;
+	std::uint32_t fill;
+	std::uint32_t border;
+	std::uint32_t text;
+};
+inline constexpr CalypsoF24ProductionCompleteGenActionTone kActionTones[] = {
+    { "normal", 0x071624FFu, 0x173246FFu, 0xE7F0F3FFu },
+    { "safe", 0x071624FFu, 0x285267FFu, 0xE7F0F3FFu },
+    { "primary", 0x81E0B5FFu, 0x81E0B5FFu, 0x03130DFFu },
+    { "warning", 0xF2C56DFFu, 0xF2C56DFFu, 0x03130DFFu },
+    { "danger", 0x071624FFu, 0xFF6E72FFu, 0xFF6E72FFu },
+};
+inline constexpr int kActionToneCount = 5;
+
+struct CalypsoF24ProductionCompleteGenProfileStyle
+{
+	std::uint32_t background;
+	std::uint32_t panel;
+	std::uint32_t panelRaised;
+	std::uint32_t hover;
+	std::uint32_t selected;
+	std::uint32_t border;
+	std::uint32_t borderStrong;
+	std::uint32_t accent;
+	std::uint32_t text;
+	std::uint32_t secondary;
+	std::uint32_t disabled;
+	std::uint32_t onAccent;
+	std::uint32_t warning;
+	std::uint32_t danger;
+	float cornerRadiusPx;
+	float cutCornerPx;
+};
+inline constexpr CalypsoF24ProductionCompleteGenProfileStyle kProfileStyle = {
+	0x02060EFFu,
+	0x071624FFu,
+	0x0A1C2DFFu,
+	0x0C2232FFu,
+	0x0D2931FFu,
+	0x173246FFu,
+	0x285267FFu,
+	0x81E0B5FFu,
+	0xE7F0F3FFu,
+	0xA8BBC4FFu,
+	0x455966FFu,
+	0x03130DFFu,
+	0xF2C56DFFu,
+	0xFF6E72FFu,
+	12.0f,
+	14.0f,
+};
+
+struct CalypsoF24ProductionCompleteGenTypography
+{
+	int title;
+	int detailTitle;
+	int body;
+	int label;
+	int data;
+	int input;
+	int action;
+};
+inline constexpr CalypsoF24ProductionCompleteGenTypography kTypographyWide = {
+	28, 18, 14, 12, 15, 14, 14
+};
+inline constexpr CalypsoF24ProductionCompleteGenTypography kTypographyCompact = {
+	18, 16, 12, 12, 13, 12, 12
+};
+
+struct CalypsoF24ProductionCompleteGenColumnRole
+{
+	const char* id;
+	int weight;
+	int minWidth;
+	const char* font;
+	const char* align;
+};
+inline constexpr CalypsoF24ProductionCompleteGenColumnRole kColumnRoles[] = {
+    { "category", 3, 72, "body", "left" },
+    { "count", 1, 64, "data", "right" },
+    { "date", 2, 72, "data", "right" },
+    { "money", 2, 72, "data", "right" },
+    { "name", 6, 96, "body", "left" },
+    { "quantity", 2, 64, "data", "right" },
+    { "status", 2, 64, "body", "left" },
+    { "time", 2, 64, "data", "right" },
+    { "type", 1, 64, "data", "right" },
+};
+inline constexpr int kColumnRoleCount = 9;
+
+struct CalypsoF24ProductionCompleteGenCollectionCell
+{
+	const char* id;
+	CalypsoF24ProductionCompleteGenRect rect;
+	const char* contentRole;
+	const char* font;
+	const char* align;
+	int minWidth;
+	int weight;
+};
+struct CalypsoF24ProductionCompleteGenCollectionRowSlot
+{
+	const char* id;
+	CalypsoF24ProductionCompleteGenRect rect;
+	const CalypsoF24ProductionCompleteGenCollectionCell* cells;
+	int cellCount;
+};
+struct CalypsoF24ProductionCompleteGenCollectionMetrics
+{
+	int totalItems;
+	int visibleCapacity;
+	int totalUnits;
+	int visibleUnits;
+	int itemsPerUnit;
+	const char* scrollUnit;
+	bool overflow;
+	int scrollSteps;
+	CalypsoF24ProductionCompleteGenRect track;
+	CalypsoF24ProductionCompleteGenRect thumb;
+	CalypsoF24ProductionCompleteGenRect trackHitTarget;
+	CalypsoF24ProductionCompleteGenRect thumbHitTarget;
+	int thumbTravelPx;
+};
+struct CalypsoF24ProductionCompleteGenCollectionLayout
+{
+	const char* id;
+	const CalypsoF24ProductionCompleteGenCollectionCell* columns;
+	int columnCount;
+	const CalypsoF24ProductionCompleteGenCollectionRowSlot* rowSlots;
+	int rowSlotCount;
+	int count;
+	CalypsoF24ProductionCompleteGenRect rowActionArea;
+	CalypsoF24ProductionCompleteGenCollectionMetrics metrics;
+};
+
+inline constexpr CalypsoF24ProductionCompleteGenCollectionCell kCollectionColumnHeadersWide[] = {
+    { "item", { 112, 234, 793, 36 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 906, 234, 296, 36 }, "quantity", "data", "right", 64, 2 },
+};
+inline constexpr CalypsoF24ProductionCompleteGenCollectionCell kCollectionRowSlot1CellsWide[] = {
+    { "item", { 112, 270, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 906, 270, 296, 44 }, "quantity", "data", "right", 64, 2 },
+};
+inline constexpr CalypsoF24ProductionCompleteGenCollectionCell kCollectionRowSlot2CellsWide[] = {
+    { "item", { 112, 314, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 906, 314, 296, 44 }, "quantity", "data", "right", 64, 2 },
+};
+inline constexpr CalypsoF24ProductionCompleteGenCollectionCell kCollectionRowSlot3CellsWide[] = {
+    { "item", { 112, 358, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 906, 358, 296, 44 }, "quantity", "data", "right", 64, 2 },
+};
+inline constexpr CalypsoF24ProductionCompleteGenCollectionCell kCollectionRowSlot4CellsWide[] = {
+    { "item", { 112, 402, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 906, 402, 296, 44 }, "quantity", "data", "right", 64, 2 },
+};
+inline constexpr CalypsoF24ProductionCompleteGenCollectionCell kCollectionRowSlot5CellsWide[] = {
+    { "item", { 112, 446, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 906, 446, 296, 44 }, "quantity", "data", "right", 64, 2 },
+};
+inline constexpr CalypsoF24ProductionCompleteGenCollectionCell kCollectionRowSlot6CellsWide[] = {
+    { "item", { 112, 490, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 906, 490, 296, 44 }, "quantity", "data", "right", 64, 2 },
+};
+inline constexpr CalypsoF24ProductionCompleteGenCollectionCell kCollectionRowSlot7CellsWide[] = {
+    { "item", { 112, 534, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 906, 534, 296, 44 }, "quantity", "data", "right", 64, 2 },
+};
+inline constexpr CalypsoF24ProductionCompleteGenCollectionRowSlot kCollectionRowSlotsWide[] = {
+    { "row-slot-1", { 112, 270, 1090, 44 }, kCollectionRowSlot1CellsWide, 2 },
+    { "row-slot-2", { 112, 314, 1090, 44 }, kCollectionRowSlot2CellsWide, 2 },
+    { "row-slot-3", { 112, 358, 1090, 44 }, kCollectionRowSlot3CellsWide, 2 },
+    { "row-slot-4", { 112, 402, 1090, 44 }, kCollectionRowSlot4CellsWide, 2 },
+    { "row-slot-5", { 112, 446, 1090, 44 }, kCollectionRowSlot5CellsWide, 2 },
+    { "row-slot-6", { 112, 490, 1090, 44 }, kCollectionRowSlot6CellsWide, 2 },
+    { "row-slot-7", { 112, 534, 1090, 44 }, kCollectionRowSlot7CellsWide, 2 },
+};
+inline constexpr int kCollectionRowSlotWideCount = 7;
+inline constexpr CalypsoF24ProductionCompleteGenCollectionMetrics kCollectionMetricsWide = { 2, 7, 2, 7, 1, "record", false, 0, { 1238, 270, 18, 308 }, { 1238, 270, 18, 308 }, { 1212, 270, 44, 308 }, { 1212, 270, 44, 308 }, 0 };
+
+inline constexpr CalypsoF24ProductionCompleteGenCollectionCell kCollectionColumnHeadersCompact[] = {
+    { "item", { 52, 152, 447, 28 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 500, 152, 180, 28 }, "quantity", "data", "right", 64, 2 },
+};
+inline constexpr CalypsoF24ProductionCompleteGenCollectionCell kCollectionRowSlot1CellsCompact[] = {
+    { "item", { 52, 180, 447, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 500, 180, 180, 44 }, "quantity", "data", "right", 64, 2 },
+};
+inline constexpr CalypsoF24ProductionCompleteGenCollectionCell kCollectionRowSlot2CellsCompact[] = {
+    { "item", { 52, 224, 447, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 500, 224, 180, 44 }, "quantity", "data", "right", 64, 2 },
+};
+inline constexpr CalypsoF24ProductionCompleteGenCollectionRowSlot kCollectionRowSlotsCompact[] = {
+    { "row-slot-1", { 52, 180, 628, 44 }, kCollectionRowSlot1CellsCompact, 2 },
+    { "row-slot-2", { 52, 224, 628, 44 }, kCollectionRowSlot2CellsCompact, 2 },
+};
+inline constexpr int kCollectionRowSlotCompactCount = 2;
+inline constexpr CalypsoF24ProductionCompleteGenCollectionMetrics kCollectionMetricsCompact = { 2, 2, 2, 2, 1, "record", false, 0, { 714, 180, 18, 88 }, { 714, 180, 18, 88 }, { 688, 180, 44, 88 }, { 688, 180, 44, 88 }, 0 };
+
+inline constexpr CalypsoF24ProductionCompleteGenCollectionLayout kCollectionsWide[1] = {
+    { "collection", kCollectionColumnHeadersWide, 2, kCollectionRowSlotsWide, 7, 2, { 0, 0, 0, 0 }, kCollectionMetricsWide },
+};
+inline constexpr int kCollectionLayoutWideCount = 1;
+inline constexpr CalypsoF24ProductionCompleteGenCollectionLayout kCollectionsCompact[1] = {
+    { "collection", kCollectionColumnHeadersCompact, 2, kCollectionRowSlotsCompact, 2, 2, { 0, 0, 0, 0 }, kCollectionMetricsCompact },
+};
+inline constexpr int kCollectionLayoutCompactCount = 1;
+
+struct CalypsoF24ProductionCompleteGenActionSlot { const char* id; CalypsoF24ProductionCompleteGenRect rect; };
+struct CalypsoF24ProductionCompleteGenStrictActionSlotGroup
+{
+	const char* id;
+	const CalypsoF24ProductionCompleteGenActionSlot* slots;
+	int slotCount;
+};
+inline constexpr CalypsoF24ProductionCompleteGenStrictActionSlotGroup kStrictActionSlotGroupsWide[1] = {
+};
+inline constexpr int kStrictActionSlotGroupWideCount = 0;
+inline constexpr CalypsoF24ProductionCompleteGenStrictActionSlotGroup kStrictActionSlotGroupsCompact[1] = {
+};
+inline constexpr int kStrictActionSlotGroupCompactCount = 0;
+
+/// Layout for a design canvas, or nullptr (the harness never guesses).
 inline const CalypsoF24ProductionCompleteGenLayout* layoutForDesign(int dw, int dh)
 {
 	for (int i = 0; i < kLayoutCount; ++i)
@@ -56,4 +307,9 @@ inline const CalypsoF24ProductionCompleteGenLayout* layoutForDesign(int dw, int 
 			return &kLayouts[i];
 	return nullptr;
 }
+
+// Opening motion (capture mode deterministic).
+inline constexpr int kMotionDurationMs = 200;
+inline constexpr float kMotionScaleFrom = 0.960000f;
+inline constexpr bool kMotionDisabledInCapture = true;
 } } }

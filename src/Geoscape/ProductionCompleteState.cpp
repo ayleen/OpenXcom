@@ -34,7 +34,7 @@
 #include "../Savegame/ItemContainer.h"
 #include "../Savegame/SavedGame.h"
 #ifdef __EMSCRIPTEN__
-#include "../Calypso/CalypsoF24ProductionCompleteUi.h"
+#include "../Calypso/CalypsoBaseLedger.h"
 #endif
 
 namespace OpenXcom
@@ -51,10 +51,13 @@ namespace OpenXcom
  */
 ProductionCompleteState::ProductionCompleteState(Base *base, const std::string &item, GeoscapeState *state, productionProgress_e endType, Production *production) : _base(base), _state(state), _endType(endType)
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_window = new Window(this, 256, 160, 32, 20);
+#else
 	_screen = false;
-
-	// Create objects
 	_window = new Window(this, 256, 160, 32, 20, POPUP_BOTH);
+#endif
 	_btnOk = new TextButton(118, 18, 40, 154);
 	_btnGotoBase = new TextButton(118, 18, 162, 154);
 	_btnSummary = new TextButton(118, 18, 162, 154);
@@ -76,15 +79,6 @@ ProductionCompleteState::ProductionCompleteState(Base *base, const std::string &
 	add(_lstSummary, "list", "geoManufactureComplete");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF24ProductionCompleteUi::configure(*this);
-#endif
-
 	// Set up objects
 	setWindowBackground(_window, "geoManufactureComplete");
 
@@ -162,6 +156,13 @@ ProductionCompleteState::ProductionCompleteState(Base *base, const std::string &
 		assert(false);
 	}
 	_txtMessage->setText(s);
+#ifdef __EMSCRIPTEN__
+	_noticeRows = new TextList(224, 96, 39, 45);
+	add(_noticeRows, "list", "geoManufactureComplete");
+	_noticeRows->setColumns(2, 80, 140);
+	_noticeRows->setSelectable(true);
+	_ledger = new Calypso::CalypsoBaseLedger(*this);
+#endif
 }
 
 /**
@@ -170,8 +171,7 @@ ProductionCompleteState::ProductionCompleteState(Base *base, const std::string &
 ProductionCompleteState::~ProductionCompleteState()
 {
 #ifdef __EMSCRIPTEN__
-	delete _hdAdapter;
-	_hdAdapter = nullptr;
+	delete _ledger;
 #endif
 
 }
@@ -216,6 +216,10 @@ void ProductionCompleteState::btnSummaryClick(Action *)
 	_txtItem->setVisible(true);
 	_txtQuantity->setVisible(true);
 	_lstSummary->setVisible(true);
+#ifdef __EMSCRIPTEN__
+	_noticeRows->setVisible(false);
+	_ledger->refresh();
+#endif
 }
 
 /**
@@ -272,8 +276,8 @@ void ProductionCompleteState::lstSummaryClick(Action *)
 namespace OpenXcom {
 void ProductionCompleteState::resize(int &dX, int &dY)
 {
-	if (Calypso::CalypsoF24ProductionCompleteUi::resize(*this)) return;
-	State::resize(dX, dY);
+	if (_ledger) _ledger->refresh();
+	else State::resize(dX, dY);
 }
 }
 #endif

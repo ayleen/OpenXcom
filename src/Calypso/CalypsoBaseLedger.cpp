@@ -35,6 +35,9 @@
 #include "../Basescape/StoresState.h"
 #include "../Basescape/TransfersState.h"
 #include "../Geoscape/ItemsArrivingState.h"
+#include "../Geoscape/ProductionCompleteState.h"
+#include "CalypsoReportLines.h"
+#include "Generated/CalypsoF24ProductionComplete.generated.h"
 #include "Generated/CalypsoF24ItemsArriving.generated.h"
 #include "Generated/CalypsoF24Unlocks.generated.h"
 #include "../Basescape/ItemLocationsState.h"
@@ -719,6 +722,46 @@ CalypsoBaseLedger::CalypsoBaseLedger(ItemsArrivingState &s)
 	};
 	open();
 }
+CalypsoBaseLedger::CalypsoBaseLedger(ProductionCompleteState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]() {
+		namespace Gen = CalypsoF24ProductionCompleteGen;
+		const bool wide = wideLayout();
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		const auto &type = wide ? Gen::kTypographyWide : Gen::kTypographyCompact;
+		const bool summary = s._lstSummary->getVisible();
+		const int width = table.columns[1].rect.w;
+		if (!summary && (s._noticeWidth != width || s._noticeFont != type.body))
+		{
+			s._noticeRows->clearList();
+			calypsoAppendReportText(*s._noticeRows, *getCurrentGame()->getMod(), s.tr("STR_CAL_RESULT"),
+				s._txtMessage->getText(), width, type.body);
+			s._noticeWidth = width;
+			s._noticeFont = type.body;
+		}
+		auto model = ledgerModel(s, s.tr(summary ? "STR_RANDOM_PRODUCTION_SUMMARY" : "STR_PRODUCTION_OVERVIEW"),
+			*(summary ? s._lstSummary : s._noticeRows), s._base, g, table, Gen::kProfileStyle, type,
+			{{"base", s.tr("STR_BASE"), s._base->getName(), design(g.summary_base)},
+			 {"funds", s.tr("STR_CAL_FUNDS"), Unicode::formatFunding(getCurrentGame()->getSavedGame()->getFunds()), design(g.summary_funds)}},
+			{{s.tr(summary ? "STR_ITEM" : "STR_TYPE")}, {s.tr(summary ? "STR_QUANTITY_UC" : "STR_VALUE")}},
+			{{"summary", s._btnSummary, s._btnSummary->getText(), design(g.toolbar_summary), false, true},
+			 {"base", s._btnGotoBase, s._btnGotoBase->getText(), design(g.action_base)},
+			 {"done", s._btnOk, s._btnOk->getText(), design(g.action_done)}},
+			"STR_CAL_NO_RECORDS", "STR_RANDOM_PRODUCTION_SUMMARY", 24);
+		model.sectionLabel = s.tr("STR_PRODUCTION_OVERVIEW");
+		model.headerArtId = Gen::kHeaderArt;
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+
 void calypsoAddUnlockRow(State &state, TextList &list, const std::string &label,
 	RuleBaseFacilityFunctions required)
 {

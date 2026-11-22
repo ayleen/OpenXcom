@@ -1123,6 +1123,25 @@
         178,
         179
       ]
+    },
+    {
+      "id": "f24-production-complete",
+      "contract": "f24-production-complete.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {
+        "namespace": "CalypsoF24ProductionCompleteGen",
+        "prefix": "CalypsoF24ProductionComplete",
+        "output": "CalypsoF24ProductionComplete.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF24ProductionComplete",
+        "output": "f24-production-complete.js"
+      },
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [
+        77
+      ]
     }
   ]
 }

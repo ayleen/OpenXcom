@@ -1694,7 +1694,17 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	case CalypsoHarnessScenario::F30NoExperience:
 		return new NoExperienceState();
 	case CalypsoHarnessScenario::F24ProductionComplete:
-		return new CraftErrorState(nullptr, "Manufacturing project completed.");
+		{
+			auto *game = getCurrentGame();
+			if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+			auto *rule = firstManufactureRule(game->getMod());
+			if (!rule) return nullptr;
+			auto *globe = new GeoscapeState();
+			game->pushState(globe);
+			calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+			return new ProductionCompleteState(game->getSavedGame()->getBases()->front(),
+				game->getLanguage()->getString(rule->getName()), globe);
+		}
 	case CalypsoHarnessScenario::F05SoldierTransform:
 		return new CraftErrorState(nullptr, "Soldier transformation is now available.");
 	case CalypsoHarnessScenario::F06SoldierMemorial:

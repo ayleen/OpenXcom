@@ -19,6 +19,7 @@ class MultipleTargetsState;
 class StoresState;
 class TransfersState;
 class ItemsArrivingState;
+class ProductionCompleteState;
 class Base;
 class TextList;
 class Text;
@@ -47,6 +48,7 @@ public:
 	explicit CalypsoBaseLedger(TransfersState &state);
 	explicit CalypsoBaseLedger(ItemLocationsState &state);
 	explicit CalypsoBaseLedger(ItemsArrivingState &state);
+	explicit CalypsoBaseLedger(ProductionCompleteState &state);
 	CalypsoBaseLedger(State &state, Base *base, Text &title, TextList &possibilities,
 		TextButton &openDestination, TextButton &ok);
 	void refresh();
