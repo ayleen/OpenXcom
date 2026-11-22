@@ -59,7 +59,13 @@ BaseNameState::BaseNameState(Base *base, Globe *globe, bool first, bool fixedLoc
 	_screen = false;
 
 	// Create objects
-	_window = new Window(this, 192, 80, 32, 60, POPUP_BOTH);
+	_window = new Window(this, 192, 80, 32, 60,
+#ifdef __EMSCRIPTEN__
+		POPUP_NONE
+#else
+		POPUP_BOTH
+#endif
+	);
 	_btnCancel = new TextButton(76, 12, 42, 118);
 	_btnOk = new TextButton(76, 12, 122, 118);
 	_txtTitle = new Text(182, 17, 37, 70);

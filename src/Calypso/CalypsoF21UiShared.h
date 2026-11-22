@@ -30,6 +30,8 @@
 #include <algorithm>
 #include <cstdint>
 
+#include "../Engine/Game.h"
+#include "../Engine/Language.h"
 #include "../Engine/Options.h"
 #include "../Engine/Surface.h"
 #include "../Interface/TextButton.h"
@@ -52,6 +54,14 @@ namespace Calypso
 {
 
 constexpr std::uint32_t kF21FamilyId = 21;
+
+inline void requireF21Presentation(Game *game, bool allowPhysicalOverlay)
+{
+	if (!allowPhysicalOverlay || !game || !game->getMod() || !game->getLanguage())
+		CalypsoHdUiOverlay::instance().failHdRoute("Base lifecycle presentation unavailable");
+	if (game->getLanguage()->getTextDirection() == DIRECTION_RTL)
+		CalypsoHdUiOverlay::instance().failHdRoute("Base lifecycle text direction is unsupported");
+}
 
 // --- F33 command-card visual language (Phase 46.F21 beautify pass) ---------
 // The approved F33 kit, re-expressed through the shared theme tokens: the

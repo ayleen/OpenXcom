@@ -148,6 +148,8 @@ State* calypsoF21HarnessCreateTarget(CalypsoHarnessScenario id)
 	{
 		const CalypsoF21Fixture f = calypsoF21HarnessFixture();
 		if (!f.base) return nullptr;
+		// The map preview uses the same physical globe pass as the campaign.
+		f.globe->setGpuDirect(true);
 		// Additional-base variant: the Cancel action is visible.
 		return new BuildNewBaseState(f.base, f.globe, false);
 	}
