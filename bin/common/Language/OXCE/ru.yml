@@ -705,3 +705,7 @@ ru:
   STR_CAL_ARCHIVE_TOPICS: "Статьи"
   STR_CAL_ARCHIVE_NEW: "Новые"
   STR_CAL_ARCHIVE_SEEN: "Прочитано всё"
+  STR_CAL_ARTICLE_PREVIOUS: "Назад"
+  STR_CAL_ARTICLE_NEXT: "Далее"
+  STR_CAL_ARTICLE_PAGE: "Страница"
+  STR_CAL_ARTICLE_RELATED: "Связанные статьи"

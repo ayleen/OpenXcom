@@ -124,6 +124,10 @@
 #include "../Geoscape/ItemsArrivingState.h"
 #include "../Geoscape/GeoscapeEventState.h"
 #include "../Ufopaedia/UfopaediaStartState.h"
+#include "../Ufopaedia/ArticleStateText.h"
+#include "../Ufopaedia/StatsForNerdsState.h"
+#include "../Ufopaedia/ArticleStateTFTD.h"
+#include "../Mod/ArticleDefinition.h"
 #include "../Ufopaedia/UfopaediaSelectState.h"
 #include "../Mod/RuleEvent.h"
 #include "../Geoscape/ResearchRequiredState.h"
@@ -2081,6 +2085,39 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 			}
 		}
 		return nullptr;
+	}
+	case CalypsoHarnessScenario::F32AdvancedStats:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		for (const auto &key : game->getMod()->getUfopaediaList())
+		{
+			auto *article = game->getMod()->getUfopaediaArticle(key, true);
+			if (article->getType() == UFOPAEDIA_TYPE_TFTD_CRAFT && Ufopaedia::isArticleAvailable(game->getSavedGame(), article))
+				return new StatsForNerdsState(article->getType(), key, false, false, false);
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F32TextArticle:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		auto common = std::make_shared<ArticleCommonState>();
+		for (const auto &key : game->getMod()->getUfopaediaList())
+		{
+			auto *article = game->getMod()->getUfopaediaArticle(key, true);
+			if (!Ufopaedia::isArticleAvailable(game->getSavedGame(), article)) continue;
+			if ((article->getType() == UFOPAEDIA_TYPE_TEXT || article->getType() == UFOPAEDIA_TYPE_TFTD)
+				&& common->current_index == ArticleCommonState::invalid)
+				common->current_index = common->articleList.size();
+			common->articleList.push_back(article);
+			common->articleStatusList.push_back(game->getSavedGame()->getUfopediaRuleStatus(article->id) == ArticleDefinition::PEDIA_STATUS_HIDDEN);
+		}
+		if (common->current_index == ArticleCommonState::invalid) return nullptr;
+		auto *article = common->getCurrentArticle();
+		if (article->getType() == UFOPAEDIA_TYPE_TEXT)
+			return new ArticleStateText(static_cast<ArticleDefinitionText *>(article), common);
+		return new ArticleStateTFTD(static_cast<ArticleDefinitionTFTD *>(article), common);
 	}
 	case CalypsoHarnessScenario::F31ArchiveSections:
 	case CalypsoHarnessScenario::F31ArchiveTopics:

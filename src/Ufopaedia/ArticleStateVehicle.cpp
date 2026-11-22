@@ -68,6 +68,7 @@ namespace OpenXcom
 		add(_lstStats);
 
 		// Set up objects
+#ifndef __EMSCRIPTEN__
 		if (!defs->image_id.empty())
 		{
 			_game->getMod()->getSurface(defs->image_id)->blitNShade(_bg, 0, 0);
@@ -76,6 +77,7 @@ namespace OpenXcom
 		{
 			_game->getMod()->getSurface("BACK10.SCR")->blitNShade(_bg, 0, 0);
 		}
+#endif
 		_btnOk->setColor(Palette::blockOffset(5));
 		_btnPrev->setColor(Palette::blockOffset(5));
 		_btnNext->setColor(Palette::blockOffset(5));
@@ -92,7 +94,9 @@ namespace OpenXcom
 
 		_lstStats->setColor(Palette::blockOffset(15)+4);
 		_lstStats->setColumns(2, 175, 145);
+#ifndef __EMSCRIPTEN__
 		_lstStats->setDot(true);
+#endif
 
 		std::ostringstream ss;
 		ss << unit->getStats()->tu;
@@ -155,6 +159,9 @@ namespace OpenXcom
 			_lstStats->addRow(2, tr("STR_WEAPON_POWER").c_str(), ss8.str().c_str());
 		}
 		centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+		openHdReader(*_txtTitle, *_txtInfo, {}, {_lstStats}, articleIllustration(defs->image_id));
+#endif
 	}
 
 	ArticleStateVehicle::~ArticleStateVehicle()

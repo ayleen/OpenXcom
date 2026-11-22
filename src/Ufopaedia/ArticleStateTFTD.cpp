@@ -122,39 +122,43 @@ namespace OpenXcom
 
 		ArticleState::initLayout();
 
-		// Step 1: background image
-		auto& bgImageName = ruleInterface->getBackgroundImage(_game->getMod(), _game->getSavedGame());
-		if (!defs->customPalette)
+#ifndef __EMSCRIPTEN__
 		{
-			_game->getMod()->getSurface(bgImageName)->blitNShade(_bg, 0, 0);
-		}
-
-		// Step 2: article image (optional)
-		Surface *image = _game->getMod()->getSurface(defs->image_id, false);
-		if (image)
-		{
-			image->blitNShade(_bg, 0, 0);
-		}
-
-		// Step 3: info button image
-		Surface *button = _game->getMod()->getSurface(bgImageName + "-InfoButton", false);
-		if (!defs->customPalette && button && _game->getMod()->getShowPediaInfoButton())
-		{
-			switch (defs->getType())
+			// Step 1: background image
+			auto& bgImageName = ruleInterface->getBackgroundImage(_game->getMod(), _game->getSavedGame());
+			if (!defs->customPalette)
 			{
-				case UFOPAEDIA_TYPE_TFTD_ITEM:
-				case UFOPAEDIA_TYPE_TFTD_ARMOR:
-				case UFOPAEDIA_TYPE_TFTD_BASE_FACILITY:
-				case UFOPAEDIA_TYPE_TFTD_CRAFT:
-				case UFOPAEDIA_TYPE_TFTD_CRAFT_WEAPON:
-				case UFOPAEDIA_TYPE_TFTD_USO:
-					button->blitNShade(_bg, 0, 0);
-					break;
-				default:
-					break;
+				_game->getMod()->getSurface(bgImageName)->blitNShade(_bg, 0, 0);
 			}
-		}
 
+			// Step 2: article image (optional)
+			Surface *image = _game->getMod()->getSurface(defs->image_id, false);
+			if (image)
+			{
+				image->blitNShade(_bg, 0, 0);
+			}
+
+			// Step 3: info button image
+			Surface *button = _game->getMod()->getSurface(bgImageName + "-InfoButton", false);
+			if (!defs->customPalette && button && _game->getMod()->getShowPediaInfoButton())
+			{
+				switch (defs->getType())
+				{
+					case UFOPAEDIA_TYPE_TFTD_ITEM:
+					case UFOPAEDIA_TYPE_TFTD_ARMOR:
+					case UFOPAEDIA_TYPE_TFTD_BASE_FACILITY:
+					case UFOPAEDIA_TYPE_TFTD_CRAFT:
+					case UFOPAEDIA_TYPE_TFTD_CRAFT_WEAPON:
+					case UFOPAEDIA_TYPE_TFTD_USO:
+						button->blitNShade(_bg, 0, 0);
+						break;
+					default:
+						break;
+				}
+			}
+
+		}
+#endif
 		_txtInfo = new Text(defs->text_width, 136, 320 - defs->text_width, 34);
 		_txtTitle = new Text(284, 16, 36, 14);
 
@@ -182,11 +186,16 @@ namespace OpenXcom
 			// in the case of a simple image/title/text article,
 			// we're done adding surfaces for now.
 			centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+			openHdReader(*_txtTitle, *_txtInfo, {}, {}, articleIllustration(defs->image_id));
+#endif
 		}
 
 	}
 
 	ArticleStateTFTD::~ArticleStateTFTD()
 	{}
+
+
 
 }

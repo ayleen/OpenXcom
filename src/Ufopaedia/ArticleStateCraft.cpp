@@ -56,7 +56,9 @@ namespace OpenXcom
 		add(_txtTitle);
 
 		// Set up objects
+#ifndef __EMSCRIPTEN__
 		_game->getMod()->getSurface(defs->image_id)->blitNShade(_bg, 0, 0);
+#endif
 		_btnOk->setColor(Palette::blockOffset(15)-1);
 		_btnPrev->setColor(Palette::blockOffset(15)-1);
 		_btnNext->setColor(Palette::blockOffset(15)-1);
@@ -163,6 +165,9 @@ namespace OpenXcom
 		_txtStats->setText(ss.str());
 
 		centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+		openHdReader(*_txtTitle, *_txtInfo, {_txtStats}, {}, articleIllustration(defs->image_id));
+#endif
 	}
 
 	ArticleStateCraft::~ArticleStateCraft()

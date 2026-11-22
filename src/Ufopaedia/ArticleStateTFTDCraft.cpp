@@ -23,6 +23,10 @@
 #include "ArticleStateTFTD.h"
 #include "ArticleStateTFTDCraft.h"
 #include "../Engine/Game.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseVisualCatalog.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
 #include "../Engine/LocalizedText.h"
 #include "../Interface/TextButton.h"
 #include "../Engine/Unicode.h"
@@ -120,6 +124,15 @@ namespace OpenXcom
 		_txtStats->setText(ss.str());
 
 		centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+		Calypso::CalypsoBaseVisualCatalog catalog;
+		std::string error;
+		if (!Calypso::calypsoLoadBaseVisualCatalog(catalog, error))
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(error);
+		auto art = Calypso::calypsoBaseCraftImage(catalog, defs->id);
+		if (art.empty()) art = articleIllustration(defs->image_id);
+		openHdReader(*_txtTitle, *_txtInfo, {_txtStats}, {}, art);
+#endif
 	}
 
 	ArticleStateTFTDCraft::~ArticleStateTFTDCraft()

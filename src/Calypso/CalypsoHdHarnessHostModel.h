@@ -148,7 +148,9 @@ enum class CalypsoHarnessScenario
 	F24UnlockResearch = 179,
 	F24StrategicEvent = 180,
 	F31ArchiveSections = 181,
-	F31ArchiveTopics = 182
+	F31ArchiveTopics = 182,
+	F32TextArticle = 183,
+	F32AdvancedStats = 185
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -196,6 +198,8 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F13Containment)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F31ArchiveSections)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F31ArchiveTopics)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F32TextArticle)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F32AdvancedStats)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F24StrategicEvent)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F24ItemsArriving)
 		|| id == static_cast<int>(CalypsoHarnessScenario::GeoscapeHd)

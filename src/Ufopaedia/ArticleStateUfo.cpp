@@ -50,7 +50,9 @@ namespace OpenXcom
 		add(_txtTitle);
 
 		// Set up objects
+#ifndef __EMSCRIPTEN__
 		_game->getMod()->getSurface("BACK11.SCR")->blitNShade(_bg, 0, 0);
+#endif
 		_btnOk->setColor(Palette::blockOffset(8)+5);
 		_btnPrev->setColor(Palette::blockOffset(8)+5);
 		_btnNext->setColor(Palette::blockOffset(8)+5);
@@ -74,8 +76,10 @@ namespace OpenXcom
 		crop.getCrop()->y = 0;
 		crop.getCrop()->w = _image->getWidth();
 		crop.getCrop()->h = _image->getHeight();
+#ifndef __EMSCRIPTEN__
 		_image->drawRect(crop.getCrop(), 15);
 		crop.blit(_image);
+#endif
 
 		if (ufo->getModSprite().empty())
 		{
@@ -108,7 +112,9 @@ namespace OpenXcom
 		_lstInfo->setColumns(2, 200, 110);
 //		_lstInfo->setCondensed(true);
 		_lstInfo->setBig();
+#ifndef __EMSCRIPTEN__
 		_lstInfo->setDot(true);
+#endif
 
 		_lstInfo->addRow(2, tr("STR_DAMAGE_CAPACITY").c_str(), Unicode::formatNumber(ufo->getStats().damageMax).c_str());
 
@@ -117,6 +123,9 @@ namespace OpenXcom
 		_lstInfo->addRow(2, tr("STR_WEAPON_RANGE").c_str(), tr("STR_KILOMETERS").arg(ufo->getWeaponRange()).c_str());
 
 		_lstInfo->addRow(2, tr("STR_MAXIMUM_SPEED").c_str(), tr("STR_KNOTS").arg(Unicode::formatNumber(ufo->getStats().speedMax)).c_str());
+#ifdef __EMSCRIPTEN__
+		openHdReader(*_txtTitle, *_txtInfo, {}, {_lstInfo}, articleSprite(_image));
+#endif
 	}
 
 	ArticleStateUfo::~ArticleStateUfo()

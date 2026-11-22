@@ -21,6 +21,8 @@ class TransfersState;
 class ItemsArrivingState;
 class UfopaediaStartState;
 class UfopaediaSelectState;
+class ArticleState;
+class StatsForNerdsState;
 class GeoscapeEventState;
 class ProductionCompleteState;
 class Base;
@@ -53,6 +55,8 @@ public:
 	explicit CalypsoBaseLedger(ItemsArrivingState &state);
 	explicit CalypsoBaseLedger(UfopaediaStartState &state);
 	explicit CalypsoBaseLedger(UfopaediaSelectState &state);
+	explicit CalypsoBaseLedger(ArticleState &state);
+	explicit CalypsoBaseLedger(StatsForNerdsState &state);
 	explicit CalypsoBaseLedger(GeoscapeEventState &state);
 	explicit CalypsoBaseLedger(ProductionCompleteState &state);
 	CalypsoBaseLedger(State &state, Base *base, Text &title, TextList &possibilities,

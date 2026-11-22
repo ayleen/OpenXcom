@@ -28,6 +28,9 @@
 
 namespace OpenXcom
 {
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoBaseLedger; }
+#endif
 
 class Window;
 class Text;
@@ -46,6 +49,17 @@ template<typename T, typename I> class ScriptValues;
 class StatsForNerdsState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
+	TextButton *_hdRelated = nullptr;
+	TextList *_hdLinks = nullptr;
+	bool _choosingRelated = false;
+	void openHd();
+	void chooseRelated(Action *action);
+	void openRelatedRow(Action *action);
+	void resize(int &dX, int &dY) override;
+#endif
 	Window *_window;
 	Text *_txtTitle;
 	ComboBox *_cbxRelatedStuff;

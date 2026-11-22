@@ -114,6 +114,7 @@ namespace OpenXcom
 		_cbxFilter->setVisible(false);
 		_btnQuickSearch->setVisible(true);
 		_lstSelection->setColumns(2, 145, 60);
+		_lstSelection->onKeyboardPress((ActionHandler)&UfopaediaSelectState::lstSelectionClickRight, SDLK_SPACE);
 		_hdFilter = new TextButton(1, 1, 0, 0);
 		_hdSeen = new TextButton(1, 1, 0, 0);
 		add(_hdFilter, "button2", "ufopaedia");

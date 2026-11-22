@@ -163,7 +163,9 @@ namespace OpenXcom
 		add(_txtWeight, "weightText", "articleItem", _bg);
 
 		// Set up objects
+#ifndef __EMSCRIPTEN__
 		_game->getMod()->getSurface("BACK08.SCR")->blitNShade(_bg, 0, 0);
+#endif
 		_btnOk->setColor(_buttonColor);
 		_btnPrev->setColor(_buttonColor);
 		_btnNext->setColor(_buttonColor);
@@ -445,6 +447,21 @@ namespace OpenXcom
 		_txtArrows->setText(ss2.str());
 
 		centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+		const bool hasShotTable = item->getBattleType() == BT_FIREARM || item->getBattleType() == BT_MELEE;
+		auto *details = articleItemDetails(hasShotTable ? _lstInfo : nullptr, _txtAmmoType, _txtAmmoDamage);
+		if (_txtWeaponClipSize->getVisible())
+			details->addRow(3, tr("STR_ROUNDS").c_str(), std::to_string(_txtWeaponClipSize->getValue()).c_str(), "");
+		for (int i = 0; i < 3; ++i)
+		{
+			if (_txtAmmoClipSize[i]->getVisible())
+				details->addRow(3, _txtAmmoType[i]->getText().c_str(), tr("STR_ROUNDS").c_str(), std::to_string(_txtAmmoClipSize[i]->getValue()).c_str());
+		}
+		std::vector<Text *> facts{_txtWeight};
+		if (_txtAccuracyModifier->getVisible()) facts.push_back(_txtAccuracyModifier);
+		if (_txtPowerBonus->getVisible()) facts.push_back(_txtPowerBonus);
+		openHdReader(*_txtTitle, *_txtInfo, std::move(facts), {details}, articleSprite(_image));
+#endif
 	}
 
 	ArticleStateItem::~ArticleStateItem()

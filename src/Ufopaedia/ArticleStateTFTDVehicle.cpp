@@ -49,7 +49,10 @@ namespace OpenXcom
 
 		_lstStats->setColor(_listColor1);
 		_lstStats->setColumns(2, 100, 50);
+
+#ifndef __EMSCRIPTEN__
 		_lstStats->setDot(true);
+#endif
 
 		_lstStats2 = new TextList(195, 33, 25, 166);
 
@@ -57,7 +60,10 @@ namespace OpenXcom
 
 		_lstStats2->setColor(_listColor1);
 		_lstStats2->setColumns(2, 65, 130);
+
+#ifndef __EMSCRIPTEN__
 		_lstStats2->setDot(true);
+#endif
 
 		std::ostringstream ss;
 		ss << unit->getStats()->tu;
@@ -128,6 +134,9 @@ namespace OpenXcom
 		}
 
 		centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+		openHdReader(*_txtTitle, *_txtInfo, {}, {_lstStats, _lstStats2}, articleIllustration(defs->image_id));
+#endif
 	}
 
 	ArticleStateTFTDVehicle::~ArticleStateTFTDVehicle()

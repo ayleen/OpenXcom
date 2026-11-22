@@ -44,7 +44,10 @@ namespace OpenXcom
 
 		_lstInfo->setColor(_listColor1);
 		_lstInfo->setColumns(2, 95, 55);
+
+#ifndef __EMSCRIPTEN__
 		_lstInfo->setDot(true);
+#endif
 
 		_lstInfo->addRow(2, tr("STR_DAMAGE_CAPACITY").c_str(), Unicode::formatNumber(ufo->getStats().damageMax).c_str());
 
@@ -59,6 +62,9 @@ namespace OpenXcom
 		}
 
 		centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+		openHdReader(*_txtTitle, *_txtInfo, {}, {_lstInfo}, articleIllustration(defs->image_id));
+#endif
 	}
 
 	ArticleStateTFTDUso::~ArticleStateTFTDUso()

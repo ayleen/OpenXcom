@@ -68,7 +68,9 @@ namespace OpenXcom
 		add(_txtTitle);
 
 		// Set up objects
+#ifndef __EMSCRIPTEN__
 		_game->getMod()->getSurface(defs->image_id)->blitNShade(_bg, 0, 0);
+#endif
 		_btnOk->setColor(buttonColor);
 		_btnPrev->setColor(buttonColor);
 		_btnNext->setColor(buttonColor);
@@ -97,7 +99,9 @@ namespace OpenXcom
 		_lstStats->setColor(listColor1);
 		_lstStats->setSecondaryColor(listColor2);
 		_lstStats->setColumns(4, width - 60, 20, 20, 20);
+#ifndef __EMSCRIPTEN__
 		_lstStats->setDot(true);
+#endif
 
 		auto min = soldier->getMinStats();
 		auto max = soldier->getMaxStats();
@@ -133,6 +137,9 @@ namespace OpenXcom
 		}
 
 		centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+		openHdReader(*_txtTitle, *_txtInfo, {}, {_lstStats}, articleIllustration(defs->image_id));
+#endif
 	}
 
 	ArticleStateSoldier::~ArticleStateSoldier()

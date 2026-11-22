@@ -28,6 +28,11 @@ namespace OpenXcom
 	class Action;
 	class Surface;
 	class TextButton;
+#ifdef __EMSCRIPTEN__
+	class Text;
+	class TextList;
+	namespace Calypso { class CalypsoBaseLedger; }
+#endif
 	class ArticleDefinition;
 
 
@@ -89,6 +94,9 @@ namespace OpenXcom
 	public:
 		/// return the article id
 		std::string getId() const { return _id; }
+#ifdef __EMSCRIPTEN__
+		Surface *articleSpriteFor(const std::string &source) const;
+#endif
 
 	protected:
 
@@ -121,6 +129,23 @@ namespace OpenXcom
 		TextButton *_btnNext;
 		TextButton *_btnInfo;
 
+#ifdef __EMSCRIPTEN__
+		friend class Calypso::CalypsoBaseLedger;
+		Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
+		Text *_hdTitle = nullptr, *_hdBody = nullptr;
+		TextList *_paragraphs = nullptr;
+		int _lineWidth = 0, _lineFont = 0;
+		std::vector<Text *> _hdFacts;
+		std::vector<TextList *> _hdTables;
+		std::string _hdIllustration;
+		Surface *_hdArticleSprite = nullptr;
+		std::string articleSprite(Surface *sprite);
+		TextList *articleItemDetails(TextList *shots, Text *const (&damageTypes)[3], Text *const (&powers)[3]);
+		std::string articleIllustration(const std::string &resource) const;
+		void openHdReader(Text &title, Text &body, std::vector<Text *> facts = {},
+			std::vector<TextList *> tables = {}, std::string illustration = {});
+		void resize(int &dX, int &dY) override;
+#endif
 		/// Shared state.
 		std::shared_ptr<ArticleCommonState> _state;
 	};

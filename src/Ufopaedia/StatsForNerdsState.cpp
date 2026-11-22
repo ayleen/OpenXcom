@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "StatsForNerdsState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#endif
 #include "Ufopaedia.h"
 #include "../Battlescape/BattlescapeGenerator.h"
 #include "../Battlescape/BriefingState.h"
@@ -183,6 +186,9 @@ StatsForNerdsState::StatsForNerdsState(std::shared_ptr<ArticleCommonState> state
 	_mainArticle = true;
 
 	buildUI(debug, ids, defaults);
+#ifdef __EMSCRIPTEN__
+	openHd();
+#endif
 }
 
 /**
@@ -195,6 +201,9 @@ StatsForNerdsState::StatsForNerdsState(const UfopaediaTypeId typeId, const std::
 	_mainArticle = false;
 
 	buildUI(debug, ids, defaults);
+#ifdef __EMSCRIPTEN__
+	openHd();
+#endif
 }
 
 /**
@@ -241,7 +250,9 @@ void StatsForNerdsState::buildUI(bool debug, bool ids, bool defaults)
 	centerAllSurfaces();
 
 	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "statsForNerds");
+#endif
 
 	_txtTitle->setBig();
 	_txtTitle->setAlign(ALIGN_CENTER);
@@ -318,7 +329,62 @@ void StatsForNerdsState::buildUI(bool debug, bool ids, bool defaults)
  */
 StatsForNerdsState::~StatsForNerdsState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdLedger;
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void StatsForNerdsState::openHd()
+{
+	_window->finishPopupForHd();
+	_screen = true;
+	_cbxRelatedStuff->setX(-4096);
+	_hdRelated = new TextButton(1, 1, 0, 0);
+	add(_hdRelated, "button", "statsForNerds");
+	_hdRelated->onMouseClick((ActionHandler)&StatsForNerdsState::chooseRelated);
+	_hdLinks = new TextList(220, 120, 0, 0);
+	add(_hdLinks, "list", "statsForNerds");
+	_hdLinks->setColumns(2, 65, 155);
+	_hdLinks->setSelectable(true);
+	_hdLinks->setVisible(false);
+	_hdLinks->onMouseClick((ActionHandler)&StatsForNerdsState::openRelatedRow);
+	_hdLedger = new Calypso::CalypsoBaseLedger(*this);
+}
+
+void StatsForNerdsState::chooseRelated(Action *)
+{
+	if (Options::oxceDisableStatsForNerds || !_cbxRelatedStuff->getVisible()) return;
+	_choosingRelated = !_choosingRelated;
+	_btnIncludeDebug->setVisible(!_choosingRelated);
+	_btnIncludeIds->setVisible(!_choosingRelated);
+	_btnIncludeDefaults->setVisible(!_choosingRelated);
+	if (_choosingRelated)
+	{
+		_hdLinks->clearList();
+		for (size_t i = 1; i < _filterOptions.size(); ++i)
+			_hdLinks->addRow(2, "", tr(_filterOptions[i]).c_str());
+	}
+	_hdLinks->setVisible(_choosingRelated);
+	_lstRawData->setVisible(!_choosingRelated);
+	_hdLedger->refresh();
+}
+
+void StatsForNerdsState::openRelatedRow(Action *action)
+{
+	const size_t index = size_t(_hdLinks->getSelectedRow()) + 1;
+	if (!_choosingRelated || index >= _filterOptions.size()) return;
+	_cbxRelatedStuff->setSelected(index);
+	chooseRelated(nullptr);
+	cbxAmmoSelect(action);
+}
+
+void StatsForNerdsState::resize(int &dX, int &dY)
+{
+	if (_hdLedger) _hdLedger->refresh();
+	else State::resize(dX, dY);
+}
+#endif
 
 /**
  * Initializes the screen (fills the data).

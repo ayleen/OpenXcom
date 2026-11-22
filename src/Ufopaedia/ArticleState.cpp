@@ -19,6 +19,11 @@
 
 #include "Ufopaedia.h"
 #include "ArticleState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Interface/TextList.h"
+#include "../Interface/Text.h"
+#endif
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
 #include "../Engine/Surface.h"
@@ -143,7 +148,71 @@ namespace OpenXcom
 	 * Destructor
 	 */
 	ArticleState::~ArticleState()
-	{}
+	{
+#ifdef __EMSCRIPTEN__
+		delete _hdLedger;
+#endif
+	}
+
+#ifdef __EMSCRIPTEN__
+	std::string ArticleState::articleSprite(Surface *sprite)
+	{
+		_hdArticleSprite = sprite;
+		return "article-sprite:" + _id + "/" + std::to_string(_state->current_page);
+	}
+
+	Surface *ArticleState::articleSpriteFor(const std::string &source) const
+	{
+		return source == _hdIllustration ? _hdArticleSprite : nullptr;
+	}
+
+	std::string ArticleState::articleIllustration(const std::string &resource) const
+	{
+		if (resource.empty() || !_game->getMod()->getSurface(resource, false)) return {};
+		return "ruleset-art:" + resource;
+	}
+
+	TextList *ArticleState::articleItemDetails(TextList *shots, Text *const (&damageTypes)[3], Text *const (&powers)[3])
+	{
+		auto *details = new TextList(260, 100, 0, 0);
+		add(details);
+		details->setColumns(3, 120, 70, 70);
+		if (shots && !shots->getCellTextsSnapshot().empty())
+		{
+			details->addRow(3, tr("STR_SHOT_TYPE").c_str(), tr("STR_ACCURACY_UC").c_str(), tr("STR_TIME_UNIT_COST").c_str());
+			for (const auto &row : shots->getCellTextsSnapshot())
+				details->addRow(3, row[0]->getText().c_str(), row[1]->getText().c_str(), row[2]->getText().c_str());
+		}
+		for (size_t i = 0; i < 3; ++i)
+		{
+			if (!damageTypes[i]->getText().empty())
+				details->addRow(3, damageTypes[i]->getText().c_str(), powers[i]->getText().c_str(), "");
+		}
+		return details;
+	}
+
+	void ArticleState::openHdReader(Text &title, Text &body, std::vector<Text *> facts,
+		std::vector<TextList *> tables, std::string illustration)
+	{
+		_hdTitle = &title;
+		_hdBody = &body;
+		_hdFacts = std::move(facts);
+		_hdTables = std::move(tables);
+		_hdIllustration = std::move(illustration);
+		body.setVisible(false);
+		for (auto *list : _hdTables) list->setVisible(false);
+		_paragraphs = new TextList(220, 120, 0, 0);
+		add(_paragraphs);
+		_paragraphs->setColumns(2, 44, 176);
+		_hdLedger = new Calypso::CalypsoBaseLedger(*this);
+	}
+
+	void ArticleState::resize(int &dX, int &dY)
+	{
+		if (_hdLedger) _hdLedger->refresh();
+		else State::resize(dX, dY);
+	}
+#endif
 
 	std::string ArticleState::getDamageTypeText(ItemDamageType dt) const
 	{

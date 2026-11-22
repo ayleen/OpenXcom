@@ -51,7 +51,9 @@ namespace OpenXcom
 		add(_txtTitle);
 
 		// Set up objects
+#ifndef __EMSCRIPTEN__
 		_game->getMod()->getSurface("BACK09.SCR")->blitNShade(_bg, 0, 0);
+#endif
 		_btnOk->setColor(Palette::blockOffset(4));
 		_btnPrev->setColor(Palette::blockOffset(4));
 		_btnNext->setColor(Palette::blockOffset(4));
@@ -118,7 +120,9 @@ namespace OpenXcom
 
 		_lstInfo->setColor(Palette::blockOffset(13)+10);
 		_lstInfo->setColumns(2, 140, 60);
+#ifndef __EMSCRIPTEN__
 		_lstInfo->setDot(true);
+#endif
 
 		_lstInfo->addRow(2, tr("STR_CONSTRUCTION_TIME").c_str(), tr("STR_DAY", facility->getBuildTime()).c_str());
 		_lstInfo->setCellColor(0, 1, Palette::blockOffset(13)+0);
@@ -146,6 +150,9 @@ namespace OpenXcom
 			_lstInfo->setCellColor(4, 1, Palette::blockOffset(13)+0);
 		}
 		centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+		openHdReader(*_txtTitle, *_txtInfo, {}, {_lstInfo}, articleSprite(_image));
+#endif
 	}
 
 	ArticleStateBaseFacility::~ArticleStateBaseFacility()

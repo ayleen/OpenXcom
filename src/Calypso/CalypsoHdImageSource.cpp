@@ -10,6 +10,7 @@
 #include "../Engine/State.h"
 #include "../Engine/Surface.h"
 #include "../Mod/Mod.h"
+#include "../Ufopaedia/ArticleState.h"
 #include "../Engine/Logger.h"
 
 #include <cstring>
@@ -44,11 +45,19 @@ bool calypsoHdImageDecode(const std::string &vfsPath, CalypsoHdImageRgba &out)
 	// Scripted events name a mod-owned illustration (often a .SCR sprite).
 	// Read only the artwork; the HD renderer owns every label and control.
 	const std::string prefix = "ruleset-art:";
-	if (vfsPath.compare(0, prefix.size(), prefix) == 0)
+	const bool articleSprite = vfsPath.rfind("article-sprite:", 0) == 0;
+	if (articleSprite || vfsPath.compare(0, prefix.size(), prefix) == 0)
 	{
 		auto *game = getCurrentGame();
 		auto *state = game ? game->getTopState() : nullptr;
-		auto *art = state ? game->getMod()->getSurface(vfsPath.substr(prefix.size()), false) : nullptr;
+		if (!state) return false;
+		Surface *art = nullptr;
+		if (articleSprite)
+		{
+			auto *article = dynamic_cast<ArticleState *>(state);
+			if (article) art = article->articleSpriteFor(vfsPath);
+		}
+		else art = game->getMod()->getSurface(vfsPath.substr(prefix.size()), false);
 		if (!art || !art->getSurface()) return false;
 		const auto *src = art->getSurface();
 		if (src->w <= 0 || src->h <= 0 || src->w > kCalypsoHdImageMaxExtent || src->h > kCalypsoHdImageMaxExtent
@@ -63,12 +72,13 @@ bool calypsoHdImageDecode(const std::string &vfsPath, CalypsoHdImageRgba &out)
 			for (int y = 0; y < src->h; ++y)
 				for (int x = 0; x < src->w; ++x)
 				{
-					const auto &color = palette[art->getPixel(x, y)];
+					const auto index = art->getPixel(x, y);
+					const auto &color = palette[index];
 					const size_t i = (static_cast<size_t>(y) * src->w + x) * 4;
 					out.px[i] = color.r;
 					out.px[i + 1] = color.g;
 					out.px[i + 2] = color.b;
-					out.px[i + 3] = 255;
+					out.px[i + 3] = articleSprite && index == 0 ? 0 : 255;
 				}
 			return true;
 		}
