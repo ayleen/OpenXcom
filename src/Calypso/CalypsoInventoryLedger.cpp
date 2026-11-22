@@ -224,8 +224,7 @@ CalypsoInventoryLedger::CalypsoInventoryLedger(StoresState &s)
 		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
 		auto model = ledgerModel(s, *s._txtTitle, *s._lstStores, s._base, *g, table,
 			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
-			{{"scope", s.tr("STR_CAL_SCOPE"), s._btnGrandTotal->getPressed() ? std::string(s.tr("STR_BASES")) : s._base->getName(), design(g->summary_scope)},
-			 {"capacity", s.tr("STR_CAL_LEDGER_BASE_CAPACITY"), s.hdStorageCapacity(false), design(g->summary_capacity)},
+			{{"capacity", s.tr("STR_CAL_LEDGER_BASE_CAPACITY"), s.hdStorageCapacity(false), design(g->summary_capacity)},
 			 {"over", s.tr("STR_CAL_LEDGER_OVER"), s.hdStorageCapacity(true), design(g->summary_over)}},
 			{{s._txtItem->getText(), s._sortName}, {s._txtQuantity->getText(), s._sortQuantity},
 			 {s._txtSize->getText(), s._sortSize}, {s._txtSpaceUsed->getText(), s._sortSpaceUsed}},
@@ -234,6 +233,7 @@ CalypsoInventoryLedger::CalypsoInventoryLedger(StoresState &s)
 			 {"scope", s._btnGrandTotal, s.tr(s._btnGrandTotal->getPressed() ? "STR_CAL_LEDGER_THIS_BASE" : "STR_CAL_LEDGER_ALL_BASES"), design(g->action_scope), s._btnGrandTotal->getPressed()},
 			 {"done", s._btnOk, s._btnOk->getText(), design(g->action_done)}},
 			"STR_CAL_EMPTY_STORES", "STR_CAL_EMPTY_STORES_HINT");
+		model.title += " · " + (s._btnGrandTotal->getPressed() ? std::string(s.tr("STR_CAL_LEDGER_ALL_BASES")) : s._base->getName());
 		model.profileId = Gen::kProfileId;
 		model.profileVersion = Gen::kProfileVersion;
 		model.provenance = Gen::kProvenanceTemplate;
@@ -257,8 +257,8 @@ CalypsoInventoryLedger::CalypsoInventoryLedger(TransfersState &s)
 			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
 			{{"base", s.tr("STR_BASE"), s._allBases ? std::string(s.tr("STR_CAL_LEDGER_ALL_BASES")) : s._base->getName(), design(g->summary_base)},
 			 {"inbound", s.tr("STR_CAL_SHIPMENTS"), std::to_string(s._lstTransfers->getTexts()), design(g->summary_inbound)},
-			 {"next", s.tr("STR_CAL_NEXT_ARRIVAL_HOURS"), s._nextArrivalHours < 0 ? "–" : std::to_string(s._nextArrivalHours), design(g->summary_next)}},
-			{{s._txtItem->getText()}, {s._txtQuantity->getText()}, {s._txtArrivalTime->getText()}, {s.tr("STR_BASE")}, {s.tr("STR_CAL_LEDGER_CAPACITY")}},
+			 {"next", s.tr("STR_CAL_LEDGER_NEXT_HOURS"), s._nextArrivalHours < 0 ? "–" : std::to_string(s._nextArrivalHours), design(g->summary_next)}},
+			{{s._txtItem->getText()}, {s.tr("STR_BASE")}, {s.tr("STR_CAL_LEDGER_CAPACITY")}, {s._txtQuantity->getText()}, {s.tr("STR_CAL_LEDGER_HOURS")}},
 			{{"scope", s._hdScope, s._hdScope->getText(), design(g->toolbar_scope), s._allBases, true},
 			 {"category", s._hdCategory, s._hdCategory->getText(), design(g->toolbar_category), false, true},
 			 {"sort", s._hdSort, s._hdSort->getText(), design(g->toolbar_sort), false, true},

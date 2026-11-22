@@ -37,7 +37,7 @@
     },
     {
       "id": "next",
-      "label": "NEXT ARRIVAL (H)",
+      "label": "NEXT (H)",
       "value": "12"
     }
   ],
@@ -51,16 +51,6 @@
         "contentRole": "name"
       },
       {
-        "id": "quantity",
-        "label": "QUANTITY",
-        "contentRole": "count"
-      },
-      {
-        "id": "arrival",
-        "label": "HOURS",
-        "contentRole": "count"
-      },
-      {
         "id": "destination",
         "label": "DESTINATION",
         "contentRole": "name"
@@ -69,6 +59,16 @@
         "id": "capacity",
         "label": "CAPACITY",
         "contentRole": "name"
+      },
+      {
+        "id": "quantity",
+        "label": "QUANTITY",
+        "contentRole": "count"
+      },
+      {
+        "id": "arrival",
+        "label": "HOURS",
+        "contentRole": "count"
       }
     ],
     "items": [
@@ -76,10 +76,10 @@
         "id": "example",
         "values": [
           "Chemical Flare",
-          "1",
-          "12",
           "Batumi",
-          "Stores 580 / 515"
+          "Stores 580 / 515",
+          "1",
+          "12"
         ]
       }
     ]

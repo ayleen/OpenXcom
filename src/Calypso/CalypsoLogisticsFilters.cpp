@@ -31,7 +31,7 @@ const char *cargoName(TransferType type)
 std::string capacity(double used, int available)
 {
 	std::ostringstream value;
-	value << std::round(used * 100) / 100 << " / " << available;
+	value << std::round(used * 100) / 100 << "/" << available;
 	return value.str();
 }
 }
@@ -81,7 +81,7 @@ void TransfersState::configureShipmentFilters()
 	_hdSearch = new TextEdit(this,1,1,0,0);
 	add(_hdSearch,"button","transferInfo");
 	_hdSearch->onChange((ActionHandler)&TransfersState::refreshShipments);
-	_lstTransfers->setColumns(5,80,36,40,62,60);
+	_lstTransfers->setColumns(5,80,62,60,36,40);
 	refreshShipments(nullptr);
 }
 void TransfersState::refreshShipments(Action *action)
@@ -144,8 +144,8 @@ void TransfersState::refreshShipments(Action *action)
 		default:
 			impact = std::string(tr("STR_LIVING_QUARTERS")) + " " + capacity(base->getUsedQuarters(),base->getAvailableQuarters());
 		}
-		_lstTransfers->addRow(5,entry.name.c_str(),std::to_string(transfer->getQuantity()).c_str(),
-			std::to_string(hours).c_str(),base->getName().c_str(),impact.c_str());
+		_lstTransfers->addRow(5,entry.name.c_str(),base->getName().c_str(),impact.c_str(),
+			std::to_string(transfer->getQuantity()).c_str(),std::to_string(hours).c_str());
 	}
 }
 }

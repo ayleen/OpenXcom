@@ -52,11 +52,6 @@
     },
     "summary": [
       {
-        "id": "scope",
-        "label": "SCOPE",
-        "value": "Batumi"
-      },
-      {
         "id": "capacity",
         "label": "STORES",
         "value": "580/515"
@@ -134,11 +129,6 @@
       "workspace-b": "WORKSPACE"
     },
     "summary": [
-      {
-        "id": "scope",
-        "label": "SCOPE",
-        "value": "Batumi"
-      },
       {
         "id": "capacity",
         "label": "STORES",
@@ -229,30 +219,24 @@
         "height": 78
       },
       "summary": {
-        "scope": {
+        "capacity": {
           "x": 1000,
           "y": 96,
-          "width": 84,
-          "height": 78
-        },
-        "capacity": {
-          "x": 1085,
-          "y": 96,
-          "width": 84,
+          "width": 127,
           "height": 78
         },
         "over": {
-          "x": 1170,
+          "x": 1128,
           "y": 96,
-          "width": 86,
+          "width": 128,
           "height": 78
         }
       },
       "collectionViewport": {
         "x": 112,
-        "y": 234,
+        "y": 190,
         "width": 1144,
-        "height": 412
+        "height": 456
       },
       "detailPanel": {
         "x": 944,
@@ -267,7 +251,7 @@
             "id": "item",
             "rect": {
               "x": 112,
-              "y": 234,
+              "y": 190,
               "width": 629,
               "height": 36
             },
@@ -281,7 +265,7 @@
             "id": "quantity",
             "rect": {
               "x": 742,
-              "y": 234,
+              "y": 190,
               "width": 153,
               "height": 36
             },
@@ -295,7 +279,7 @@
             "id": "size",
             "rect": {
               "x": 896,
-              "y": 234,
+              "y": 190,
               "width": 153,
               "height": 36
             },
@@ -309,7 +293,7 @@
             "id": "space",
             "rect": {
               "x": 1050,
-              "y": 234,
+              "y": 190,
               "width": 152,
               "height": 36
             },
@@ -323,6 +307,73 @@
         "rowSlots": [
           {
             "id": "row-slot-1",
+            "rect": {
+              "x": 112,
+              "y": 226,
+              "width": 1090,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 112,
+                  "y": 226,
+                  "width": 629,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 742,
+                  "y": 226,
+                  "width": 153,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "size",
+                "rect": {
+                  "x": 896,
+                  "y": 226,
+                  "width": 153,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "space",
+                "rect": {
+                  "x": 1050,
+                  "y": 226,
+                  "width": 152,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
             "rect": {
               "x": 112,
               "y": 270,
@@ -389,7 +440,7 @@
             ]
           },
           {
-            "id": "row-slot-2",
+            "id": "row-slot-3",
             "rect": {
               "x": 112,
               "y": 314,
@@ -456,7 +507,7 @@
             ]
           },
           {
-            "id": "row-slot-3",
+            "id": "row-slot-4",
             "rect": {
               "x": 112,
               "y": 358,
@@ -523,7 +574,7 @@
             ]
           },
           {
-            "id": "row-slot-4",
+            "id": "row-slot-5",
             "rect": {
               "x": 112,
               "y": 402,
@@ -590,7 +641,7 @@
             ]
           },
           {
-            "id": "row-slot-5",
+            "id": "row-slot-6",
             "rect": {
               "x": 112,
               "y": 446,
@@ -657,7 +708,7 @@
             ]
           },
           {
-            "id": "row-slot-6",
+            "id": "row-slot-7",
             "rect": {
               "x": 112,
               "y": 490,
@@ -722,86 +773,19 @@
                 "weight": 1
               }
             ]
-          },
-          {
-            "id": "row-slot-7",
-            "rect": {
-              "x": 112,
-              "y": 534,
-              "width": 1090,
-              "height": 44
-            },
-            "cells": [
-              {
-                "id": "item",
-                "rect": {
-                  "x": 112,
-                  "y": 534,
-                  "width": 629,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "quantity",
-                "rect": {
-                  "x": 742,
-                  "y": 534,
-                  "width": 153,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
-                "id": "size",
-                "rect": {
-                  "x": 896,
-                  "y": 534,
-                  "width": 153,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
-                "id": "space",
-                "rect": {
-                  "x": 1050,
-                  "y": 534,
-                  "width": 152,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              }
-            ]
           }
         ],
         "count": 1,
         "scroll": {
           "track": {
             "x": 1238,
-            "y": 270,
+            "y": 226,
             "width": 18,
             "height": 308
           },
           "thumb": {
             "x": 1238,
-            "y": 270,
+            "y": 226,
             "width": 18,
             "height": 308
           }
@@ -913,9 +897,9 @@
         },
         "collectionViewport": {
           "x": 112,
-          "y": 234,
+          "y": 190,
           "width": 1144,
-          "height": 412
+          "height": 456
         },
         "footer": {
           "x": 112,
@@ -923,22 +907,16 @@
           "width": 1144,
           "height": 44
         },
-        "summary.scope": {
+        "summary.capacity": {
           "x": 1000,
           "y": 96,
-          "width": 84,
-          "height": 78
-        },
-        "summary.capacity": {
-          "x": 1085,
-          "y": 96,
-          "width": 84,
+          "width": 127,
           "height": 78
         },
         "summary.over": {
-          "x": 1170,
+          "x": 1128,
           "y": 96,
-          "width": 86,
+          "width": 128,
           "height": 78
         },
         "tab.workspace-a": {
@@ -961,49 +939,49 @@
         },
         "collection.scroll.track": {
           "x": 1238,
-          "y": 270,
+          "y": 226,
           "width": 18,
           "height": 308
         },
         "collection.scroll.thumb": {
           "x": 1238,
-          "y": 270,
+          "y": 226,
           "width": 18,
           "height": 308
         },
         "collection.column.item": {
           "x": 112,
-          "y": 234,
+          "y": 190,
           "width": 629,
           "height": 36
         },
         "collection.column.quantity": {
           "x": 742,
-          "y": 234,
+          "y": 190,
           "width": 153,
           "height": 36
         },
         "collection.column.size": {
           "x": 896,
-          "y": 234,
+          "y": 190,
           "width": 153,
           "height": 36
         },
         "collection.column.space": {
           "x": 1050,
-          "y": 234,
+          "y": 190,
           "width": 152,
           "height": 36
         },
         "collection.row-slot.1": {
           "x": 112,
-          "y": 270,
+          "y": 226,
           "width": 1090,
           "height": 44
         },
         "collection.row-slot.2": {
           "x": 112,
-          "y": 314,
+          "y": 270,
           "width": 1090,
           "height": 44
         },
@@ -1049,30 +1027,24 @@
         "height": 52
       },
       "summary": {
-        "scope": {
+        "capacity": {
           "x": 520,
           "y": 48,
-          "width": 70,
-          "height": 52
-        },
-        "capacity": {
-          "x": 591,
-          "y": 48,
-          "width": 70,
+          "width": 105,
           "height": 52
         },
         "over": {
-          "x": 662,
+          "x": 626,
           "y": 48,
-          "width": 70,
+          "width": 106,
           "height": 52
         }
       },
       "collectionViewport": {
         "x": 52,
-        "y": 152,
+        "y": 108,
         "width": 680,
-        "height": 152
+        "height": 196
       },
       "detailPanel": {
         "x": 526,
@@ -1087,7 +1059,7 @@
             "id": "item",
             "rect": {
               "x": 52,
-              "y": 152,
+              "y": 108,
               "width": 321,
               "height": 28
             },
@@ -1101,7 +1073,7 @@
             "id": "quantity",
             "rect": {
               "x": 374,
-              "y": 152,
+              "y": 108,
               "width": 102,
               "height": 28
             },
@@ -1115,7 +1087,7 @@
             "id": "size",
             "rect": {
               "x": 477,
-              "y": 152,
+              "y": 108,
               "width": 101,
               "height": 28
             },
@@ -1129,7 +1101,7 @@
             "id": "space",
             "rect": {
               "x": 579,
-              "y": 152,
+              "y": 108,
               "width": 101,
               "height": 28
             },
@@ -1143,6 +1115,73 @@
         "rowSlots": [
           {
             "id": "row-slot-1",
+            "rect": {
+              "x": 52,
+              "y": 136,
+              "width": 628,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 52,
+                  "y": 136,
+                  "width": 321,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 374,
+                  "y": 136,
+                  "width": 102,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "size",
+                "rect": {
+                  "x": 477,
+                  "y": 136,
+                  "width": 101,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "space",
+                "rect": {
+                  "x": 579,
+                  "y": 136,
+                  "width": 101,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
             "rect": {
               "x": 52,
               "y": 180,
@@ -1207,86 +1246,19 @@
                 "weight": 1
               }
             ]
-          },
-          {
-            "id": "row-slot-2",
-            "rect": {
-              "x": 52,
-              "y": 224,
-              "width": 628,
-              "height": 44
-            },
-            "cells": [
-              {
-                "id": "item",
-                "rect": {
-                  "x": 52,
-                  "y": 224,
-                  "width": 321,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "quantity",
-                "rect": {
-                  "x": 374,
-                  "y": 224,
-                  "width": 102,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
-                "id": "size",
-                "rect": {
-                  "x": 477,
-                  "y": 224,
-                  "width": 101,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
-                "id": "space",
-                "rect": {
-                  "x": 579,
-                  "y": 224,
-                  "width": 101,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              }
-            ]
           }
         ],
         "count": 1,
         "scroll": {
           "track": {
             "x": 714,
-            "y": 180,
+            "y": 136,
             "width": 18,
             "height": 88
           },
           "thumb": {
             "x": 714,
-            "y": 180,
+            "y": 136,
             "width": 18,
             "height": 88
           }
@@ -1398,9 +1370,9 @@
         },
         "collectionViewport": {
           "x": 52,
-          "y": 152,
+          "y": 108,
           "width": 680,
-          "height": 152
+          "height": 196
         },
         "footer": {
           "x": 52,
@@ -1408,22 +1380,16 @@
           "width": 680,
           "height": 44
         },
-        "summary.scope": {
+        "summary.capacity": {
           "x": 520,
           "y": 48,
-          "width": 70,
-          "height": 52
-        },
-        "summary.capacity": {
-          "x": 591,
-          "y": 48,
-          "width": 70,
+          "width": 105,
           "height": 52
         },
         "summary.over": {
-          "x": 662,
+          "x": 626,
           "y": 48,
-          "width": 70,
+          "width": 106,
           "height": 52
         },
         "tab.workspace-a": {
@@ -1446,49 +1412,49 @@
         },
         "collection.scroll.track": {
           "x": 714,
-          "y": 180,
+          "y": 136,
           "width": 18,
           "height": 88
         },
         "collection.scroll.thumb": {
           "x": 714,
-          "y": 180,
+          "y": 136,
           "width": 18,
           "height": 88
         },
         "collection.column.item": {
           "x": 52,
-          "y": 152,
+          "y": 108,
           "width": 321,
           "height": 28
         },
         "collection.column.quantity": {
           "x": 374,
-          "y": 152,
+          "y": 108,
           "width": 102,
           "height": 28
         },
         "collection.column.size": {
           "x": 477,
-          "y": 152,
+          "y": 108,
           "width": 101,
           "height": 28
         },
         "collection.column.space": {
           "x": 579,
-          "y": 152,
+          "y": 108,
           "width": 101,
           "height": 28
         },
         "collection.row-slot.1": {
           "x": 52,
-          "y": 180,
+          "y": 136,
           "width": 628,
           "height": 44
         },
         "collection.row-slot.2": {
           "x": 52,
-          "y": 224,
+          "y": 180,
           "width": 628,
           "height": 44
         },
@@ -1838,25 +1804,25 @@
       "scrollSteps": 0,
       "track": {
         "x": 1238,
-        "y": 270,
+        "y": 226,
         "width": 18,
         "height": 308
       },
       "thumb": {
         "x": 1238,
-        "y": 270,
+        "y": 226,
         "width": 18,
         "height": 308
       },
       "trackHitTarget": {
         "x": 1212,
-        "y": 270,
+        "y": 226,
         "width": 44,
         "height": 308
       },
       "thumbHitTarget": {
         "x": 1212,
-        "y": 270,
+        "y": 226,
         "width": 44,
         "height": 308
       },
@@ -1873,25 +1839,25 @@
       "scrollSteps": 0,
       "track": {
         "x": 714,
-        "y": 180,
+        "y": 136,
         "width": 18,
         "height": 88
       },
       "thumb": {
         "x": 714,
-        "y": 180,
+        "y": 136,
         "width": 18,
         "height": 88
       },
       "trackHitTarget": {
         "x": 688,
-        "y": 180,
+        "y": 136,
         "width": 44,
         "height": 88
       },
       "thumbHitTarget": {
         "x": 688,
-        "y": 180,
+        "y": 136,
         "width": 44,
         "height": 88
       },
@@ -1912,7 +1878,6 @@
     "toolbarBar",
     "collectionViewport",
     "footer",
-    "summary.scope",
     "summary.capacity",
     "summary.over",
     "tab.workspace-a",

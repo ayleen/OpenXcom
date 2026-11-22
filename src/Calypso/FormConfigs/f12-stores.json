@@ -40,11 +40,6 @@
   ],
   "summary": [
     {
-      "id": "scope",
-      "label": "SCOPE",
-      "value": "Batumi"
-    },
-    {
       "id": "capacity",
       "label": "STORES",
       "value": "580/515"

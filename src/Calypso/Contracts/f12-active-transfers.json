@@ -39,7 +39,7 @@
       },
       {
         "id": "next",
-        "label": "NEXT ARRIVAL (H)",
+        "label": "NEXT (H)",
         "value": "12"
       }
     ],
@@ -53,16 +53,6 @@
           "contentRole": "name"
         },
         {
-          "id": "quantity",
-          "label": "QUANTITY",
-          "contentRole": "count"
-        },
-        {
-          "id": "arrival",
-          "label": "HOURS",
-          "contentRole": "count"
-        },
-        {
           "id": "destination",
           "label": "DESTINATION",
           "contentRole": "name"
@@ -71,6 +61,16 @@
           "id": "capacity",
           "label": "CAPACITY",
           "contentRole": "name"
+        },
+        {
+          "id": "quantity",
+          "label": "QUANTITY",
+          "contentRole": "count"
+        },
+        {
+          "id": "arrival",
+          "label": "HOURS",
+          "contentRole": "count"
         }
       ],
       "items": [
@@ -78,10 +78,10 @@
           "id": "example",
           "values": [
             "Chemical Flare",
-            "1",
-            "12",
             "Batumi",
-            "Stores 580 / 515"
+            "Stores 580 / 515",
+            "1",
+            "12"
           ]
         }
       ]
@@ -161,7 +161,7 @@
       },
       {
         "id": "next",
-        "label": "NEXT ARRIVAL (H)",
+        "label": "NEXT (H)",
         "value": "12"
       }
     ],
@@ -175,16 +175,6 @@
           "contentRole": "name"
         },
         {
-          "id": "quantity",
-          "label": "QUANTITY",
-          "contentRole": "count"
-        },
-        {
-          "id": "arrival",
-          "label": "HOURS",
-          "contentRole": "count"
-        },
-        {
           "id": "destination",
           "label": "DESTINATION",
           "contentRole": "name"
@@ -193,6 +183,16 @@
           "id": "capacity",
           "label": "CAPACITY",
           "contentRole": "name"
+        },
+        {
+          "id": "quantity",
+          "label": "QUANTITY",
+          "contentRole": "count"
+        },
+        {
+          "id": "arrival",
+          "label": "HOURS",
+          "contentRole": "count"
         }
       ],
       "items": [
@@ -200,10 +200,10 @@
           "id": "example",
           "values": [
             "Chemical Flare",
-            "1",
-            "12",
             "Batumi",
-            "Stores 580 / 515"
+            "Stores 580 / 515",
+            "1",
+            "12"
           ]
         }
       ]
@@ -274,9 +274,9 @@
       },
       "collectionViewport": {
         "x": 112,
-        "y": 234,
+        "y": 190,
         "width": 1144,
-        "height": 412
+        "height": 456
       },
       "detailPanel": {
         "x": 944,
@@ -291,7 +291,7 @@
             "id": "cargo",
             "rect": {
               "x": 112,
-              "y": 234,
+              "y": 190,
               "width": 298,
               "height": 36
             },
@@ -302,38 +302,10 @@
             "weight": 6
           },
           {
-            "id": "quantity",
-            "rect": {
-              "x": 411,
-              "y": 234,
-              "width": 97,
-              "height": 36
-            },
-            "contentRole": "count",
-            "font": "data",
-            "align": "right",
-            "minWidth": 64,
-            "weight": 1
-          },
-          {
-            "id": "arrival",
-            "rect": {
-              "x": 509,
-              "y": 234,
-              "width": 97,
-              "height": 36
-            },
-            "contentRole": "count",
-            "font": "data",
-            "align": "right",
-            "minWidth": 64,
-            "weight": 1
-          },
-          {
             "id": "destination",
             "rect": {
-              "x": 607,
-              "y": 234,
+              "x": 411,
+              "y": 190,
               "width": 297,
               "height": 36
             },
@@ -346,8 +318,8 @@
           {
             "id": "capacity",
             "rect": {
-              "x": 905,
-              "y": 234,
+              "x": 709,
+              "y": 190,
               "width": 297,
               "height": 36
             },
@@ -356,11 +328,120 @@
             "align": "left",
             "minWidth": 96,
             "weight": 6
+          },
+          {
+            "id": "quantity",
+            "rect": {
+              "x": 1007,
+              "y": 190,
+              "width": 97,
+              "height": 36
+            },
+            "contentRole": "count",
+            "font": "data",
+            "align": "right",
+            "minWidth": 64,
+            "weight": 1
+          },
+          {
+            "id": "arrival",
+            "rect": {
+              "x": 1105,
+              "y": 190,
+              "width": 97,
+              "height": 36
+            },
+            "contentRole": "count",
+            "font": "data",
+            "align": "right",
+            "minWidth": 64,
+            "weight": 1
           }
         ],
         "rowSlots": [
           {
             "id": "row-slot-1",
+            "rect": {
+              "x": 112,
+              "y": 226,
+              "width": 1090,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "cargo",
+                "rect": {
+                  "x": 112,
+                  "y": 226,
+                  "width": 298,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "destination",
+                "rect": {
+                  "x": 411,
+                  "y": 226,
+                  "width": 297,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "capacity",
+                "rect": {
+                  "x": 709,
+                  "y": 226,
+                  "width": 297,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 1007,
+                  "y": 226,
+                  "width": 97,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "arrival",
+                "rect": {
+                  "x": 1105,
+                  "y": 226,
+                  "width": 97,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
             "rect": {
               "x": 112,
               "y": 270,
@@ -383,37 +464,9 @@
                 "weight": 6
               },
               {
-                "id": "quantity",
-                "rect": {
-                  "x": 411,
-                  "y": 270,
-                  "width": 97,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
-                "id": "arrival",
-                "rect": {
-                  "x": 509,
-                  "y": 270,
-                  "width": 97,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
                 "id": "destination",
                 "rect": {
-                  "x": 607,
+                  "x": 411,
                   "y": 270,
                   "width": 297,
                   "height": 44
@@ -427,7 +480,7 @@
               {
                 "id": "capacity",
                 "rect": {
-                  "x": 905,
+                  "x": 709,
                   "y": 270,
                   "width": 297,
                   "height": 44
@@ -437,11 +490,39 @@
                 "align": "left",
                 "minWidth": 96,
                 "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 1007,
+                  "y": 270,
+                  "width": 97,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "arrival",
+                "rect": {
+                  "x": 1105,
+                  "y": 270,
+                  "width": 97,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
               }
             ]
           },
           {
-            "id": "row-slot-2",
+            "id": "row-slot-3",
             "rect": {
               "x": 112,
               "y": 314,
@@ -464,37 +545,9 @@
                 "weight": 6
               },
               {
-                "id": "quantity",
-                "rect": {
-                  "x": 411,
-                  "y": 314,
-                  "width": 97,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
-                "id": "arrival",
-                "rect": {
-                  "x": 509,
-                  "y": 314,
-                  "width": 97,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
                 "id": "destination",
                 "rect": {
-                  "x": 607,
+                  "x": 411,
                   "y": 314,
                   "width": 297,
                   "height": 44
@@ -508,7 +561,7 @@
               {
                 "id": "capacity",
                 "rect": {
-                  "x": 905,
+                  "x": 709,
                   "y": 314,
                   "width": 297,
                   "height": 44
@@ -518,11 +571,39 @@
                 "align": "left",
                 "minWidth": 96,
                 "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 1007,
+                  "y": 314,
+                  "width": 97,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "arrival",
+                "rect": {
+                  "x": 1105,
+                  "y": 314,
+                  "width": 97,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
               }
             ]
           },
           {
-            "id": "row-slot-3",
+            "id": "row-slot-4",
             "rect": {
               "x": 112,
               "y": 358,
@@ -545,37 +626,9 @@
                 "weight": 6
               },
               {
-                "id": "quantity",
-                "rect": {
-                  "x": 411,
-                  "y": 358,
-                  "width": 97,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
-                "id": "arrival",
-                "rect": {
-                  "x": 509,
-                  "y": 358,
-                  "width": 97,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
                 "id": "destination",
                 "rect": {
-                  "x": 607,
+                  "x": 411,
                   "y": 358,
                   "width": 297,
                   "height": 44
@@ -589,7 +642,7 @@
               {
                 "id": "capacity",
                 "rect": {
-                  "x": 905,
+                  "x": 709,
                   "y": 358,
                   "width": 297,
                   "height": 44
@@ -599,11 +652,39 @@
                 "align": "left",
                 "minWidth": 96,
                 "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 1007,
+                  "y": 358,
+                  "width": 97,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "arrival",
+                "rect": {
+                  "x": 1105,
+                  "y": 358,
+                  "width": 97,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
               }
             ]
           },
           {
-            "id": "row-slot-4",
+            "id": "row-slot-5",
             "rect": {
               "x": 112,
               "y": 402,
@@ -626,37 +707,9 @@
                 "weight": 6
               },
               {
-                "id": "quantity",
-                "rect": {
-                  "x": 411,
-                  "y": 402,
-                  "width": 97,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
-                "id": "arrival",
-                "rect": {
-                  "x": 509,
-                  "y": 402,
-                  "width": 97,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
                 "id": "destination",
                 "rect": {
-                  "x": 607,
+                  "x": 411,
                   "y": 402,
                   "width": 297,
                   "height": 44
@@ -670,7 +723,7 @@
               {
                 "id": "capacity",
                 "rect": {
-                  "x": 905,
+                  "x": 709,
                   "y": 402,
                   "width": 297,
                   "height": 44
@@ -680,11 +733,39 @@
                 "align": "left",
                 "minWidth": 96,
                 "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 1007,
+                  "y": 402,
+                  "width": 97,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "arrival",
+                "rect": {
+                  "x": 1105,
+                  "y": 402,
+                  "width": 97,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
               }
             ]
           },
           {
-            "id": "row-slot-5",
+            "id": "row-slot-6",
             "rect": {
               "x": 112,
               "y": 446,
@@ -707,37 +788,9 @@
                 "weight": 6
               },
               {
-                "id": "quantity",
-                "rect": {
-                  "x": 411,
-                  "y": 446,
-                  "width": 97,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
-                "id": "arrival",
-                "rect": {
-                  "x": 509,
-                  "y": 446,
-                  "width": 97,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
                 "id": "destination",
                 "rect": {
-                  "x": 607,
+                  "x": 411,
                   "y": 446,
                   "width": 297,
                   "height": 44
@@ -751,7 +804,7 @@
               {
                 "id": "capacity",
                 "rect": {
-                  "x": 905,
+                  "x": 709,
                   "y": 446,
                   "width": 297,
                   "height": 44
@@ -761,11 +814,39 @@
                 "align": "left",
                 "minWidth": 96,
                 "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 1007,
+                  "y": 446,
+                  "width": 97,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "arrival",
+                "rect": {
+                  "x": 1105,
+                  "y": 446,
+                  "width": 97,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
               }
             ]
           },
           {
-            "id": "row-slot-6",
+            "id": "row-slot-7",
             "rect": {
               "x": 112,
               "y": 490,
@@ -788,37 +869,9 @@
                 "weight": 6
               },
               {
-                "id": "quantity",
-                "rect": {
-                  "x": 411,
-                  "y": 490,
-                  "width": 97,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
-                "id": "arrival",
-                "rect": {
-                  "x": 509,
-                  "y": 490,
-                  "width": 97,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
                 "id": "destination",
                 "rect": {
-                  "x": 607,
+                  "x": 411,
                   "y": 490,
                   "width": 297,
                   "height": 44
@@ -832,34 +885,9 @@
               {
                 "id": "capacity",
                 "rect": {
-                  "x": 905,
+                  "x": 709,
                   "y": 490,
                   "width": 297,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              }
-            ]
-          },
-          {
-            "id": "row-slot-7",
-            "rect": {
-              "x": 112,
-              "y": 534,
-              "width": 1090,
-              "height": 44
-            },
-            "cells": [
-              {
-                "id": "cargo",
-                "rect": {
-                  "x": 112,
-                  "y": 534,
-                  "width": 298,
                   "height": 44
                 },
                 "contentRole": "name",
@@ -871,8 +899,8 @@
               {
                 "id": "quantity",
                 "rect": {
-                  "x": 411,
-                  "y": 534,
+                  "x": 1007,
+                  "y": 490,
                   "width": 97,
                   "height": 44
                 },
@@ -885,8 +913,8 @@
               {
                 "id": "arrival",
                 "rect": {
-                  "x": 509,
-                  "y": 534,
+                  "x": 1105,
+                  "y": 490,
                   "width": 97,
                   "height": 44
                 },
@@ -895,34 +923,6 @@
                 "align": "right",
                 "minWidth": 64,
                 "weight": 1
-              },
-              {
-                "id": "destination",
-                "rect": {
-                  "x": 607,
-                  "y": 534,
-                  "width": 297,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "capacity",
-                "rect": {
-                  "x": 905,
-                  "y": 534,
-                  "width": 297,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
               }
             ]
           }
@@ -931,13 +931,13 @@
         "scroll": {
           "track": {
             "x": 1238,
-            "y": 270,
+            "y": 226,
             "width": 18,
             "height": 308
           },
           "thumb": {
             "x": 1238,
-            "y": 270,
+            "y": 226,
             "width": 18,
             "height": 308
           }
@@ -1055,9 +1055,9 @@
         },
         "collectionViewport": {
           "x": 112,
-          "y": 234,
+          "y": 190,
           "width": 1144,
-          "height": 412
+          "height": 456
         },
         "footer": {
           "x": 112,
@@ -1121,55 +1121,55 @@
         },
         "collection.scroll.track": {
           "x": 1238,
-          "y": 270,
+          "y": 226,
           "width": 18,
           "height": 308
         },
         "collection.scroll.thumb": {
           "x": 1238,
-          "y": 270,
+          "y": 226,
           "width": 18,
           "height": 308
         },
         "collection.column.cargo": {
           "x": 112,
-          "y": 234,
+          "y": 190,
           "width": 298,
           "height": 36
         },
-        "collection.column.quantity": {
-          "x": 411,
-          "y": 234,
-          "width": 97,
-          "height": 36
-        },
-        "collection.column.arrival": {
-          "x": 509,
-          "y": 234,
-          "width": 97,
-          "height": 36
-        },
         "collection.column.destination": {
-          "x": 607,
-          "y": 234,
+          "x": 411,
+          "y": 190,
           "width": 297,
           "height": 36
         },
         "collection.column.capacity": {
-          "x": 905,
-          "y": 234,
+          "x": 709,
+          "y": 190,
           "width": 297,
+          "height": 36
+        },
+        "collection.column.quantity": {
+          "x": 1007,
+          "y": 190,
+          "width": 97,
+          "height": 36
+        },
+        "collection.column.arrival": {
+          "x": 1105,
+          "y": 190,
+          "width": 97,
           "height": 36
         },
         "collection.row-slot.1": {
           "x": 112,
-          "y": 270,
+          "y": 226,
           "width": 1090,
           "height": 44
         },
         "collection.row-slot.2": {
           "x": 112,
-          "y": 314,
+          "y": 270,
           "width": 1090,
           "height": 44
         },
@@ -1224,9 +1224,9 @@
       },
       "collectionViewport": {
         "x": 52,
-        "y": 152,
+        "y": 108,
         "width": 680,
-        "height": 152
+        "height": 196
       },
       "detailPanel": {
         "x": 526,
@@ -1241,7 +1241,7 @@
             "id": "cargo",
             "rect": {
               "x": 52,
-              "y": 152,
+              "y": 108,
               "width": 159,
               "height": 28
             },
@@ -1252,39 +1252,11 @@
             "weight": 6
           },
           {
-            "id": "quantity",
-            "rect": {
-              "x": 212,
-              "y": 152,
-              "width": 75,
-              "height": 28
-            },
-            "contentRole": "count",
-            "font": "data",
-            "align": "right",
-            "minWidth": 64,
-            "weight": 1
-          },
-          {
-            "id": "arrival",
-            "rect": {
-              "x": 288,
-              "y": 152,
-              "width": 74,
-              "height": 28
-            },
-            "contentRole": "count",
-            "font": "data",
-            "align": "right",
-            "minWidth": 64,
-            "weight": 1
-          },
-          {
             "id": "destination",
             "rect": {
-              "x": 363,
-              "y": 152,
-              "width": 158,
+              "x": 212,
+              "y": 108,
+              "width": 159,
               "height": 28
             },
             "contentRole": "name",
@@ -1296,8 +1268,8 @@
           {
             "id": "capacity",
             "rect": {
-              "x": 522,
-              "y": 152,
+              "x": 372,
+              "y": 108,
               "width": 158,
               "height": 28
             },
@@ -1306,11 +1278,120 @@
             "align": "left",
             "minWidth": 96,
             "weight": 6
+          },
+          {
+            "id": "quantity",
+            "rect": {
+              "x": 531,
+              "y": 108,
+              "width": 74,
+              "height": 28
+            },
+            "contentRole": "count",
+            "font": "data",
+            "align": "right",
+            "minWidth": 64,
+            "weight": 1
+          },
+          {
+            "id": "arrival",
+            "rect": {
+              "x": 606,
+              "y": 108,
+              "width": 74,
+              "height": 28
+            },
+            "contentRole": "count",
+            "font": "data",
+            "align": "right",
+            "minWidth": 64,
+            "weight": 1
           }
         ],
         "rowSlots": [
           {
             "id": "row-slot-1",
+            "rect": {
+              "x": 52,
+              "y": 136,
+              "width": 628,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "cargo",
+                "rect": {
+                  "x": 52,
+                  "y": 136,
+                  "width": 159,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "destination",
+                "rect": {
+                  "x": 212,
+                  "y": 136,
+                  "width": 159,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "capacity",
+                "rect": {
+                  "x": 372,
+                  "y": 136,
+                  "width": 158,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 531,
+                  "y": 136,
+                  "width": 74,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "arrival",
+                "rect": {
+                  "x": 606,
+                  "y": 136,
+                  "width": 74,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
             "rect": {
               "x": 52,
               "y": 180,
@@ -1333,77 +1414,10 @@
                 "weight": 6
               },
               {
-                "id": "quantity",
+                "id": "destination",
                 "rect": {
                   "x": 212,
                   "y": 180,
-                  "width": 75,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
-                "id": "arrival",
-                "rect": {
-                  "x": 288,
-                  "y": 180,
-                  "width": 74,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
-                "id": "destination",
-                "rect": {
-                  "x": 363,
-                  "y": 180,
-                  "width": 158,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "capacity",
-                "rect": {
-                  "x": 522,
-                  "y": 180,
-                  "width": 158,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              }
-            ]
-          },
-          {
-            "id": "row-slot-2",
-            "rect": {
-              "x": 52,
-              "y": 224,
-              "width": 628,
-              "height": 44
-            },
-            "cells": [
-              {
-                "id": "cargo",
-                "rect": {
-                  "x": 52,
-                  "y": 224,
                   "width": 159,
                   "height": 44
                 },
@@ -1414,11 +1428,25 @@
                 "weight": 6
               },
               {
+                "id": "capacity",
+                "rect": {
+                  "x": 372,
+                  "y": 180,
+                  "width": 158,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
                 "id": "quantity",
                 "rect": {
-                  "x": 212,
-                  "y": 224,
-                  "width": 75,
+                  "x": 531,
+                  "y": 180,
+                  "width": 74,
                   "height": 44
                 },
                 "contentRole": "count",
@@ -1430,8 +1458,8 @@
               {
                 "id": "arrival",
                 "rect": {
-                  "x": 288,
-                  "y": 224,
+                  "x": 606,
+                  "y": 180,
                   "width": 74,
                   "height": 44
                 },
@@ -1440,34 +1468,6 @@
                 "align": "right",
                 "minWidth": 64,
                 "weight": 1
-              },
-              {
-                "id": "destination",
-                "rect": {
-                  "x": 363,
-                  "y": 224,
-                  "width": 158,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "capacity",
-                "rect": {
-                  "x": 522,
-                  "y": 224,
-                  "width": 158,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
               }
             ]
           }
@@ -1476,13 +1476,13 @@
         "scroll": {
           "track": {
             "x": 714,
-            "y": 180,
+            "y": 136,
             "width": 18,
             "height": 88
           },
           "thumb": {
             "x": 714,
-            "y": 180,
+            "y": 136,
             "width": 18,
             "height": 88
           }
@@ -1600,9 +1600,9 @@
         },
         "collectionViewport": {
           "x": 52,
-          "y": 152,
+          "y": 108,
           "width": 680,
-          "height": 152
+          "height": 196
         },
         "footer": {
           "x": 52,
@@ -1666,55 +1666,55 @@
         },
         "collection.scroll.track": {
           "x": 714,
-          "y": 180,
+          "y": 136,
           "width": 18,
           "height": 88
         },
         "collection.scroll.thumb": {
           "x": 714,
-          "y": 180,
+          "y": 136,
           "width": 18,
           "height": 88
         },
         "collection.column.cargo": {
           "x": 52,
-          "y": 152,
+          "y": 108,
           "width": 159,
           "height": 28
         },
-        "collection.column.quantity": {
-          "x": 212,
-          "y": 152,
-          "width": 75,
-          "height": 28
-        },
-        "collection.column.arrival": {
-          "x": 288,
-          "y": 152,
-          "width": 74,
-          "height": 28
-        },
         "collection.column.destination": {
-          "x": 363,
-          "y": 152,
-          "width": 158,
+          "x": 212,
+          "y": 108,
+          "width": 159,
           "height": 28
         },
         "collection.column.capacity": {
-          "x": 522,
-          "y": 152,
+          "x": 372,
+          "y": 108,
           "width": 158,
+          "height": 28
+        },
+        "collection.column.quantity": {
+          "x": 531,
+          "y": 108,
+          "width": 74,
+          "height": 28
+        },
+        "collection.column.arrival": {
+          "x": 606,
+          "y": 108,
+          "width": 74,
           "height": 28
         },
         "collection.row-slot.1": {
           "x": 52,
-          "y": 180,
+          "y": 136,
           "width": 628,
           "height": 44
         },
         "collection.row-slot.2": {
           "x": 52,
-          "y": 224,
+          "y": 180,
           "width": 628,
           "height": 44
         },
@@ -2052,25 +2052,25 @@
       "scrollSteps": 0,
       "track": {
         "x": 1238,
-        "y": 270,
+        "y": 226,
         "width": 18,
         "height": 308
       },
       "thumb": {
         "x": 1238,
-        "y": 270,
+        "y": 226,
         "width": 18,
         "height": 308
       },
       "trackHitTarget": {
         "x": 1212,
-        "y": 270,
+        "y": 226,
         "width": 44,
         "height": 308
       },
       "thumbHitTarget": {
         "x": 1212,
-        "y": 270,
+        "y": 226,
         "width": 44,
         "height": 308
       },
@@ -2087,25 +2087,25 @@
       "scrollSteps": 0,
       "track": {
         "x": 714,
-        "y": 180,
+        "y": 136,
         "width": 18,
         "height": 88
       },
       "thumb": {
         "x": 714,
-        "y": 180,
+        "y": 136,
         "width": 18,
         "height": 88
       },
       "trackHitTarget": {
         "x": 688,
-        "y": 180,
+        "y": 136,
         "width": 44,
         "height": 88
       },
       "thumbHitTarget": {
         "x": 688,
-        "y": 180,
+        "y": 136,
         "width": 44,
         "height": 88
       },
@@ -2136,10 +2136,10 @@
     "collection.scroll.track",
     "collection.scroll.thumb",
     "collection.column.cargo",
-    "collection.column.quantity",
-    "collection.column.arrival",
     "collection.column.destination",
     "collection.column.capacity",
+    "collection.column.quantity",
+    "collection.column.arrival",
     "collection.row-slot.1",
     "collection.row-slot.2",
     "action.done"
