@@ -469,6 +469,7 @@ void CalypsoStatisticsUi::configure(StatisticsState& state)
 
 	// Create + register the snapshot-only adapter (driven at the pre-blit
 	// boundary; no feeder Surface, no _surfaces reordering for text).
+	state._window->finishPopupForHd();
 	CalypsoStatisticsUi* adapter = new CalypsoStatisticsUi(&state);
 	state._hdAdapter = adapter;
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter);
