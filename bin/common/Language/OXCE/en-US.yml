@@ -175,6 +175,9 @@ en-US:
   STR_DEAD_SOLDIERS: "Dead Soldiers"
 #StoresState.cpp
   STR_CAL_INVENTORY_SECTION: "Logistics"
+  STR_CAL_DEFENSE_SHORT: "Defense"
+  STR_CAL_SONAR_SHORT: "Short range"
+  STR_CAL_SONAR_WIDE: "Wide band"
   STR_CAL_BASE_CATEGORY: "Category"
   STR_CAL_BASE_MEASURE: "Measure"
   STR_CAL_BASE_OVER: "Over capacity"
