@@ -18,6 +18,10 @@
  */
 
 #include "UfopaediaStartState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Engine/Action.h"
+#endif
 #include "UfopaediaSelectState.h"
 #include "../Engine/Game.h"
 #include "../Engine/Action.h"
@@ -30,6 +34,11 @@
 #include "../Engine/Timer.h"
 #include "../fmath.h"
 #include "../Engine/Screen.h"
+#ifdef __EMSCRIPTEN__
+#include "../Interface/TextList.h"
+#include "../Mod/ArticleDefinition.h"
+#include "../Savegame/SavedGame.h"
+#endif
 
 namespace OpenXcom
 {
@@ -103,7 +112,9 @@ namespace OpenXcom
 
 		centerAllSurfaces();
 
+#ifndef __EMSCRIPTEN__
 		setWindowBackground(_window, "ufopaedia");
+#endif
 
 		_txtTitle->setBig();
 		_txtTitle->setAlign(ALIGN_CENTER);
@@ -123,6 +134,18 @@ namespace OpenXcom
 
 		_timerScroll = new Timer(50);
 		_timerScroll->onTimer((StateHandler)&UfopaediaStartState::scroll);
+#ifdef __EMSCRIPTEN__
+		_window->finishPopupForHd();
+		_screen = true;
+		for (auto *surface : _surfaces) surface->setVisible(false);
+		_btnOk->setVisible(true);
+		_hdSections = new TextList(220, 120, 0, 0);
+		add(_hdSections, "list", "ufopaedia");
+		_hdSections->setColumns(3, 130, 45, 45);
+		_hdSections->setSelectable(true);
+		_hdSections->onMouseClick((ActionHandler)&UfopaediaStartState::openSectionRow);
+		_hdLedger = new Calypso::CalypsoBaseLedger(*this);
+#endif
 	}
 
 	/**
@@ -130,6 +153,10 @@ namespace OpenXcom
 	 */
 	UfopaediaStartState::~UfopaediaStartState()
 	{
+
+#ifdef __EMSCRIPTEN__
+		delete _hdLedger;
+#endif
 		delete _timerScroll;
 	}
 
@@ -238,4 +265,40 @@ namespace OpenXcom
 			_btnSections[i]->setText(tr(_cats[_offset + i]));
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	void UfopaediaStartState::init()
+	{
+		State::init();
+		_hdSections->clearList();
+		auto *save = _game->getSavedGame();
+		for (const auto &category : _cats)
+		{
+			ArticleDefinitionList articles;
+			Ufopaedia::list(save, _game->getMod(), category, articles);
+			size_t visible = 0, unseen = 0;
+			for (auto *article : articles)
+			{
+				const auto status = save->getUfopediaRuleStatus(article->id);
+				visible += status != ArticleDefinition::PEDIA_STATUS_HIDDEN;
+				unseen += status == ArticleDefinition::PEDIA_STATUS_NEW;
+			}
+			_hdSections->addRow(3, tr(category).c_str(), std::to_string(visible).c_str(), std::to_string(unseen).c_str());
+		}
+		_hdLedger->refresh();
+		_hdSections->scrollTo(_hdScroll);
+	}
+	void UfopaediaStartState::openSectionRow(Action *)
+	{
+		const size_t row = _hdSections->getSelectedRow();
+		if (row >= _cats.size()) return;
+		_hdScroll = _hdSections->getScroll();
+		_game->pushState(new UfopaediaSelectState(_cats[row], 0, 0));
+	}
+	void UfopaediaStartState::resize(int &dX, int &dY)
+	{
+		if (_hdLedger) _hdLedger->refresh();
+		else State::resize(dX, dY);
+	}
+#endif
+
 }

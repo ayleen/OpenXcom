@@ -700,3 +700,8 @@ ru:
   STR_CAL_NAME_PREVIEW: "Имя после изменения"
   STR_CAL_CONTACT_FIELD: "Поле"
   STR_CAL_CONTACT_VALUE: "Значение"
+  STR_CAL_ARCHIVE_SECTIONS: "Разделы"
+  STR_CAL_ARCHIVE_SECTION: "Раздел"
+  STR_CAL_ARCHIVE_TOPICS: "Статьи"
+  STR_CAL_ARCHIVE_NEW: "Новые"
+  STR_CAL_ARCHIVE_SEEN: "Прочитано всё"

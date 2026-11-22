@@ -1161,6 +1161,8 @@
       "harnessScenarioIds": [
         180
       ]
-    }
+    },
+    {"id": "f31-archive-sections", "contract": "f31-archive-sections.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF31ArchiveSectionsGen", "prefix": "CalypsoF31ArchiveSections", "output": "CalypsoF31ArchiveSections.generated.h"}, "browser": {"global": "CalypsoF31ArchiveSections", "output": "f31-archive-sections.js"}, "rendererOwnership": "tech-topic-selector", "harnessScenarioIds": [181]},
+    {"id": "f31-archive-topics", "contract": "f31-archive-topics.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF31ArchiveTopicsGen", "prefix": "CalypsoF31ArchiveTopics", "output": "CalypsoF31ArchiveTopics.generated.h"}, "browser": {"global": "CalypsoF31ArchiveTopics", "output": "f31-archive-topics.js"}, "rendererOwnership": "tech-topic-selector", "harnessScenarioIds": [182]}
   ]
 }

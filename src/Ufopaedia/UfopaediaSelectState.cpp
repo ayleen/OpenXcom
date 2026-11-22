@@ -20,6 +20,10 @@
 #include <locale>
 #include "Ufopaedia.h"
 #include "UfopaediaSelectState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Engine/Action.h"
+#endif
 #include "../Mod/ArticleDefinition.h"
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
@@ -71,7 +75,9 @@ namespace OpenXcom
 
 		centerAllSurfaces();
 
+#ifndef __EMSCRIPTEN__
 		setWindowBackground(_window, "ufopaedia");
+#endif
 
 		_txtTitle->setBig();
 		_txtTitle->setAlign(ALIGN_CENTER);
@@ -102,10 +108,28 @@ namespace OpenXcom
 		_btnQuickSearch->setVisible(Options::oxceQuickSearchButton);
 
 		_btnOk->onKeyboardRelease((ActionHandler)&UfopaediaSelectState::btnQuickSearchToggle, Options::keyToggleQuickSearch);
+#ifdef __EMSCRIPTEN__
+		_screen = true;
+		_window->setVisible(false);
+		_cbxFilter->setVisible(false);
+		_btnQuickSearch->setVisible(true);
+		_lstSelection->setColumns(2, 145, 60);
+		_hdFilter = new TextButton(1, 1, 0, 0);
+		_hdSeen = new TextButton(1, 1, 0, 0);
+		add(_hdFilter, "button2", "ufopaedia");
+		add(_hdSeen, "button2", "ufopaedia");
+		_hdFilter->onMouseClick((ActionHandler)&UfopaediaSelectState::cycleFilter);
+		_hdSeen->onMouseClick((ActionHandler)&UfopaediaSelectState::btnMarkAllAsSeenClick);
+		_hdLedger = new Calypso::CalypsoBaseLedger(*this);
+#endif
 	}
 
 	UfopaediaSelectState::~UfopaediaSelectState()
-	{}
+	{
+#ifdef __EMSCRIPTEN__
+		delete _hdLedger;
+#endif
+	}
 
 	/**
 	 * Initializes the state.
@@ -129,8 +153,16 @@ namespace OpenXcom
 	 *
 	 * @param action Pointer to an action.
 	 */
-	void UfopaediaSelectState::lstSelectionClick(Action *)
+	void UfopaediaSelectState::lstSelectionClick(Action *action)
 	{
+		if (_lstSelection->getSelectedRow() >= _filtered_article_list.size()) return;
+#ifdef __EMSCRIPTEN__
+		if (action && action->getAbsoluteXMouse() >= _hdStatusX)
+		{
+			lstSelectionClickRight(action);
+			return;
+		}
+#endif
 		_lstScroll = _lstSelection->getScroll();
 		Ufopaedia::openArticle(_game, _filtered_article_list[_lstSelection->getSelectedRow()]);
 	}
@@ -141,6 +173,7 @@ namespace OpenXcom
 	 */
 	void UfopaediaSelectState::lstSelectionClickRight(Action *)
 	{
+		if (_lstSelection->getSelectedRow() >= _filtered_article_list.size()) return;
 		// change status
 		const std::string rule = _filtered_article_list[_lstSelection->getSelectedRow()]->id;
 		int oldState = _game->getSavedGame()->getUfopediaRuleStatus(rule);
@@ -164,6 +197,10 @@ namespace OpenXcom
 		{
 			_lstSelection->setRowColor(_lstSelection->getSelectedRow(), _colorNormal);
 		}
+#ifdef __EMSCRIPTEN__
+		_lstScroll = _lstSelection->getScroll();
+		loadSelectionList(false);
+#endif
 	}
 
 	/**
@@ -275,7 +312,15 @@ namespace OpenXcom
 			}
 
 			_filtered_article_list.push_back(articleDef);
+
+#ifdef __EMSCRIPTEN__
+			const char *statusKey = markAllAsSeen ? "STR_NORMAL" :
+				ruleStatus == ArticleDefinition::PEDIA_STATUS_HIDDEN ? "STR_FILTER_HIDDEN" :
+				ruleStatus == ArticleDefinition::PEDIA_STATUS_NEW ? "STR_CAL_ARCHIVE_NEW" : "STR_NORMAL";
+			_lstSelection->addRow(2, tr(articleDef->getMainTitle()).c_str(), tr(statusKey).c_str());
+#else
 			_lstSelection->addRow(1, tr(articleDef->getMainTitle()).c_str());
+#endif
 
 			if (markAllAsSeen)
 			{
@@ -302,11 +347,37 @@ namespace OpenXcom
 			std::string label = tr("STR_OK");
 			_btnOk->setText((hasUnseen ? "* " : "") + label);
 		}
+
+#ifdef __EMSCRIPTEN__
+		if (_hdLedger) _hdLedger->refresh();
+#endif
 		if (_lstScroll > 0)
 		{
 			_lstSelection->scrollTo(_lstScroll);
 			_lstScroll = 0;
 		}
 	}
+
+#ifdef __EMSCRIPTEN__
+	const char *UfopaediaSelectState::filterKey() const
+	{
+		switch (_cbxFilter->getSelected())
+		{
+		case 1: return _isCommendationsSection ? "STR_NOT_AWARDED_YET" : "STR_SHOW_ONLY_NEW";
+		case 2: return "STR_FILTER_HIDDEN";
+		default: return "STR_FILTER_DEFAULT";
+		}
+	}
+	void UfopaediaSelectState::cycleFilter(Action *)
+	{
+		_cbxFilter->setSelected((_cbxFilter->getSelected() + 1) % 3);
+		loadSelectionList(false);
+	}
+	void UfopaediaSelectState::resize(int &dX, int &dY)
+	{
+		if (_hdLedger) _hdLedger->refresh();
+		else State::resize(dX, dY);
+	}
+#endif
 
 }

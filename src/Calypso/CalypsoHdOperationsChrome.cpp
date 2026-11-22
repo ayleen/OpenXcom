@@ -89,8 +89,9 @@ CalypsoHdOperationsRect calypsoHdOperationsProjectForCurrentPresentation(
 		static_cast<int>(std::llround(metrics.contentOffsetY / metrics.scaleY)));
 }
 
-CalypsoHdOperationsChrome::CalypsoHdOperationsChrome(State& state)
+CalypsoHdOperationsChrome::CalypsoHdOperationsChrome(State& state, bool enableNavigation)
 {
+	if (!enableNavigation) return;
 	const ActionHandler handlers[7] = {
 		(ActionHandler)&State::calypsoHdNavigateWorldClick,
 		(ActionHandler)&State::calypsoHdNavigateBasesClick,

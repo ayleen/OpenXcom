@@ -43,6 +43,11 @@
 #include "CalypsoReportLines.h"
 #include "Generated/CalypsoF24ProductionComplete.generated.h"
 #include "Generated/CalypsoF24ItemsArriving.generated.h"
+#include "Generated/CalypsoF31ArchiveSections.generated.h"
+#include "Generated/CalypsoF31ArchiveTopics.generated.h"
+#include "../Mod/ArticleDefinition.h"
+#include "../Ufopaedia/UfopaediaStartState.h"
+#include "../Ufopaedia/UfopaediaSelectState.h"
 #include "Generated/CalypsoF24Unlocks.generated.h"
 #include "../Basescape/ItemLocationsState.h"
 #include "../Engine/Game.h"
@@ -700,6 +705,70 @@ CalypsoBaseLedger::CalypsoBaseLedger(TechTreeSelectState &s)
 	};
 	open();
 }
+CalypsoBaseLedger::CalypsoBaseLedger(UfopaediaStartState &s)
+	: _chrome(s, !getCurrentGame()->getSavedGame()->getSavedBattle()), _renderer(&s, {})
+{
+	_collect = [this, &s]()
+	{
+		namespace Gen = CalypsoF31ArchiveSectionsGen;
+		const bool wide = wideLayout();
+		const auto &g = *Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		auto model = ledgerModel(s, s.tr("STR_UFOPAEDIA"), *s._hdSections, nullptr, g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"matches", s.tr("STR_CAL_ARCHIVE_SECTIONS"), std::to_string(s._cats.size()), design(g.summary_matches)}},
+			{{s.tr("STR_CAL_ARCHIVE_SECTION")}, {s.tr("STR_CAL_ARCHIVE_TOPICS")}, {s.tr("STR_CAL_ARCHIVE_NEW")}},
+			{{"done", s._btnOk, s.tr("STR_OK"), design(g.action_done)}},
+			"STR_CAL_NO_RECORDS", "STR_UFOPAEDIA", 31);
+		for (size_t i = 0; i < model.collection.rows.size(); ++i)
+			model.collection.rows[i].id = s._cats[i];
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		model.sectionLabel = s.tr("STR_UFOPAEDIA");
+		model.headerArtId = "base-research";
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+
+CalypsoBaseLedger::CalypsoBaseLedger(UfopaediaSelectState &s)
+	: _chrome(s, !getCurrentGame()->getSavedGame()->getSavedBattle()), _renderer(&s, {})
+{
+	_collect = [this, &s]()
+	{
+		namespace Gen = CalypsoF31ArchiveTopicsGen;
+		const bool wide = wideLayout();
+		const auto &g = *Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		const auto &query = s._btnQuickSearch->getText();
+		auto model = ledgerModel(s, s.tr(s._section), *s._lstSelection, nullptr, g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"matches", s.tr("STR_CAL_TOPIC_RESULTS"), std::to_string(s._filtered_article_list.size()), design(g.summary_matches)}},
+			{{s.tr("STR_CAL_TOPIC_NAME")}, {s.tr("STR_CAL_TOPIC_STATUS")}},
+			{{"query", s._btnQuickSearch, query.empty() ? std::string(s.tr("STR_QUICK_SEARCH")) : query, design(g.toolbar_query), false, true},
+			 {"filter", s._hdFilter, s.tr(s.filterKey()), design(g.toolbar_filter), false, true},
+			 {"seen", s._hdSeen, s.tr("STR_CAL_ARCHIVE_SEEN"), design(g.action_seen)},
+			 {"done", s._btnOk, s.tr("STR_OK"), design(g.action_done)}},
+			"STR_CAL_TOPIC_NO_MATCHES", "STR_CAL_TOPIC_CHANGE_QUERY", 31);
+		const auto frame = CalypsoHdOperationsFluidFrame::forReference(g.designWidth, g.designHeight, g.footer.x, g.footer.w);
+		s._hdStatusX = frame.resolve(design(table.columns[1].rect), Vertical::Fixed).x;
+		for (size_t i = 0; i < model.collection.rows.size(); ++i)
+			model.collection.rows[i].id = s._filtered_article_list[i]->id;
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		model.sectionLabel = s.tr("STR_UFOPAEDIA");
+		model.headerArtId = "base-research";
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+
 CalypsoBaseLedger::CalypsoBaseLedger(ItemsArrivingState &s)
 	: _chrome(s), _renderer(&s, {})
 {

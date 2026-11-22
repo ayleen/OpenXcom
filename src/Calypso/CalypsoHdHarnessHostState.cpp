@@ -123,6 +123,8 @@
 #include "../Geoscape/ProductionCompleteState.h"
 #include "../Geoscape/ItemsArrivingState.h"
 #include "../Geoscape/GeoscapeEventState.h"
+#include "../Ufopaedia/UfopaediaStartState.h"
+#include "../Ufopaedia/UfopaediaSelectState.h"
 #include "../Mod/RuleEvent.h"
 #include "../Geoscape/ResearchRequiredState.h"
 #include "../Geoscape/NewPossibleCraftState.h"
@@ -2077,6 +2079,21 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 				if (NewPossibleResearchState::eligible(*game->getSavedGame(), rule))
 					return new NewPossibleResearchState(base, {rule});
 			}
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F31ArchiveSections:
+	case CalypsoHarnessScenario::F31ArchiveTopics:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		if (id == CalypsoHarnessScenario::F31ArchiveSections) return new UfopaediaStartState();
+		const auto &categories = game->getMod()->getUfopaediaCategoryList();
+		for (const auto &category : categories)
+		{
+			ArticleDefinitionList articles;
+			Ufopaedia::list(game->getSavedGame(), game->getMod(), category, articles);
+			if (!articles.empty()) return new UfopaediaSelectState(category, 0, 0);
 		}
 		return nullptr;
 	}
