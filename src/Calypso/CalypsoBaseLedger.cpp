@@ -316,9 +316,9 @@ CalypsoBaseLedger::CalypsoBaseLedger(BaseInfoState &s)
 		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
 		auto model = ledgerModel(s, s._edtBase->getText().empty() ? std::string(s.tr("STR_BASE_INFORMATION")) : s._edtBase->getText(), *s._hdRows, s._base, *g, table,
 			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
-			{{"defense", s._txtDefense->getText(), s._numDefense->getText(), design(g->summary_defense)},
-			 {"short-range", s._txtShortRange->getText(), s._numShortRange->getText(), design(g->summary_short_range)},
-			 {"long-range", s._txtLongRange->getText(), s._numLongRange->getText(), design(g->summary_long_range)}},
+			{{"defense", s.tr("STR_CAL_DEFENSE_SHORT"), s._numDefense->getText(), design(g->summary_defense)},
+			 {"short-range", s.tr("STR_CAL_SONAR_SHORT"), s._numShortRange->getText(), design(g->summary_short_range)},
+			 {"long-range", s.tr("STR_CAL_SONAR_WIDE"), s._numLongRange->getText(), design(g->summary_long_range)}},
 			{{s.tr("STR_CAL_BASE_CATEGORY")}, {s.tr("STR_CAL_BASE_MEASURE")}, {s.tr("STR_QUANTITY_UC")}, {s.tr("STR_TOTAL")}, {s.tr("STR_CAL_BASE_OVER")}},
 			{{"previous-base", s._previousBase, s._previousBase->getText(), design(g->toolbar_previous_base), false, true},
 			 {"next-base", s._nextBase, s._nextBase->getText(), design(g->toolbar_next_base), false, true},
