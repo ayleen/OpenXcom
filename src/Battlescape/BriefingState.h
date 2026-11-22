@@ -47,6 +47,7 @@ private:
 	bool _infoOnly;
 	bool _disableCutsceneAndMusic;
 #ifdef __EMSCRIPTEN__
+	void openBriefing(bool isPreview);
 	Calypso::CalypsoStrategicList *_hdList = nullptr;
 	TextList *_hdBody = nullptr;
 	std::vector<std::string> _briefingParagraphs;

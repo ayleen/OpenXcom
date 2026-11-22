@@ -666,7 +666,15 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoF08CraftEquipmentSaveUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF12TransferConfirmUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF10ProductionUi.cpp)
-  list(APPEND openxcom_src Basescape/ContainmentReviewState.cpp)
+  list(APPEND openxcom_src
+    Calypso/ContainmentReviewState.cpp
+    Calypso/CalypsoBaseManagement.cpp
+    Calypso/CalypsoMissionBriefing.cpp
+    Calypso/CalypsoFleetControls.cpp
+    Calypso/CalypsoCampaignReports.cpp
+    Calypso/CalypsoSlidePlayer.cpp
+    Calypso/CalypsoArchiveScreens.cpp
+  )
   list(APPEND openxcom_src Calypso/CalypsoF21TransactionUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF21SiteUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF21NameUi.cpp)

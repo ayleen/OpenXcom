@@ -265,40 +265,5 @@ namespace OpenXcom
 			_btnSections[i]->setText(tr(_cats[_offset + i]));
 		}
 	}
-#ifdef __EMSCRIPTEN__
-	void UfopaediaStartState::init()
-	{
-		State::init();
-		_hdSections->clearList();
-		auto *save = _game->getSavedGame();
-		for (const auto &category : _cats)
-		{
-			ArticleDefinitionList articles;
-			Ufopaedia::list(save, _game->getMod(), category, articles);
-			size_t visible = 0, unseen = 0;
-			for (auto *article : articles)
-			{
-				const auto status = save->getUfopediaRuleStatus(article->id);
-				visible += status != ArticleDefinition::PEDIA_STATUS_HIDDEN;
-				unseen += status == ArticleDefinition::PEDIA_STATUS_NEW;
-			}
-			_hdSections->addRow(3, tr(category).c_str(), std::to_string(visible).c_str(), std::to_string(unseen).c_str());
-		}
-		_hdLedger->refresh();
-		_hdSections->scrollTo(_hdScroll);
-	}
-	void UfopaediaStartState::openSectionRow(Action *)
-	{
-		const size_t row = _hdSections->getSelectedRow();
-		if (row >= _cats.size()) return;
-		_hdScroll = _hdSections->getScroll();
-		_game->pushState(new UfopaediaSelectState(_cats[row], 0, 0));
-	}
-	void UfopaediaStartState::resize(int &dX, int &dY)
-	{
-		if (_hdLedger) _hdLedger->refresh();
-		else State::resize(dX, dY);
-	}
-#endif
 
 }

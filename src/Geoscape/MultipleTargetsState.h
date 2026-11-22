@@ -38,6 +38,7 @@ class MultipleTargetsState : public State
 {
 private:
 #ifdef __EMSCRIPTEN__
+	void openContactList();
 	friend class Calypso::CalypsoBaseLedger;
 	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
 	size_t _picked = static_cast<size_t>(-1);

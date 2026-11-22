@@ -302,41 +302,6 @@ void UfoTrackerState::lstObjectsMiddleClick(Action *)
 	}
 }
 
-#ifdef __EMSCRIPTEN__
-void UfoTrackerState::chooseContact(Action *)
-{
-	_picked = _lstObjects->getSelectedRow();
-	_reference->setVisible(canReference());
-}
-
-bool UfoTrackerState::canReference() const
-{
-	if (_picked >= _objects.size()) return false;
-	const auto *ufo = dynamic_cast<const Ufo*>(_objects[_picked]);
-	return ufo && ufo->getHyperDetected();
-}
-
-void UfoTrackerState::openPicked(Action *)
-{
-	if (_picked < _objects.size()) popupTarget(_objects[_picked]);
-}
-
-void UfoTrackerState::centerPicked(Action *)
-{
-	if (_picked >= _objects.size()) return;
-	auto *target = _objects[_picked];
-	_globe->center(target->getLongitude(), target->getLatitude());
-	_game->popState();
-}
-
-void UfoTrackerState::referencePicked(Action *)
-{
-	if (!canReference()) return;
-	auto *ufo = static_cast<Ufo*>(_objects[_picked]);
-	std::string article = ufo->getRules()->getType();
-	Ufopaedia::openArticle(_game, article);
-}
-#endif
 
 #ifdef __EMSCRIPTEN__
 void UfoTrackerState::resize(int &dX, int &dY)

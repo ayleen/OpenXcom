@@ -1038,15 +1038,6 @@ Music *Mod::getRandomMusic(const std::string &name) const
 	}
 }
 
-#ifdef __EMSCRIPTEN__
-void Mod::stopCutsceneMusic(const std::string &track)
-{
-	if (track.empty() || track != _currentMusicTrack) return;
-	Music::stop();
-	_playingMusic.clear();
-	_currentMusicTrack.clear();
-}
-#endif
 
 /**
  * Plays the specified track if it's not already playing.

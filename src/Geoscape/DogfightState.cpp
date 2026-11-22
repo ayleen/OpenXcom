@@ -1994,43 +1994,6 @@ void DogfightState::aggressiveDistance()
  * the text timeout counter.
  * @param status New status text.
  */
-#ifdef __EMSCRIPTEN__
-void DogfightState::interceptionAction(int command, int slot)
-{
-	if (_minimized)
-	{
-		if (command == 7) btnMinimizedIconClick(nullptr);
-		return;
-	}
-	if (_preview->getVisible())
-	{
-		if (command == 6) previewClick(nullptr);
-		return;
-	}
-	SDL_Event event{};
-	event.type = SDL_MOUSEBUTTONDOWN;
-	event.button.button = SDL_BUTTON_LEFT;
-	Action action(&event, 1, 1, 0, 0);
-	switch (command)
-	{
-	case 0: btnStandoffSimulateLeftPress(&action); break;
-	case 1: btnCautiousSimulateLeftPress(&action); break;
-	case 2: btnStandardSimulateLeftPress(&action); break;
-	case 3: btnAggressiveSimulateLeftPress(&action); break;
-	case 4: btnDisengageSimulateLeftPress(&action); break;
-	case 5: if (_btnMinimize->getVisible()) btnMinimizeClick(nullptr); break;
-	case 6: if (_btnUfo->getVisible()) btnUfoClick(nullptr); break;
-	case 8:
-		if (slot >= 0 && slot < _weaponNum && _craft->getWeapons()->at(slot) && _weapon[slot]->getVisible())
-		{
-			action.setSender(_weapon[slot]);
-			weaponClick(&action);
-		}
-		break;
-	case 9: if (slot >= 0 && slot < 5) _state->handleDogfightMultiAction(slot); break;
-	}
-}
-#endif
 
 void DogfightState::setStatus(const std::string &status)
 {

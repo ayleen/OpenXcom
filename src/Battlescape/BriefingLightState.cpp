@@ -240,43 +240,5 @@ void BriefingLightState::lstArmorsClick(Action* action)
 #endif
 }
 
-#ifdef __EMSCRIPTEN__
-void BriefingLightState::layoutBriefing(bool initial)
-{
-	const auto scroll = _hdBody->getScroll();
-	if (!initial) _hdList->layout();
-	_hdBody->clearList();
-	auto append = [&](const std::string &text) {
-		for (const auto &line : Calypso::calypsoWrapReportText(*_game->getMod(), text, _hdList->firstColumnWidth(), _hdList->bodyFontSize()))
-			_hdBody->addRow(1, line.c_str());
-	};
-	_articleRows.clear();
-	const bool restrictions = _btnArmors->getPressed();
-	const auto &description = restrictions ? _txtArmors->getText() : _txtBriefing->getText();
-	if (description.empty()) append(tr("STR_CAL_BRIEF_NO_INTELLIGENCE"));
-	else append(description);
-	_articleRows.resize(_hdBody->getTexts());
-	if (restrictions) for (const auto &entry : _armorNameList)
-	{
-		if (entry.first.empty()) continue;
-		const auto *armor = _game->getMod()->getArmor(entry.first, false);
-		const std::string articleId = armor ? armor->getUfopediaType() : entry.first;
-		auto *article = _game->getMod()->getUfopaediaArticle(articleId, false);
-		const bool known = article && Ufopaedia::isArticleAvailable(_game->getSavedGame(), article);
-		append(entry.second);
-		_articleRows.resize(_hdBody->getTexts(), known ? articleId : std::string());
-	}
-	if (initial) enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
-	else recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
-	_hdList->fitInput();
-	_hdBody->scrollTo(scroll);
-}
-
-void BriefingLightState::resize(int &dx, int &dy)
-{
-	if (_hdList) layoutBriefing(false);
-	else State::resize(dx, dy);
-}
-#endif
 
 }

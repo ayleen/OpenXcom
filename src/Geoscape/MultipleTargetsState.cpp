@@ -56,32 +56,7 @@ MultipleTargetsState::MultipleTargetsState(std::vector<Target*> targets, std::ve
 	if (_targets.size() > 1)
 	{
 #ifdef __EMSCRIPTEN__
-		_screen = true;
-		setInterface("multipleTargets");
-		_window = new Window(this, 160, 120);
-		add(_window, "window", "multipleTargets");
-		_contacts = new TextList(136, 86);
-		add(_contacts, "button", "multipleTargets");
-		_contacts->setColumns(2, 82, 54);
-		_contacts->setSelectable(true);
-		_contacts->setBackground(_window);
-		_contacts->onMouseClick((ActionHandler)&MultipleTargetsState::chooseContact);
-		_contacts->onKeyboardPress((ActionHandler)&MultipleTargetsState::chooseContact, SDLK_SPACE);
-		for (auto *target : _targets)
-			_contacts->addRow(2, target->getName(_game->getLanguage()).c_str(), tr(target->getType()).c_str());
-		_details = new TextButton(60, 16);
-		_open = new TextButton(60, 16);
-		_cancel = new TextButton(60, 16);
-		for (auto *button : {_details, _open, _cancel}) add(button, "button", "multipleTargets");
-		_details->setText(tr("STR_INFO"));
-		_details->onMouseClick((ActionHandler)&MultipleTargetsState::inspectPicked);
-		_open->setText(tr("STR_CAL_OPEN_CONTACT"));
-		_open->onMouseClick((ActionHandler)&MultipleTargetsState::openPicked);
-		_open->onKeyboardPress((ActionHandler)&MultipleTargetsState::openPicked, Options::keyOk);
-		_cancel->setText(tr("STR_CANCEL"));
-		_cancel->onMouseClick((ActionHandler)&MultipleTargetsState::btnCancelClick);
-		_cancel->onKeyboardPress((ActionHandler)&MultipleTargetsState::btnCancelClick, Options::keyCancel);
-		_hdLedger = new Calypso::CalypsoBaseLedger(*this);
+		openContactList();
 #else
 		int winHeight = BUTTON_HEIGHT * _targets.size() + SPACING * (_targets.size() - 1) + MARGIN * 2;
 		int winY = (200 - winHeight) / 2;

@@ -138,43 +138,5 @@ void NewPossibleResearchState::btnResearchClick(Action *)
 	_game->pushState (new ResearchState(_base));
 }
 
-#ifdef __EMSCRIPTEN__
-NewPossibleResearchState::~NewPossibleResearchState()
-{
-	delete _ledger;
-}
-
-void NewPossibleResearchState::resize(int &dx, int &dy)
-{
-	if (_ledger) _ledger->refresh();
-	else State::resize(dx, dy);
-}
-
-bool NewPossibleResearchState::eligible(SavedGame &save, const RuleResearch *rule)
-{
-	return rule && rule->getRequirements().empty() && !save.wasResearchPopped(rule)
-		&& !save.isResearched(rule, false);
-}
-
-void NewPossibleResearchState::init()
-{
-	State::init();
-	if (_opened) return;
-	_opened = true;
-	auto &save = *_game->getSavedGame();
-	_pending.erase(std::remove_if(_pending.begin(), _pending.end(),
-		[&save](const RuleResearch *rule) { return !eligible(save, rule); }), _pending.end());
-	if (_pending.empty())
-	{
-		_game->popState();
-		return;
-	}
-	for (const auto *rule : _pending)
-		Calypso::calypsoAddUnlockRow(*this, *_lstPossibilities, tr(rule->getName()), rule->getRequireBaseFunc());
-	_ledger = new Calypso::CalypsoBaseLedger(*this, _base, *_txtTitle, *_lstPossibilities, *_btnResearch, *_btnOk);
-	for (const auto *rule : _pending) save.addPoppedResearch(rule);
-	_pending.clear();
-}
-#endif
 
 }

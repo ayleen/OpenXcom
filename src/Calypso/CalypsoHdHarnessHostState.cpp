@@ -35,7 +35,7 @@
 #include "../Basescape/BaseView.h"
 #include "../Basescape/ManageAlienContainmentState.h"
 #include "../Basescape/GlobalAlienContainmentState.h"
-#include "../Basescape/ContainmentReviewState.h"
+#include "ContainmentReviewState.h"
 #include "../Basescape/BuildFacilitiesState.h"
 #include "../Basescape/DismantleFacilityState.h"
 #include "../Basescape/PlaceFacilityState.h"

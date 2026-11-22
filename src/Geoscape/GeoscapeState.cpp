@@ -552,16 +552,6 @@ void GeoscapeState::blit()
 #endif
 }
 
-#ifdef __EMSCRIPTEN__
-void GeoscapeState::startHarnessInterception(Craft *craft, Ufo *ufo)
-{
-	_globe->saveZoomDogfight();
-	_globe->zoomMax();
-	_dogfightsToBeStarted.push_back(new DogfightState(this, craft, ufo));
-	startDogfight();
-}
-
-#endif
 
 /**
  * Handle key shortcuts.

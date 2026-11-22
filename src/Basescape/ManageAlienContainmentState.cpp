@@ -45,7 +45,7 @@
 #include "TransferBaseState.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoBaseLedger.h"
-#include "ContainmentReviewState.h"
+#include "../Calypso/ContainmentReviewState.h"
 #endif
 
 namespace OpenXcom

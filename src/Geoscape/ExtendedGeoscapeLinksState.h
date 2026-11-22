@@ -41,6 +41,7 @@ class ExtendedGeoscapeLinksState : public State
 {
 private:
 #ifdef __EMSCRIPTEN__
+	void openDestinations();
 	Calypso::CalypsoStrategicList *_hdList = nullptr;
 	TextList *_destinations = nullptr;
 	std::vector<TextButton*> _routes;

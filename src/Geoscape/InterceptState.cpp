@@ -580,53 +580,5 @@ void InterceptState::lstCraftsMiddleClick(Action *)
 	}
 }
 
-#ifdef __EMSCRIPTEN__
-bool InterceptState::canDispatch(const Craft *craft) const
-{
-	if (!craft || craft->getLowFuel() || craft->getMissionComplete()) return false;
-	const auto &status = craft->getStatus();
-	if (status != "STR_READY" && status != "STR_OUT" && !Options::craftLaunchAlways) return false;
-	return !_target || craft->getDistance(_target) + craft->getBase()->getDistance(_target) <= craft->getBaseRange() * 2.0;
-}
-
-void InterceptState::pickShip(Action *)
-{
-	_picked = _lstCrafts->getSelectedRow();
-	if (_game->isShiftPressed()) toggleEscort(nullptr);
-}
-
-void InterceptState::toggleEscort(Action *)
-{
-	if (_picked >= _crafts.size()) return;
-	auto *craft = _crafts[_picked];
-	auto it = std::find(_selCrafts.begin(), _selCrafts.end(), craft);
-	if (it != _selCrafts.end()) _selCrafts.erase(it);
-	else if (_selCrafts.size() < 3 && canDispatch(craft)) _selCrafts.push_back(craft);
-}
-
-void InterceptState::setCourse(Action *action)
-{
-	if (_picked >= _crafts.size() || !canDispatch(_crafts[_picked])) return;
-	_lstCrafts->setSelectedRow(_picked);
-	lstCraftsLeftClick(action);
-}
-void InterceptState::openShip(Action *action)
-{
-	if (_picked >= _crafts.size()) return;
-	_lstCrafts->setSelectedRow(_picked);
-	lstCraftsRightClick(action);
-}
-void InterceptState::openReference(Action *action)
-{
-	if (_picked >= _crafts.size()) return;
-	_lstCrafts->setSelectedRow(_picked);
-	lstCraftsMiddleClick(action);
-}
-void InterceptState::resize(int &dX, int &dY)
-{
-	if (_fleetView) _fleetView->setModel(fleetModel());
-	else State::resize(dX, dY);
-}
-#endif
 
 }

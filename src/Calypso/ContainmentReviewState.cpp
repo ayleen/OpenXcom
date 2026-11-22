@@ -1,7 +1,7 @@
 #ifdef __EMSCRIPTEN__
 #include "ContainmentReviewState.h"
-#include "ManageAlienContainmentState.h"
-#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Basescape/ManageAlienContainmentState.h"
+#include "CalypsoBaseLedger.h"
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
 #include "../Engine/Unicode.h"

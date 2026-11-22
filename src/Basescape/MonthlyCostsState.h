@@ -40,6 +40,7 @@ class MonthlyCostsState : public State
 {
 private:
 #ifdef __EMSCRIPTEN__
+	void openCostLedger();
 	friend class Calypso::CalypsoBaseLedger;
 	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
 	TextList *_hdRows = nullptr;

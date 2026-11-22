@@ -160,28 +160,7 @@ ExtendedGeoscapeLinksState::ExtendedGeoscapeLinksState(GeoscapeState* parent) : 
 	}
 	_btnTest->onMouseClick((ActionHandler)&ExtendedGeoscapeLinksState::btnTestClick);
 #ifdef __EMSCRIPTEN__
-	auto *training = new TextButton(1, 1);
-	add(training, "button", "oxceLinks");
-	training->setText(tr("STR_TRAINING"));
-	training->onMouseClick((ActionHandler)&ExtendedGeoscapeLinksState::trainingClick);
-	_destinations = new TextList(220, 120);
-	add(_destinations, "list", "oxceLinks");
-	_destinations->setColumns(2, 120, 90);
-	_destinations->setSelectable(true);
-	_destinations->setBackground(_window);
-	for (Surface *surface : _surfaces)
-	{
-		auto *button = dynamic_cast<TextButton*>(surface);
-		if (!button || button == _btnOk || !button->getVisible()) continue;
-		_destinations->addRow(2, button->getText().c_str(), tr("STR_GEOSCAPE").c_str());
-		_routes.push_back(button);
-		button->setVisible(false);
-	}
-	_destinations->onMouseClick((ActionHandler)&ExtendedGeoscapeLinksState::openDestination);
-	_destinations->onKeyboardPress((ActionHandler)&ExtendedGeoscapeLinksState::openDestination, Options::keyOk);
-	_hdList = new Calypso::CalypsoStrategicList(this, _parent, _game->getMod(), _window, _txtTitle, _destinations, _btnOk, Calypso::CalypsoStrategicList::Content::Destinations);
-	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
-	_hdList->fitInput();
+	openDestinations();
 #endif
 }
 

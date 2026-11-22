@@ -32,7 +32,7 @@
 #include "Generated/CalypsoF13ManageContainment.generated.h"
 #include "Generated/CalypsoF13ContainmentReview.generated.h"
 #include "../Basescape/ManageAlienContainmentState.h"
-#include "../Basescape/ContainmentReviewState.h"
+#include "ContainmentReviewState.h"
 #include "../Engine/Unicode.h"
 #include "Generated/CalypsoF13GlobalContainment.generated.h"
 #include "../Basescape/GlobalAlienContainmentState.h"
