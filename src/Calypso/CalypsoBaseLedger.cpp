@@ -704,7 +704,7 @@ CalypsoHdOperationsModel CalypsoMissionReview::model()
 		auto m = ledgerModel(_state, _state.tr(_patrol ? "STR_CAL_DROP_LANDING" : "STR_CAL_DROP_FINAL"),
 			*_rows, _craft->getBase(), g, table, style, type,
 			{{"craft", _state.tr("STR_CRAFT"), _craft->getName(getCurrentGame()->getLanguage()), design(g.summary_craft)},
-			 {"target", _state.tr("STR_TARGET"), _targetName, design(g.summary_target)},
+			 {"target", _state.tr("STR_DESTINATION_UC"), _targetName, design(g.summary_target)},
 			 {"units", _state.tr("STR_CAL_DROP_UNITS"), std::to_string(_craft->getNumTotalUnits()), design(g.summary_units)}},
 			{{_state.tr(_showRoster ? "STR_CAL_DROP_DIVER" : "STR_CAL_DROP_ENTRY")}, {_state.tr("STR_CAL_DROP_VALUE")}},
 			buttons, "STR_CAL_DROP_ROSTER", "STR_CAL_DROP_UNITS", 20);
