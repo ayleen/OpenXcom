@@ -2211,6 +2211,18 @@ void Globe::drawMarkers()
  * Blits the globe onto another surface.
  * @param surface Pointer to another surface.
  */
+#ifdef __EMSCRIPTEN__
+void Globe::presentHdWorld()
+{
+	auto &overlay = Calypso::CalypsoHdUiOverlay::instance();
+	if (!_gpuState || !_gpuState->_gpuDirectMode || !_gpuState->_gpuWorldPass.valid()
+		|| !_game->getMod()->hasGlobeTextures())
+		overlay.failHdRoute("The HD globe is unavailable for course selection");
+	if (_redraw) draw();
+	_gpuState->_visibleFrame = overlay.frameId();
+}
+#endif
+
 void Globe::blit(SDL_Surface *surface)
 {
 	Surface::blit(surface);

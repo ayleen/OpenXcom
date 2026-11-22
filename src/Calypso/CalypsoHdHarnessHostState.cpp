@@ -1490,6 +1490,7 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
 		return new InterceptState(globe->getGlobe(), false);
 	}
+	case CalypsoHarnessScenario::F18CourseMap:
 	case CalypsoHarnessScenario::F18CourseConfirm:
 	case CalypsoHarnessScenario::F18PatrolArrival:
 	case CalypsoHarnessScenario::F18LowFuel:
@@ -1506,6 +1507,8 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 				auto *globe = new GeoscapeState();
 				game->pushState(globe);
 				calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+				if (id == CalypsoHarnessScenario::F18CourseMap)
+					return new SelectDestinationState({craft}, globe->getGlobe());
 				if (id == CalypsoHarnessScenario::F18CourseConfirm)
 				{
 					game->pushState(new SelectDestinationState({craft}, globe->getGlobe()));
