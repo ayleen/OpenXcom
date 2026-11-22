@@ -57,8 +57,18 @@ struct RecoveryItem { std::string name; int value; };
  * Debriefing screen shown after a Battlescape
  * mission that displays the results.
  */
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoMissionOutcome; }
+#endif
 class DebriefingState : public State
 {
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoMissionOutcome;
+	Calypso::CalypsoMissionOutcome *_hdOutcome = nullptr;
+	void hdPageClick(Action *action);
+public:
+	void resize(int &dx, int &dy) override;
+#endif
 private:
 	typedef std::pair<std::string, UnitStats> SoldierStatsEntry;
 

@@ -1,0 +1,1211 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f29-debriefing",
+    "familyId": 29,
+    "archetype": "tabbed-management",
+    "source": "FormConfigs/f29-debriefing.json",
+    "actions": [
+      {
+        "id": "sell",
+        "label": "Sell",
+        "tone": "normal",
+        "action": "sell",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB059",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "transfer",
+        "label": "Transfer",
+        "tone": "normal",
+        "action": "transfer",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB059",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "continue",
+        "label": "Continue",
+        "tone": "safe",
+        "action": "continue",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "tabs": [
+      {
+        "id": "score",
+        "label": "Score"
+      },
+      {
+        "id": "personnel",
+        "label": "Personnel"
+      },
+      {
+        "id": "recovery",
+        "label": "Recovery"
+      }
+    ],
+    "selectedTab": "score",
+    "summary": [
+      {
+        "id": "rating",
+        "label": "Rating",
+        "value": "Good"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "inspect",
+      "columns": [
+        {
+          "id": "entry",
+          "label": "Item"
+        },
+        {
+          "id": "quantity",
+          "label": "Quantity"
+        },
+        {
+          "id": "value",
+          "label": "Score"
+        }
+      ],
+      "items": [
+        {
+          "id": "recovered",
+          "values": [
+            "Recovered artifacts",
+            "2",
+            "20"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": [
+      {
+        "id": "previous",
+        "label": "Previous",
+        "action": "previous",
+        "tone": "normal",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB059",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "next",
+        "label": "Next",
+        "action": "next",
+        "tone": "normal",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB059",
+          "text": "E8FFF5FF"
+        }
+      }
+    ]
+  },
+  "copy": {
+    "title": "Mission outcome",
+    "tabs": {
+      "score": "Score",
+      "personnel": "Personnel",
+      "recovery": "Recovery"
+    },
+    "summary": [
+      {
+        "id": "rating",
+        "label": "Rating",
+        "value": "Good"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "inspect",
+      "columns": [
+        {
+          "id": "entry",
+          "label": "Item"
+        },
+        {
+          "id": "quantity",
+          "label": "Quantity"
+        },
+        {
+          "id": "value",
+          "label": "Score"
+        }
+      ],
+      "items": [
+        {
+          "id": "recovered",
+          "values": [
+            "Recovered artifacts",
+            "2",
+            "20"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": {
+      "previous": "Previous",
+      "next": "Next"
+    }
+  },
+  "style": {
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "divider": "74FFB04D",
+    "text": "E8FFF5FF",
+    "mutedText": "A9D8C7FF",
+    "selectedTab": "74FFB033",
+    "selection": "74FFB033",
+    "scrollTrack": "061B1CD6",
+    "scrollThumb": "74FFB099",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "cutCornerPx": 14
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 140,
+        "y": 50,
+        "width": 1000,
+        "height": 620
+      },
+      "title": {
+        "x": 172,
+        "y": 68,
+        "width": 936,
+        "height": 44
+      },
+      "summaryBar": {
+        "x": 172,
+        "y": 116,
+        "width": 936,
+        "height": 36
+      },
+      "summary": {
+        "rating": {
+          "x": 172,
+          "y": 116,
+          "width": 936,
+          "height": 36
+        }
+      },
+      "tabBar": {
+        "x": 172,
+        "y": 160,
+        "width": 936,
+        "height": 48
+      },
+      "collectionViewport": {
+        "x": 172,
+        "y": 280,
+        "width": 936,
+        "height": 286
+      },
+      "detailPanel": {
+        "x": 172,
+        "y": 280,
+        "width": 306,
+        "height": 286
+      },
+      "contextDock": null,
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "entry",
+            "rect": {
+              "x": 172,
+              "y": 280,
+              "width": 293,
+              "height": 36
+            }
+          },
+          {
+            "id": "quantity",
+            "rect": {
+              "x": 466,
+              "y": 280,
+              "width": 293,
+              "height": 36
+            }
+          },
+          {
+            "id": "value",
+            "rect": {
+              "x": 760,
+              "y": 280,
+              "width": 294,
+              "height": 36
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 172,
+              "y": 316,
+              "width": 882,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "entry",
+                "rect": {
+                  "x": 172,
+                  "y": 316,
+                  "width": 293,
+                  "height": 44
+                }
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 466,
+                  "y": 316,
+                  "width": 293,
+                  "height": 44
+                }
+              },
+              {
+                "id": "value",
+                "rect": {
+                  "x": 760,
+                  "y": 316,
+                  "width": 294,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 172,
+              "y": 360,
+              "width": 882,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "entry",
+                "rect": {
+                  "x": 172,
+                  "y": 360,
+                  "width": 293,
+                  "height": 44
+                }
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 466,
+                  "y": 360,
+                  "width": 293,
+                  "height": 44
+                }
+              },
+              {
+                "id": "value",
+                "rect": {
+                  "x": 760,
+                  "y": 360,
+                  "width": 294,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-3",
+            "rect": {
+              "x": 172,
+              "y": 404,
+              "width": 882,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "entry",
+                "rect": {
+                  "x": 172,
+                  "y": 404,
+                  "width": 293,
+                  "height": 44
+                }
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 466,
+                  "y": 404,
+                  "width": 293,
+                  "height": 44
+                }
+              },
+              {
+                "id": "value",
+                "rect": {
+                  "x": 760,
+                  "y": 404,
+                  "width": 294,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-4",
+            "rect": {
+              "x": 172,
+              "y": 448,
+              "width": 882,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "entry",
+                "rect": {
+                  "x": 172,
+                  "y": 448,
+                  "width": 293,
+                  "height": 44
+                }
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 466,
+                  "y": 448,
+                  "width": 293,
+                  "height": 44
+                }
+              },
+              {
+                "id": "value",
+                "rect": {
+                  "x": 760,
+                  "y": 448,
+                  "width": 294,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-5",
+            "rect": {
+              "x": 172,
+              "y": 492,
+              "width": 882,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "entry",
+                "rect": {
+                  "x": 172,
+                  "y": 492,
+                  "width": 293,
+                  "height": 44
+                }
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 466,
+                  "y": 492,
+                  "width": 293,
+                  "height": 44
+                }
+              },
+              {
+                "id": "value",
+                "rect": {
+                  "x": 760,
+                  "y": 492,
+                  "width": 294,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ],
+        "scroll": {
+          "track": {
+            "x": 1090,
+            "y": 316,
+            "width": 18,
+            "height": 220
+          },
+          "thumb": {
+            "x": 1090,
+            "y": 316,
+            "width": 18,
+            "height": 220
+          }
+        }
+      },
+      "toolbarBar": {
+        "x": 172,
+        "y": 218,
+        "width": 936,
+        "height": 52
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 140,
+        "y": 578,
+        "width": 1000,
+        "height": 92
+      },
+      "tabs": {
+        "score": {
+          "x": 172,
+          "y": 160,
+          "width": 306,
+          "height": 48
+        },
+        "personnel": {
+          "x": 486,
+          "y": 160,
+          "width": 306,
+          "height": 48
+        },
+        "recovery": {
+          "x": 800,
+          "y": 160,
+          "width": 308,
+          "height": 48
+        }
+      },
+      "toolbar": {
+        "previous": {
+          "x": 802,
+          "y": 222,
+          "width": 148,
+          "height": 44
+        },
+        "next": {
+          "x": 960,
+          "y": 222,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "actions": {
+        "sell": {
+          "x": 614,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        },
+        "transfer": {
+          "x": 782,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        },
+        "continue": {
+          "x": 950,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "partRects": {
+        "window": {
+          "x": 140,
+          "y": 50,
+          "width": 1000,
+          "height": 620
+        },
+        "title": {
+          "x": 172,
+          "y": 68,
+          "width": 936,
+          "height": 44
+        },
+        "summaryBar": {
+          "x": 172,
+          "y": 116,
+          "width": 936,
+          "height": 36
+        },
+        "tabBar": {
+          "x": 172,
+          "y": 160,
+          "width": 936,
+          "height": 48
+        },
+        "toolbarBar": {
+          "x": 172,
+          "y": 218,
+          "width": 936,
+          "height": 52
+        },
+        "collectionViewport": {
+          "x": 172,
+          "y": 280,
+          "width": 936,
+          "height": 286
+        },
+        "footer": {
+          "x": 140,
+          "y": 578,
+          "width": 1000,
+          "height": 92
+        },
+        "summary.rating": {
+          "x": 172,
+          "y": 116,
+          "width": 936,
+          "height": 36
+        },
+        "tab.score": {
+          "x": 172,
+          "y": 160,
+          "width": 306,
+          "height": 48
+        },
+        "tab.personnel": {
+          "x": 486,
+          "y": 160,
+          "width": 306,
+          "height": 48
+        },
+        "tab.recovery": {
+          "x": 800,
+          "y": 160,
+          "width": 308,
+          "height": 48
+        },
+        "toolbar.previous": {
+          "x": 802,
+          "y": 222,
+          "width": 148,
+          "height": 44
+        },
+        "toolbar.next": {
+          "x": 960,
+          "y": 222,
+          "width": 148,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 1090,
+          "y": 316,
+          "width": 18,
+          "height": 220
+        },
+        "collection.scroll.thumb": {
+          "x": 1090,
+          "y": 316,
+          "width": 18,
+          "height": 220
+        },
+        "collection.column.entry": {
+          "x": 172,
+          "y": 280,
+          "width": 293,
+          "height": 36
+        },
+        "collection.column.quantity": {
+          "x": 466,
+          "y": 280,
+          "width": 293,
+          "height": 36
+        },
+        "collection.column.value": {
+          "x": 760,
+          "y": 280,
+          "width": 294,
+          "height": 36
+        },
+        "collection.row-slot.1": {
+          "x": 172,
+          "y": 316,
+          "width": 882,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 172,
+          "y": 360,
+          "width": 882,
+          "height": 44
+        },
+        "collection.row-slot.3": {
+          "x": 172,
+          "y": 404,
+          "width": 882,
+          "height": 44
+        },
+        "collection.row-slot.4": {
+          "x": 172,
+          "y": 448,
+          "width": 882,
+          "height": 44
+        },
+        "collection.row-slot.5": {
+          "x": 172,
+          "y": 492,
+          "width": 882,
+          "height": 44
+        },
+        "action.sell": {
+          "x": 614,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        },
+        "action.transfer": {
+          "x": 782,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        },
+        "action.continue": {
+          "x": 950,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 20,
+        "y": 8,
+        "width": 700,
+        "height": 344
+      },
+      "title": {
+        "x": 44,
+        "y": 8,
+        "width": 652,
+        "height": 32
+      },
+      "summaryBar": {
+        "x": 44,
+        "y": 44,
+        "width": 652,
+        "height": 24
+      },
+      "summary": {
+        "rating": {
+          "x": 44,
+          "y": 44,
+          "width": 652,
+          "height": 24
+        }
+      },
+      "tabBar": {
+        "x": 44,
+        "y": 72,
+        "width": 652,
+        "height": 44
+      },
+      "collectionViewport": {
+        "x": 44,
+        "y": 168,
+        "width": 652,
+        "height": 112
+      },
+      "detailPanel": {
+        "x": 44,
+        "y": 168,
+        "width": 250,
+        "height": 112
+      },
+      "contextDock": null,
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "entry",
+            "rect": {
+              "x": 44,
+              "y": 168,
+              "width": 199,
+              "height": 24
+            }
+          },
+          {
+            "id": "quantity",
+            "rect": {
+              "x": 244,
+              "y": 168,
+              "width": 199,
+              "height": 24
+            }
+          },
+          {
+            "id": "value",
+            "rect": {
+              "x": 444,
+              "y": 168,
+              "width": 200,
+              "height": 24
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 44,
+              "y": 192,
+              "width": 600,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "entry",
+                "rect": {
+                  "x": 44,
+                  "y": 192,
+                  "width": 199,
+                  "height": 44
+                }
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 244,
+                  "y": 192,
+                  "width": 199,
+                  "height": 44
+                }
+              },
+              {
+                "id": "value",
+                "rect": {
+                  "x": 444,
+                  "y": 192,
+                  "width": 200,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 44,
+              "y": 236,
+              "width": 600,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "entry",
+                "rect": {
+                  "x": 44,
+                  "y": 236,
+                  "width": 199,
+                  "height": 44
+                }
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 244,
+                  "y": 236,
+                  "width": 199,
+                  "height": 44
+                }
+              },
+              {
+                "id": "value",
+                "rect": {
+                  "x": 444,
+                  "y": 236,
+                  "width": 200,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ],
+        "scroll": {
+          "track": {
+            "x": 678,
+            "y": 192,
+            "width": 18,
+            "height": 88
+          },
+          "thumb": {
+            "x": 678,
+            "y": 192,
+            "width": 18,
+            "height": 88
+          }
+        }
+      },
+      "toolbarBar": {
+        "x": 44,
+        "y": 120,
+        "width": 652,
+        "height": 44
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 20,
+        "y": 284,
+        "width": 700,
+        "height": 68
+      },
+      "tabs": {
+        "score": {
+          "x": 44,
+          "y": 72,
+          "width": 213,
+          "height": 44
+        },
+        "personnel": {
+          "x": 263,
+          "y": 72,
+          "width": 213,
+          "height": 44
+        },
+        "recovery": {
+          "x": 482,
+          "y": 72,
+          "width": 214,
+          "height": 44
+        }
+      },
+      "toolbar": {
+        "previous": {
+          "x": 424,
+          "y": 120,
+          "width": 132,
+          "height": 44
+        },
+        "next": {
+          "x": 564,
+          "y": 120,
+          "width": 132,
+          "height": 44
+        }
+      },
+      "actions": {
+        "sell": {
+          "x": 228,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        },
+        "transfer": {
+          "x": 388,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        },
+        "continue": {
+          "x": 548,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "partRects": {
+        "window": {
+          "x": 20,
+          "y": 8,
+          "width": 700,
+          "height": 344
+        },
+        "title": {
+          "x": 44,
+          "y": 8,
+          "width": 652,
+          "height": 32
+        },
+        "summaryBar": {
+          "x": 44,
+          "y": 44,
+          "width": 652,
+          "height": 24
+        },
+        "tabBar": {
+          "x": 44,
+          "y": 72,
+          "width": 652,
+          "height": 44
+        },
+        "toolbarBar": {
+          "x": 44,
+          "y": 120,
+          "width": 652,
+          "height": 44
+        },
+        "collectionViewport": {
+          "x": 44,
+          "y": 168,
+          "width": 652,
+          "height": 112
+        },
+        "footer": {
+          "x": 20,
+          "y": 284,
+          "width": 700,
+          "height": 68
+        },
+        "summary.rating": {
+          "x": 44,
+          "y": 44,
+          "width": 652,
+          "height": 24
+        },
+        "tab.score": {
+          "x": 44,
+          "y": 72,
+          "width": 213,
+          "height": 44
+        },
+        "tab.personnel": {
+          "x": 263,
+          "y": 72,
+          "width": 213,
+          "height": 44
+        },
+        "tab.recovery": {
+          "x": 482,
+          "y": 72,
+          "width": 214,
+          "height": 44
+        },
+        "toolbar.previous": {
+          "x": 424,
+          "y": 120,
+          "width": 132,
+          "height": 44
+        },
+        "toolbar.next": {
+          "x": 564,
+          "y": 120,
+          "width": 132,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 678,
+          "y": 192,
+          "width": 18,
+          "height": 88
+        },
+        "collection.scroll.thumb": {
+          "x": 678,
+          "y": 192,
+          "width": 18,
+          "height": 88
+        },
+        "collection.column.entry": {
+          "x": 44,
+          "y": 168,
+          "width": 199,
+          "height": 24
+        },
+        "collection.column.quantity": {
+          "x": 244,
+          "y": 168,
+          "width": 199,
+          "height": 24
+        },
+        "collection.column.value": {
+          "x": 444,
+          "y": 168,
+          "width": 200,
+          "height": 24
+        },
+        "collection.row-slot.1": {
+          "x": 44,
+          "y": 192,
+          "width": 600,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 44,
+          "y": 236,
+          "width": 600,
+          "height": 44
+        },
+        "collection.row-slot.3": {
+          "x": 44,
+          "y": 236,
+          "width": 600,
+          "height": 44
+        },
+        "collection.row-slot.4": {
+          "x": 44,
+          "y": 236,
+          "width": 600,
+          "height": 44
+        },
+        "collection.row-slot.5": {
+          "x": 44,
+          "y": 236,
+          "width": 600,
+          "height": 44
+        },
+        "action.sell": {
+          "x": 228,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        },
+        "action.transfer": {
+          "x": 388,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        },
+        "action.continue": {
+          "x": 548,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/tabbed-management.json",
+    "templateVersion": 5,
+    "generatorKind": "tabbed"
+  },
+  "collectionMetrics": {
+    "wide": {
+      "totalItems": 1,
+      "visibleCapacity": 5,
+      "totalUnits": 1,
+      "visibleUnits": 5,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 1090,
+        "y": 316,
+        "width": 18,
+        "height": 220
+      },
+      "thumb": {
+        "x": 1090,
+        "y": 316,
+        "width": 18,
+        "height": 220
+      },
+      "trackHitTarget": {
+        "x": 1064,
+        "y": 316,
+        "width": 44,
+        "height": 220
+      },
+      "thumbHitTarget": {
+        "x": 1064,
+        "y": 316,
+        "width": 44,
+        "height": 220
+      },
+      "thumbTravelPx": 0
+    },
+    "compact": {
+      "totalItems": 1,
+      "visibleCapacity": 2,
+      "totalUnits": 1,
+      "visibleUnits": 2,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 678,
+        "y": 192,
+        "width": 18,
+        "height": 88
+      },
+      "thumb": {
+        "x": 678,
+        "y": 192,
+        "width": 18,
+        "height": 88
+      },
+      "trackHitTarget": {
+        "x": 652,
+        "y": 192,
+        "width": 44,
+        "height": 88
+      },
+      "thumbHitTarget": {
+        "x": 652,
+        "y": 192,
+        "width": 44,
+        "height": 88
+      },
+      "thumbTravelPx": 0
+    }
+  },
+  "actions": [
+    "action.sell",
+    "action.transfer",
+    "action.continue"
+  ],
+  "parts": [
+    "window",
+    "title",
+    "summaryBar",
+    "tabBar",
+    "toolbarBar",
+    "collectionViewport",
+    "footer",
+    "summary.rating",
+    "tab.score",
+    "tab.personnel",
+    "tab.recovery",
+    "toolbar.previous",
+    "toolbar.next",
+    "collection.scroll.track",
+    "collection.scroll.thumb",
+    "collection.column.entry",
+    "collection.column.quantity",
+    "collection.column.value",
+    "collection.row-slot.1",
+    "collection.row-slot.2",
+    "collection.row-slot.3",
+    "collection.row-slot.4",
+    "collection.row-slot.5",
+    "action.sell",
+    "action.transfer",
+    "action.continue"
+  ]
+}

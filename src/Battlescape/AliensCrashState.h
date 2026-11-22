@@ -30,13 +30,22 @@ class Text;
  * Screen shown when all aliens died
  * during a crash site.
  */
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoContactNotice; }
+#endif
 class AliensCrashState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoContactNotice *_hdNotice = nullptr;
+#endif
 	TextButton *_btnOk;
 	Window *_window;
 	Text *_txtTitle;
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dx, int &dy) override;
+#endif
 	/// Creates the Aliens Crash state.
 	AliensCrashState();
 	/// Cleans up the Aliens Crash state.
