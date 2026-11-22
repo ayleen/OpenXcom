@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "id": "f17-contact-tracker",
+  "familyId": 17,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "contact-sonar"
+  },
+  "state": "UfoTrackerState",
+  "labelKeys": {
+    "title": "STR_UFO_TRACKER",
+    "done": "STR_CANCEL"
+  },
+  "title": "CONTACT TRACKER",
+  "actions": [
+    {
+      "id": "detail",
+      "action": "detail",
+      "label": "DETAILS",
+      "labelKey": "STR_INFO",
+      "tone": "primary"
+    },
+    {
+      "id": "center",
+      "action": "center",
+      "label": "CENTER",
+      "labelKey": "STR_CENTER",
+      "tone": "normal"
+    },
+    {
+      "id": "done",
+      "action": "done",
+      "label": "CLOSE",
+      "labelKey": "STR_CANCEL",
+      "tone": "normal"
+    }
+  ],
+  "summary": [
+    {
+      "id": "count",
+      "label": "CONTACTS",
+      "value": "3"
+    },
+    {
+      "id": "selected",
+      "label": "SELECTED",
+      "value": "Contact 17"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "contact",
+    "columns": [
+      {
+        "id": "name",
+        "label": "NAME",
+        "contentRole": "name"
+      },
+      {
+        "id": "size",
+        "label": "SIZE",
+        "contentRole": "status"
+      },
+      {
+        "id": "altitude",
+        "label": "ALTITUDE",
+        "contentRole": "status"
+      },
+      {
+        "id": "heading",
+        "label": "HEADING",
+        "contentRole": "status"
+      },
+      {
+        "id": "speed",
+        "label": "SPEED",
+        "contentRole": "count"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Contact 17",
+          "Small",
+          "Low",
+          "East",
+          "1200"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [
+    {
+      "id": "reference",
+      "action": "reference",
+      "label": "REFERENCE",
+      "labelKey": "STR_UFOPAEDIA_UC",
+      "tone": "normal"
+    }
+  ]
+}

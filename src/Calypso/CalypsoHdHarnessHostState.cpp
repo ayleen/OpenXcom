@@ -97,6 +97,9 @@
 #include "../Geoscape/ResearchCompleteState.h"
 #include "../Geoscape/UfoLostState.h"
 #include "../Geoscape/AlienBaseState.h"
+#include "../Geoscape/MultipleTargetsState.h"
+#include "../Geoscape/UfoTrackerState.h"
+#include "../Savegame/Waypoint.h"
 #include "../Savegame/AlienBase.h"
 #include "../Mod/AlienDeployment.h"
 #include "../Geoscape/UfoDetectedState.h"
@@ -1538,19 +1541,33 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new CraftErrorState(nullptr, "Confirm end of mission?");
 	case CalypsoHarnessScenario::F17UfoLost:
 		return new UfoLostState("Contact 17");
+	case CalypsoHarnessScenario::F17OverlappingTargets:
+	{
+		auto *game = getCurrentGame();
+		auto fixture = makeOperationsFixture(game, false, false);
+		if (!fixture.base) return nullptr;
+		auto *waypoint = new Waypoint();
+		waypoint->setId(17);
+		game->getSavedGame()->getWaypoints()->push_back(waypoint);
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		return new MultipleTargetsState({fixture.base, waypoint}, {}, globe, false);
+	}
+	case CalypsoHarnessScenario::F17ContactTracker:
 	case CalypsoHarnessScenario::F17AlienBase:
 	{
 		Game *game = getCurrentGame();
 		if (!makeOperationsFixture(game, false, false).base) return nullptr;
-		for (const auto &id : game->getMod()->getDeploymentsList())
+		for (const auto &deploymentId : game->getMod()->getDeploymentsList())
 		{
-			auto *deployment = game->getMod()->getDeployment(id);
+			auto *deployment = game->getMod()->getDeployment(deploymentId);
 			if (!deployment || !deployment->isAlienBase()) continue;
 			auto *base = new AlienBase(deployment, 0);
 			base->setDiscovered(true);
 			game->getSavedGame()->getAlienBases()->push_back(base);
 			auto *globe = new GeoscapeState();
 			game->pushState(globe);
+			if (id == CalypsoHarnessScenario::F17ContactTracker) return new UfoTrackerState(globe, globe->getGlobe());
 			return new AlienBaseState(base, globe);
 		}
 		return nullptr;

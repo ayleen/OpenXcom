@@ -10,6 +10,8 @@ class ContainmentReviewState;
 class BaseInfoState;
 class TechTreeSelectState;
 class MonthlyCostsState;
+class UfoTrackerState;
+class MultipleTargetsState;
 class StoresState;
 class TransfersState;
 class ItemLocationsState;
@@ -25,6 +27,8 @@ public:
 	explicit CalypsoBaseLedger(TechTreeSelectState &state);
 	explicit CalypsoBaseLedger(MonthlyCostsState &state);
 	explicit CalypsoBaseLedger(StoresState &state);
+	explicit CalypsoBaseLedger(UfoTrackerState &state);
+	explicit CalypsoBaseLedger(MultipleTargetsState &state);
 	explicit CalypsoBaseLedger(TransfersState &state);
 	explicit CalypsoBaseLedger(ItemLocationsState &state);
 	void refresh();

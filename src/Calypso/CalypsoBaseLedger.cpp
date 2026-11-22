@@ -1,6 +1,11 @@
 #ifdef __EMSCRIPTEN__
 #include "CalypsoBaseLedger.h"
 #include "Generated/CalypsoF15TopicSelector.generated.h"
+#include "Generated/CalypsoF17ContactTracker.generated.h"
+#include "Generated/CalypsoF17OverlappingTargets.generated.h"
+#include "../Geoscape/MultipleTargetsState.h"
+#include "../Geoscape/UfoTrackerState.h"
+#include "../Savegame/Target.h"
 #include "../Basescape/TechTreeSelectState.h"
 #include "CommandCenter/CommandCenterRenderer.h"
 #include "CalypsoHdOperationsFluid.h"
@@ -453,6 +458,88 @@ CalypsoBaseLedger::CalypsoBaseLedger(ContainmentReviewState &s)
 	};
 	open();
 }
+CalypsoBaseLedger::CalypsoBaseLedger(UfoTrackerState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]()
+	{
+		namespace Gen = CalypsoF17ContactTrackerGen;
+		const bool wide = wideLayout();
+		const auto *g = Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
+		if (!g) CalypsoHdUiOverlay::instance().failHdRoute("Contact table layout is unavailable");
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		const bool picked = s._picked < s._objects.size();
+		std::string label = picked ? s._objects[s._picked]->getName(getCurrentGame()->getLanguage()) : std::string(s.tr("STR_NONE_UC"));
+		auto model = ledgerModel(s, s._txtTitle->getText(), *s._lstObjects, nullptr, *g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"count", s.tr("STR_CAL_CONTACTS"), std::to_string(s._objects.size()), design(g->summary_count)},
+			 {"selected", s.tr("STR_CAL_SELECTED_CONTACT"), label, design(g->summary_selected)}},
+			{{s._txtObject->getText()}, {s._txtSize->getText()}, {s._txtAltitude->getText()}, {s._txtHeading->getText()}, {s._txtSpeed->getText()}},
+			{{"detail", s._open, s._open->getText(), design(g->action_detail), false, false, !picked},
+			 {"center", s._center, s._center->getText(), design(g->action_center), false, false, !picked},
+			 {"reference", s._reference, s._reference->getText(), design(g->toolbar_reference), false, true, !s.canReference()},
+			 {"done", s._btnCancel, s._btnCancel->getText(), design(g->action_done)}},
+			"STR_CAL_NO_CONTACTS", "STR_CAL_CONTACTS_EMPTY", 17);
+		model.headerArtId = Gen::kHeaderArt;
+		model.sectionLabel = s.tr("STR_CAL_CONTACTS");
+		model.provenance = Gen::kProvenanceTemplate;
+		model.collection.selectedIndex = s._picked;
+		for (size_t i = 0; i < model.collection.rows.size(); ++i)
+		{
+			auto &row = model.collection.rows[i];
+			row.state.selected = i == s._picked;
+			for (auto &cell : row.cells) cell.state.selected = row.state.selected;
+		}
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		model.baseName = s.tr("STR_GEOSCAPE");
+		return model;
+	};
+	open();
+}
+
+CalypsoBaseLedger::CalypsoBaseLedger(MultipleTargetsState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]()
+	{
+		namespace Gen = CalypsoF17OverlappingTargetsGen;
+		const bool wide = wideLayout();
+		const auto *g = Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
+		if (!g) CalypsoHdUiOverlay::instance().failHdRoute("Contact table layout is unavailable");
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		const bool picked = s._picked < s._targets.size();
+		std::string label = picked ? s._targets[s._picked]->getName(getCurrentGame()->getLanguage()) : std::string(s.tr("STR_NONE_UC"));
+		if (picked && s._showDetails)
+			label += " · " + std::string(s.tr("STR_CAL_CONTACT_FOLLOWERS")) + " " +
+				std::to_string(s._targets[s._picked]->getFollowers()->size());
+		auto model = ledgerModel(s, s.tr("STR_CAL_SELECT_CONTACT"), *s._contacts, nullptr, *g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"count", s.tr("STR_CAL_CONTACTS"), std::to_string(s._targets.size()), design(g->summary_count)},
+			 {"selected", s.tr("STR_CAL_SELECTED_CONTACT"), label, design(g->summary_selected)}},
+			{{s.tr("STR_NAME_UC")}, {s.tr("STR_TYPE")}},
+			{{"detail", s._details, s._details->getText(), design(g->action_detail), s._showDetails, false, !picked},
+			 {"open", s._open, s._open->getText(), design(g->action_open), false, false, !picked},
+			 {"done", s._cancel, s._cancel->getText(), design(g->action_done)}},
+			"STR_CAL_NO_CONTACTS", "STR_CAL_CONTACTS_EMPTY", 17);
+		model.headerArtId = Gen::kHeaderArt;
+		model.sectionLabel = s.tr("STR_CAL_CONTACTS");
+		model.provenance = Gen::kProvenanceTemplate;
+		model.collection.selectedIndex = s._picked;
+		for (size_t i = 0; i < model.collection.rows.size(); ++i)
+		{
+			auto &row = model.collection.rows[i];
+			row.state.selected = i == s._picked;
+			for (auto &cell : row.cells) cell.state.selected = row.state.selected;
+		}
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		model.baseName = s.tr("STR_GEOSCAPE");
+		return model;
+	};
+	open();
+}
+
 CalypsoBaseLedger::CalypsoBaseLedger(TechTreeSelectState &s)
 	: _chrome(s), _renderer(&s, {})
 {

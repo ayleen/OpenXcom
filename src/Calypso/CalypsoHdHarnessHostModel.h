@@ -133,7 +133,9 @@ enum class CalypsoHarnessScenario
 	F13ManageContainment = 135,
 	F13ContainmentReview = 136,
 	F15TopicSelector = 139,
-	F17AlienBase = 142
+	F17AlienBase = 142,
+	F17ContactTracker = 143,
+	F17OverlappingTargets = 144
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -219,7 +221,9 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F13ManageContainment)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F13ContainmentReview)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F15TopicSelector)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F17AlienBase);
+		|| id == static_cast<int>(CalypsoHarnessScenario::F17AlienBase)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F17ContactTracker)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F17OverlappingTargets);
 }
 
 struct CalypsoHarnessSwitchRequest
