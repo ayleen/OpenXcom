@@ -27,9 +27,15 @@
 #include "../Engine/Unicode.h"
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
+#include "../Interface/TextList.h"
 #include "../Interface/TextButton.h"
 #include "../Menu/NotesState.h"
 #include "../Menu/TestState.h"
+
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
 
 namespace OpenXcom
 {
@@ -42,7 +48,13 @@ ExtendedGeoscapeLinksState::ExtendedGeoscapeLinksState(GeoscapeState* parent) : 
 	_screen = false;
 
 	// Create objects
-	_window = new Window(this, 256, 180, 32, 10, POPUP_BOTH);
+	_window = new Window(this, 256, 180, 32, 10,
+#ifdef __EMSCRIPTEN__
+		POPUP_NONE
+#else
+		POPUP_BOTH
+#endif
+	);
 	_txtTitle = new Text(220, 17, 50, 33);
 	if (Options::oxceFatFingerLinks)
 	{
@@ -144,7 +156,47 @@ ExtendedGeoscapeLinksState::ExtendedGeoscapeLinksState(GeoscapeState* parent) : 
 		_btnTest->setText(tr("STR_TEST_SCREEN"));
 	}
 	_btnTest->onMouseClick((ActionHandler)&ExtendedGeoscapeLinksState::btnTestClick);
+#ifdef __EMSCRIPTEN__
+	_destinations = new TextList(220, 120);
+	add(_destinations, "list", "oxceLinks");
+	_destinations->setColumns(2, 120, 90);
+	_destinations->setSelectable(true);
+	_destinations->setBackground(_window);
+	for (Surface *surface : _surfaces)
+	{
+		auto *button = dynamic_cast<TextButton*>(surface);
+		if (!button || button == _btnOk || !button->getVisible()) continue;
+		_destinations->addRow(2, button->getText().c_str(), tr("STR_GEOSCAPE").c_str());
+		_routes.push_back(button);
+		button->setVisible(false);
+	}
+	_destinations->onMouseClick((ActionHandler)&ExtendedGeoscapeLinksState::openDestination);
+	_destinations->onKeyboardPress((ActionHandler)&ExtendedGeoscapeLinksState::openDestination, Options::keyOk);
+	_hdList = new Calypso::CalypsoStrategicList(this, _parent, _game->getMod(), _window, _txtTitle, _destinations, _btnOk);
+	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+#endif
 }
+
+ExtendedGeoscapeLinksState::~ExtendedGeoscapeLinksState()
+{
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
+}
+
+#ifdef __EMSCRIPTEN__
+void ExtendedGeoscapeLinksState::openDestination(Action *)
+{
+	const auto selected = _destinations->getSelectedRow();
+	if (selected >= _routes.size()) return;
+	SDL_Event event{};
+	event.type = SDL_MOUSEBUTTONUP;
+	event.button.button = SDL_BUTTON_LEFT;
+	Action click(&event, 1.0, 1.0, 0, 0);
+	click.setSender(_routes[selected]);
+	_routes[selected]->mouseClick(&click, this);
+}
+#endif
 
 void ExtendedGeoscapeLinksState::btnFundingClick(Action *)
 {
@@ -215,5 +267,14 @@ void ExtendedGeoscapeLinksState::btnOkClick(Action *)
 {
 	_game->popState();
 }
+
+#ifdef __EMSCRIPTEN__
+void ExtendedGeoscapeLinksState::resize(int &dX, int &dY)
+{
+	if (!_hdList) { State::resize(dX, dY); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+}
+#endif
 
 }

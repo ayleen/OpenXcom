@@ -467,7 +467,7 @@ CalypsoBaseLedger::CalypsoBaseLedger(TechTreeSelectState &s)
 		auto model = ledgerModel(s, s._txtTitle->getText(), *s._lstTopics, nullptr, *g, table,
 			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
 			{{"matches", s.tr("STR_CAL_TOPIC_RESULTS"), std::to_string(s._displayed.size()), design(g->summary_matches)}},
-			{{s.tr("STR_TOPIC")}, {s.tr("STR_CAL_TOPIC_TYPE")}, {s.tr("STR_CAL_TOPIC_STATUS")}},
+			{{s.tr("STR_CAL_TOPIC_NAME")}, {s.tr("STR_CAL_TOPIC_TYPE")}, {s.tr("STR_CAL_TOPIC_STATUS")}},
 			{{"query", s._btnQuickSearch, query.empty() ? std::string(s.tr("STR_QUICK_SEARCH")) : query, design(g->toolbar_query), false, true},
 			 {"category", s._category, s._category->getText(), design(g->toolbar_category), false, true},
 			 {"status", s._status, s._status->getText(), design(g->toolbar_status), false, true},

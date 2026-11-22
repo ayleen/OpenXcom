@@ -196,6 +196,7 @@ en-GB:
   STR_CAL_SONAR_SHORT: "Short range"
   STR_CAL_SONAR_WIDE: "Wide band"
   STR_CAL_BASE_CATEGORY: "Category"
+  STR_CAL_TOPIC_NAME: "Topic"
   STR_CAL_TOPIC_TYPE: "Type"
   STR_CAL_TOPIC_STATUS: "Status"
   STR_CAL_TOPIC_RESULTS: "Matches"
@@ -781,3 +782,5 @@ en-GB:
   STR_FOR_DIFFICULTY: "for difficulty: {0}"
 #UfopaediaSelectState.cpp
   STR_NOT_AWARDED_YET: "Not awarded yet"
+  STR_CAL_KEEP_TRACK: "Keep"
+  STR_CAL_CURRENT_TRACK: "Current"

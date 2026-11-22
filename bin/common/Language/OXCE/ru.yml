@@ -159,6 +159,7 @@ ru:
   STR_CAL_SONAR_SHORT: "Ближний"
   STR_CAL_SONAR_WIDE: "Дальний"
   STR_CAL_BASE_CATEGORY: "Категория"
+  STR_CAL_TOPIC_NAME: "Тема"
   STR_CAL_TOPIC_TYPE: "Тип"
   STR_CAL_TOPIC_STATUS: "Статус"
   STR_CAL_TOPIC_RESULTS: "Найдено"
@@ -663,3 +664,5 @@ ru:
   STR_RACE_BONUS: "Бонус при преслед."
   STR_FOR_DIFFICULTY: "для ур-ня сложности: {0}"
   STR_NOT_AWARDED_YET: "Еще не вручались"
+  STR_CAL_KEEP_TRACK: "Оставить"
+  STR_CAL_CURRENT_TRACK: "Текущая"

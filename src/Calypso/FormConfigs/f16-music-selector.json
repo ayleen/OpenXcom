@@ -1,0 +1,55 @@
+{
+  "actions": [
+    {
+      "id": "keep",
+      "action": "keep",
+      "label": "KEEP",
+      "tone": "primary"
+    },
+    {
+      "action": "cancel",
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "columns": [
+      {
+        "id": "name",
+        "label": "TRACK"
+      },
+      {
+        "id": "state",
+        "label": "STATUS"
+      }
+    ],
+    "heading": "TRACKS",
+    "items": [
+      {
+        "id": "example-0",
+        "values": [
+          "Geoscape theme",
+          "Playing"
+        ]
+      },
+      {
+        "id": "example-1",
+        "values": [
+          "Strategy theme",
+          "\u2014"
+        ]
+      }
+    ],
+    "mode": "table",
+    "selectionRole": "track"
+  },
+  "controls": [],
+  "familyId": 16,
+  "id": "f16-music-selector",
+  "schema": 1,
+  "title": "SELECT MUSIC TRACK",
+  "version": "hd.2026-08-29.1",
+  "state": "SelectMusicTrackState"
+}

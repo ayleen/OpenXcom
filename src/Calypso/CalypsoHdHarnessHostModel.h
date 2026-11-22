@@ -132,7 +132,9 @@ enum class CalypsoHarnessScenario
 	F13GlobalContainment = 134,
 	F13ManageContainment = 135,
 	F13ContainmentReview = 136,
-	F15TopicSelector = 139
+	F15TopicSelector = 139,
+	F16ExtendedLinks = 140,
+	F16MusicSelector = 141
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -217,7 +219,9 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F13GlobalContainment)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F13ManageContainment)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F13ContainmentReview)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F15TopicSelector);
+		|| id == static_cast<int>(CalypsoHarnessScenario::F15TopicSelector)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F16ExtendedLinks)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F16MusicSelector);
 }
 
 struct CalypsoHarnessSwitchRequest

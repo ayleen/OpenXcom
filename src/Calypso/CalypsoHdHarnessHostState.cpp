@@ -98,6 +98,8 @@
 #include "../Geoscape/UfoLostState.h"
 #include "../Geoscape/UfoDetectedState.h"
 #include "../Geoscape/GeoscapeState.h"
+#include "../Geoscape/ExtendedGeoscapeLinksState.h"
+#include "../Geoscape/SelectMusicTrackState.h"
 #include "../Geoscape/Globe.h"
 #include "../Mod/RuleResearch.h"
 #include "../Mod/RuleManufacture.h"
@@ -2020,6 +2022,17 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 			: makeGlobalManufactureFixture(getCurrentGame());
 		const bool openedFromBasescape = profile == 208;
 		return fixture.base ? new GlobalManufactureState(openedFromBasescape) : nullptr;
+	}
+	case CalypsoHarnessScenario::F16ExtendedLinks:
+	case CalypsoHarnessScenario::F16MusicSelector:
+	{
+		auto *game = getCurrentGame();
+		if (!makeOperationsFixture(game, false, false).base) return nullptr;
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		if (id == CalypsoHarnessScenario::F16ExtendedLinks)
+			return new ExtendedGeoscapeLinksState(globe);
+		return new SelectMusicTrackState(SMT_GEOSCAPE);
 	}
 	case CalypsoHarnessScenario::F15TopicSelector:
 	{
