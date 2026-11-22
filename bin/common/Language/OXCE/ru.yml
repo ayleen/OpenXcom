@@ -1,4 +1,10 @@
 ru:
+  STR_CAL_MEDIA_TITLE: "Заставка"
+  STR_CAL_MEDIA_PAUSE: "Пауза"
+  STR_CAL_MEDIA_RESUME: "Продолжить"
+  STR_CAL_MEDIA_NEXT: "Дальше"
+  STR_CAL_MEDIA_SKIP: "Пропустить"
+  STR_CAL_MEDIA_UNAVAILABLE: "Calypso не удалось воспроизвести эту заставку."
   STR_CANNOT_DISMANTLE_FACILITY_UPGRADING: "СНОС НЕВОЗМОЖЕН!{SMALLLINE}Строение невозможно снести в ходе модернизации."
   STR_CANNOT_UPGRADE_FACILITY_ALREADY_UPGRADING: "СТРОИТЕЛЬСТВО НЕВОЗМОЖНО!{SMALLLINE}Существующее сооружение уже надстроено."
   STR_CANNOT_UPGRADE_FACILITY_WRONG_SIZE: "СТРОИТЕЛЬСТВО НЕВОЗМОЖНО!{SMALLLINE}Выбранная постройка должна совпадать по размерам с существующим сооружением."
