@@ -48,7 +48,7 @@ CalypsoEconomyState::CalypsoEconomyState() : _tabGroupHack(nullptr), _tab(0)
 	_screen = true;
 
 	// Create objects
-	_window       = new Window(this, 320, 200, 0, 0, POPUP_BOTH);
+	_window       = new Window(this, 320, 200, 0, 0, POPUP_NONE);
 	_txtTitle     = new Text(320, 17, 0, 8);
 	_btnGrants    = new TextButton(96, 14,   8, 26);
 	_btnContracts = new TextButton(96, 14, 112, 26);
