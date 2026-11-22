@@ -8,6 +8,11 @@
 #include "Generated/CalypsoF16MusicSelector.generated.h"
 #include "Generated/CalypsoF30NoExperience.generated.h"
 #include "Generated/CalypsoF30TurnDiary.generated.h"
+#include "Generated/CalypsoF25Skills.generated.h"
+#include "Generated/CalypsoF25Actions.generated.h"
+#include "Generated/CalypsoF25Medikit.generated.h"
+#include "Generated/CalypsoF25UnitInfo.generated.h"
+#include "Generated/CalypsoF25Timer.generated.h"
 #include "Generated/CalypsoF30Promotions.generated.h"
 #include "Generated/CalypsoF30FallenCommendations.generated.h"
 #include "Generated/CalypsoF30Commendations.generated.h"
@@ -28,7 +33,7 @@ template<class Layout, class Slot, class Button, class ButtonRect, class Column>
 void readTable(CalypsoScrollableCollectionModel &m, const Layout &g, const Slot *slots,
 	const Slot *cells, const Slot *headers, const Column *columns, int columnCount,
 	const Button *buttons, const ButtonRect *buttonRects, int buttonCount,
-	TextButton *cancel, TextButton *keep)
+	TextButton *cancel, TextButton *keep, TextButton *extra)
 {
 	m.designWidth = g.designWidth;
 	m.designHeight = g.designHeight;
@@ -63,7 +68,8 @@ void readTable(CalypsoScrollableCollectionModel &m, const Layout &g, const Slot 
 	{
 		const bool primary = std::string(buttons[b].id) == "keep";
 		CalypsoSmallConfirmationButton action;
-		action.widget = primary ? keep : cancel;
+		action.widget = primary ? keep : std::string(buttons[b].id) == "extra" ? extra : cancel;
+		if (!action.widget || !action.widget->getVisible()) continue;
 		action.text = action.widget->getText();
 		action.tone = primary ? CalypsoActionTone::Primary : CalypsoActionTone::Safe;
 		action.restFill = buttons[b].fill;
@@ -86,9 +92,9 @@ void place(Surface *widget, CalypsoLogicalRect r)
 } // namespace
 
 CalypsoStrategicList::CalypsoStrategicList(State *owner, const State *underlay, Mod *mod,
-	Window *window, Text *title, TextList *list, TextButton *cancel, Content content, TextButton *keep)
+	Window *window, Text *title, TextList *list, TextButton *cancel, Content content, TextButton *keep, TextButton *extra)
 	: _owner(owner), _underlay(underlay), _mod(mod), _window(window), _title(title),
-	  _list(list), _cancel(cancel), _keep(keep), _content(content)
+	  _list(list), _cancel(cancel), _keep(keep), _extra(extra), _content(content)
 {
 	if (!_owner || !_mod || !_window || !_title || !_list || !_cancel)
 		CalypsoHdUiOverlay::instance().failHdRoute("HD list prerequisites are unavailable");
@@ -112,7 +118,7 @@ void CalypsoStrategicList::layout()
 	const bool wide = calypsoHarnessEffectiveLayout(calypsoHarnessSession(), {v.safeX, v.safeY, v.safeWidth, v.safeHeight}) == CalypsoLayoutClass::Wide;
 	_design = {};
 	_design.wide = wide;
-	auto read = [&](const auto &... fields) { readTable(_design, fields..., _cancel, _keep); };
+	auto read = [&](const auto &... fields) { readTable(_design, fields..., _cancel, _keep, _extra); };
 	bool found = false;
 	switch (_content)
 	{
@@ -137,6 +143,27 @@ void CalypsoStrategicList::layout()
 	case Content::Promotions:
 		found = CalypsoF30PromotionsGen::bindTable(wide, _design, read);
 		_design.columnLabels = {_owner->tr("STR_NAME"), _owner->tr("STR_NEW_RANK"), _owner->tr("STR_BASE")};
+		break;
+	case Content::Medikit:
+		found = CalypsoF25MedikitGen::bindTable(wide, _design, read);
+		_design.columnLabels = {_owner->tr("STR_CAL_MEDIKIT_TREATMENT"), _owner->tr("STR_CAL_MEDIKIT_VALUE"), _owner->tr("STR_CAL_MEDIKIT_DETAIL")};
+		break;
+	case Content::UnitInfo:
+		found = CalypsoF25UnitInfoGen::bindTable(wide, _design, read);
+		_design.columnLabels = {_owner->tr("STR_CAL_UNIT_STAT"), _owner->tr("STR_CAL_UNIT_CURRENT"), _owner->tr("STR_CAL_UNIT_BASE")};
+		break;
+	case Content::Timer:
+		found = CalypsoF25TimerGen::bindTable(wide, _design, read);
+		break;
+	case Content::Actions:
+		found = CalypsoF25ActionsGen::bindTable(wide, _design, read);
+		_design.columnLabels = {_owner->tr("STR_CAL_TACTICAL_ACTION"), _owner->tr("STR_CAL_TACTICAL_ACCURACY"),
+			_owner->tr("STR_CAL_TACTICAL_COST"), _owner->tr("STR_CAL_TACTICAL_SHORTCUT")};
+		break;
+	case Content::Skills:
+		found = CalypsoF25SkillsGen::bindTable(wide, _design, read);
+		_design.columnLabels = {_owner->tr("STR_CAL_TACTICAL_ACTION"), _owner->tr("STR_CAL_TACTICAL_ACCURACY"),
+			_owner->tr("STR_CAL_TACTICAL_COST"), _owner->tr("STR_CAL_TACTICAL_SHORTCUT")};
 		break;
 	case Content::TurnDiary:
 		found = CalypsoF30TurnDiaryGen::bindTable(wide, _design, read);
@@ -166,6 +193,16 @@ int CalypsoStrategicList::bodyFontSize() const
 {
 	const float scale = _design.wide ? CalypsoHdThemeGen::kBodyFontSizeScaleWide : CalypsoHdThemeGen::kBodyFontSizeScaleCompact;
 	return std::lround(CalypsoHdThemeGen::kBodyFontSizePx * scale);
+}
+
+int CalypsoStrategicList::columnAt(int logicalX) const
+{
+	const double scale = double(_window->getWidth()) / _design.window.w;
+	const int x = _design.window.x + int(std::floor((logicalX - _window->getX()) / scale));
+	const auto &cells = _design.rowCells.front();
+	for (size_t i = 0; i < cells.size(); ++i)
+		if (x >= cells[i].x && x < cells[i].x + cells[i].w) return int(i);
+	return -1;
 }
 
 void CalypsoStrategicList::fitInput()
@@ -205,7 +242,7 @@ void CalypsoStrategicList::collect(CalypsoHdFrameBuilder &builder) const
 	}
 	m.selectedRow = _list->getSelectedRow();
 	const bool article = _articleIds && m.selectedRow < _articleIds->size() && !(*_articleIds)[m.selectedRow].empty();
-	m.hasSelection = m.selectedRow < m.rows.size() && (article || _content == Content::Tracks
+	m.hasSelection = m.selectedRow < m.rows.size() && (article || _content == Content::Actions || _content == Content::Skills || _content == Content::Tracks
 		|| _content == Content::Destinations || _content == Content::ExperienceOverview);
 	m.scrollOffset = _list->getScroll();
 	m.nativeTrack = rect(_list->getCalypsoHdTrackRect());

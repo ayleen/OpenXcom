@@ -34,6 +34,10 @@ class BattlescapeState;
  * Unit Info screen that shows all the
  * info of a specific unit.
  */
+#ifdef __EMSCRIPTEN__
+class TextList;
+namespace Calypso { class CalypsoStrategicList; }
+#endif
 class UnitInfoState : public State
 {
 private:
@@ -46,7 +50,10 @@ private:
 
 	Surface *_bg;
 #ifdef __EMSCRIPTEN__
-	SDL_Surface *_bgNative = nullptr;  ///< Calypso: 320×200 background snapshot, bilinear-stretched into the scaled _bg
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+	TextList *_hdRows = nullptr;
+	void openHdSheet();
+	void updateHdSheet();
 #endif
 	InteractiveSurface *_exit;
 	Text *_txtName;

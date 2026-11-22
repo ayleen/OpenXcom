@@ -10,12 +10,13 @@ namespace Calypso
 class CalypsoStrategicList final : public CalypsoHdFamilyAdapter
 {
 public:
-	enum class Content { Destinations, Tracks, ExperienceRoster, TurnDiary, Promotions, FallenCommendations, Commendations, ExperienceOverview };
+	enum class Content { Destinations, Tracks, Medikit, UnitInfo, Timer, Actions, Skills, ExperienceRoster, TurnDiary, Promotions, FallenCommendations, Commendations, ExperienceOverview };
 	CalypsoStrategicList(State *owner, const State *underlay, Mod *mod, Window *window,
-		Text *title, TextList *list, TextButton *cancel, Content content, TextButton *keep = nullptr);
+		Text *title, TextList *list, TextButton *cancel, Content content, TextButton *keep = nullptr, TextButton *extra = nullptr);
 	~CalypsoStrategicList() override;
 	void layout();
 	void fitInput();
+	int columnAt(int logicalX) const;
 	void setArticleRows(const std::vector<std::string> &ids) { _articleIds = &ids; }
 	int firstColumnWidth() const { return _design.rowCells.front().front().w; }
 	int bodyFontSize() const;
@@ -32,7 +33,7 @@ private:
 	Window *_window;
 	Text *_title;
 	TextList *_list;
-	TextButton *_cancel, *_keep;
+	TextButton *_cancel, *_keep, *_extra;
 	Content _content;
 	const std::vector<std::string> *_articleIds = nullptr;
 	CalypsoScrollableCollectionModel _design;

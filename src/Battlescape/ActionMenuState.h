@@ -23,6 +23,10 @@
 namespace OpenXcom
 {
 
+#ifdef __EMSCRIPTEN__
+class TextList;
+namespace Calypso { class CalypsoStrategicList; }
+#endif
 class ActionMenuItem;
 
 /**
@@ -32,6 +36,16 @@ class ActionMenuItem;
 class ActionMenuState : public State
 {
 protected:
+#ifdef __EMSCRIPTEN__
+	struct HdChoice { std::string label, accuracy, cost; SDLKey key; };
+	std::vector<HdChoice> _hdChoices;
+	TextList *_hdRows = nullptr;
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+	bool _hdSkills = false;
+	void openHdMenu();
+	void chooseHdRow(Action *action);
+	void cancelHdMenu(Action *action);
+#endif
 	BattleAction *_action;
 	BattlescapeGame *_battleGame;
 	ActionMenuItem *_actionMenu[6];
