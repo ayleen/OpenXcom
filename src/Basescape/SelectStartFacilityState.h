@@ -32,6 +32,14 @@ class SelectStartFacilityState : public BuildFacilitiesState
 {
 private:
 	Globe *_globe;
+#ifdef __EMSCRIPTEN__
+	struct Requirement { RuleBaseFacility *rule; int total; int placed; };
+	std::vector<Requirement> _requirements;
+	RuleBaseFacility *_placing = nullptr;
+	bool _confirmReset = false;
+	bool hdFacilityRowEnabled(size_t row) const override;
+#endif
+	void resetLayout();
 public:
 	/// Creates the Build Facilities state.
 	SelectStartFacilityState(Base *base, State *state, Globe *globe);

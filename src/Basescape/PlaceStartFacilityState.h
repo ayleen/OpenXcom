@@ -34,6 +34,7 @@ private:
 	SelectStartFacilityState *_select;
 
 public:
+	bool usesStartingPlacement() const override { return true; }
 	/// Creates the Place Facility state.
 	PlaceStartFacilityState(Base *base, SelectStartFacilityState *select, const RuleBaseFacility *rule);
 	/// Cleans up the Place Facility state.

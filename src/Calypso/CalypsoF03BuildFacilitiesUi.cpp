@@ -215,14 +215,13 @@ void CalypsoF03BuildFacilitiesUi::collect(CalypsoHdFrameBuilder& builder) const
 
 	// Native population/order/availability: enabled rules first, then the
 	// disabled tail, exactly as populateBuildList() appends them.
-	const std::size_t enabled = _state->_facilities.size();
-	const std::size_t total = enabled + _state->_disabledFacilities.size();
+	const std::size_t total = _state->_lstFacilities ? _state->_lstFacilities->getTexts() : 0;
 	for (std::size_t row = 0; row < total; ++row)
 	{
 		CalypsoSelectionListRow entry{};
 		entry.text = _state->_lstFacilities
 			? _state->_lstFacilities->getCellText(row, 0) : std::string();
-		entry.enabled = row < enabled;
+		entry.enabled = _state->hdFacilityRowEnabled(row);
 		model.rows.push_back(entry);
 	}
 	if (_state->_lstFacilities)

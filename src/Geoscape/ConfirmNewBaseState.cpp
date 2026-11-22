@@ -165,12 +165,13 @@ void ConfirmNewBaseState::btnOkClick(Action *)
 
 	if (_game->getSavedGame()->getFunds() >= _cost)
 	{
+		State *lift = PlaceLiftState::create(_base, _globe, false);
 		_game->getSavedGame()->setFunds(_game->getSavedGame()->getFunds() - _cost);
 		_game->getSavedGame()->getBases()->push_back(_base);
 		_base->setName(_edtName->getText());
 		_game->popState(); // pop ConfirmNewBaseState
 		_game->popState(); // pop BuildNewBaseState
-		_game->pushState(new PlaceLiftState(_base, _globe, false));
+		_game->pushState(lift);
 	}
 	else
 	{

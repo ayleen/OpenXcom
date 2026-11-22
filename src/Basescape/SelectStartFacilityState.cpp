@@ -17,6 +17,8 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "SelectStartFacilityState.h"
+#include <algorithm>
+#include "../Interface/Text.h"
 #include "../Engine/Game.h"
 #include "../Engine/LocalizedText.h"
 #include "../Interface/TextButton.h"
@@ -29,9 +31,6 @@
 #include "../Engine/Options.h"
 #include "PlaceStartFacilityState.h"
 #include "PlaceLiftState.h"
-#ifdef __EMSCRIPTEN__
-#include "../Calypso/CalypsoF03BuildFacilitiesUi.h"
-#endif
 
 namespace OpenXcom
 {
@@ -47,17 +46,20 @@ SelectStartFacilityState::SelectStartFacilityState(Base *base, State *state, Glo
 {
 	_facilities = _game->getMod()->getCustomBaseFacilities(_game->getSavedGame()->getDifficulty());
 
+#ifdef __EMSCRIPTEN__
+	for (auto *rule : _facilities)
+	{
+		auto entry = std::find_if(_requirements.begin(), _requirements.end(),
+			[rule](const Requirement &r) { return r.rule == rule; });
+		if (entry == _requirements.end()) _requirements.push_back({rule, 1, 0});
+		else ++entry->total;
+	}
+#endif
 	_btnOk->setText(tr("STR_RESET"));
 	_btnOk->onMouseClick((ActionHandler)&SelectStartFacilityState::btnOkClick);
 	_btnOk->onKeyboardPress(0, Options::keyCancel);
 
 	_lstFacilities->onMouseClick((ActionHandler)&SelectStartFacilityState::lstFacilitiesClick);
-#ifdef __EMSCRIPTEN__
-	// The base ctor already configured once against pre-subclass widgets;
-	// re-configure now that Reset semantics and handlers are attached.
-	// configure() replaces the base adapter instead of stacking a second.
-	Calypso::CalypsoF03BuildFacilitiesUi::configure(*this);
-#endif
 }
 
 /**
@@ -74,10 +76,31 @@ SelectStartFacilityState::~SelectStartFacilityState()
 void SelectStartFacilityState::populateBuildList()
 {
 	_lstFacilities->clearList();
+#ifdef __EMSCRIPTEN__
+	if (_confirmReset)
+	{
+		_txtTitle->setText(tr("STR_CAL_RESET_LAYOUT"));
+		_btnOk->setText(tr("STR_CANCEL"));
+		_lstFacilities->addRow(1, tr("STR_CAL_KEEP_LAYOUT").c_str());
+		_lstFacilities->addRow(1, tr("STR_RESET").c_str());
+		return;
+	}
+	int placed = 0, total = 0;
+	for (const auto &entry : _requirements)
+	{
+		placed += entry.placed;
+		total += entry.total;
+		const std::string row = tr("STR_CAL_START_REQUIREMENT").arg(tr(entry.rule->getType())).arg(entry.placed).arg(entry.total);
+		_lstFacilities->addRow(1, row.c_str());
+	}
+	_txtTitle->setText(tr("STR_CAL_START_PLACED").arg(placed).arg(total));
+	_btnOk->setText(tr("STR_RESET"));
+#else
 	for (const auto* rule : _facilities)
 	{
 		_lstFacilities->addRow(1, tr(rule->getType()).c_str());
 	}
+#endif
 }
 
 /**
@@ -86,6 +109,25 @@ void SelectStartFacilityState::populateBuildList()
  */
 void SelectStartFacilityState::btnOkClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	_confirmReset = !_confirmReset;
+	_btnOk->onKeyboardPress(_confirmReset ? (ActionHandler)&SelectStartFacilityState::btnOkClick : nullptr, Options::keyCancel);
+	populateBuildList();
+#else
+	resetLayout();
+#endif
+}
+
+#ifdef __EMSCRIPTEN__
+bool SelectStartFacilityState::hdFacilityRowEnabled(size_t row) const
+{
+	if (_confirmReset) return row < 2;
+	return row < _requirements.size() && _requirements[row].placed < _requirements[row].total;
+}
+#endif
+
+void SelectStartFacilityState::resetLayout()
+{
 	for (auto* fac : *_base->getFacilities())
 	{
 		delete fac;
@@ -93,7 +135,7 @@ void SelectStartFacilityState::btnOkClick(Action *)
 	_base->getFacilities()->clear();
 	_game->popState();
 	_game->popState();
-	_game->pushState(new PlaceLiftState(_base, _globe, true));
+	_game->pushState(PlaceLiftState::create(_base, _globe, true));
 }
 
 /**
@@ -102,7 +144,20 @@ void SelectStartFacilityState::btnOkClick(Action *)
  */
 void SelectStartFacilityState::lstFacilitiesClick(Action *)
 {
-	_game->pushState(new PlaceStartFacilityState(_base, this, _facilities[_lstFacilities->getSelectedRow()]));
+	const auto row = _lstFacilities->getSelectedRow();
+#ifdef __EMSCRIPTEN__
+	if (!hdFacilityRowEnabled(row)) return;
+	if (_confirmReset)
+	{
+		if (row == 1) resetLayout();
+		else btnOkClick(nullptr);
+		return;
+	}
+	_placing = _requirements[row].rule;
+	_game->pushState(new PlaceStartFacilityState(_base, this, _placing));
+#else
+	if (row < _facilities.size()) _game->pushState(new PlaceStartFacilityState(_base, this, _facilities[row]));
+#endif
 }
 
 /**
@@ -111,7 +166,18 @@ void SelectStartFacilityState::lstFacilitiesClick(Action *)
  */
 void SelectStartFacilityState::facilityBuilt()
 {
+#ifdef __EMSCRIPTEN__
+	auto next = std::find(_facilities.begin(), _facilities.end(), _placing);
+	if (next == _facilities.end()) return;
+	auto entry = std::find_if(_requirements.begin(), _requirements.end(),
+		[this](const Requirement &r) { return r.rule == _placing; });
+	if (entry == _requirements.end()) return;
+	++entry->placed;
+	_facilities.erase(next);
+	_placing = nullptr;
+#else
 	_facilities.erase(_facilities.begin() + _lstFacilities->getSelectedRow());
+#endif
 	if (_facilities.empty())
 	{
 		_game->popState();

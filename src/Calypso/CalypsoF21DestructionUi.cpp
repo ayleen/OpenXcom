@@ -230,13 +230,9 @@ void CalypsoF21DestructionUi::applyRects(BaseDestroyedState& state, const Calyps
 
 void CalypsoF21DestructionUi::configure(BaseDestroyedState& state, bool allowPhysicalOverlay)
 {
-	state._hdLayout = state._game && state._game->getMod()
-		&& state._game->getLanguage()
-		&& isF34PhysicalRouteEligible(
-			state._game->getMod()->isHdUiFamilyEnabled("F21"),
-			state._game->getLanguage()->getTextDirection() == DIRECTION_RTL,
-			!allowPhysicalOverlay);
-	if (!state._hdLayout) return;
+	requireF21Presentation(state._game, allowPhysicalOverlay);
+	state._screen = !CalypsoHdUiOverlay::instance().hasRegisteredState(state._game->getTopState());
+	state._hdLayout = true;
 
 	state._hdWideLayout = currentF21LayoutClass() == CalypsoLayoutClass::Wide;
 	state._hdHarnessGeneration = calypsoHarnessSession().generation;
