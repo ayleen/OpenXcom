@@ -6,6 +6,7 @@ en-US:
   STR_CAL_FLEET_MAX_SPEED: "Maximum speed"
   STR_CAL_FLEET_ETA: "ETA"
   STR_CAL_ASSIGNED_PILOTS: "Pilots assigned / required"
+  STR_CAL_TARGET_RANGE: "Range to target"
   STR_CAL_FLEET_MAP: "Geoscape"
   STR_CAL_FLEET_TARGET: "Target"
   STR_CAL_FLEET_FUEL: "Fuel"

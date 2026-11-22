@@ -4,6 +4,7 @@
 
 namespace OpenXcom {
 class SelectDestinationState;
+class GeoscapeCraftState;
 namespace Calypso {
 
 class CalypsoFleetMapUi : public CalypsoHdFamilyAdapter
@@ -17,6 +18,19 @@ public:
 
 private:
 	SelectDestinationState *_state;
+	bool _wide = false;
+};
+class CalypsoFleetNavigationUi : public CalypsoHdFamilyAdapter
+{
+public:
+	explicit CalypsoFleetNavigationUi(GeoscapeCraftState *state) : _state(state) {}
+	~CalypsoFleetNavigationUi() override;
+	const void *topState() const override;
+	void collect(CalypsoHdFrameBuilder &builder) const override;
+	void layout();
+
+private:
+	GeoscapeCraftState *_state;
 	bool _wide = false;
 };
 } }

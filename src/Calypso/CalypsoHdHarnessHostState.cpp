@@ -82,6 +82,7 @@
 #include "../Geoscape/LowFuelState.h"
 #include "../Geoscape/ConfirmDestinationState.h"
 #include "../Geoscape/SelectDestinationState.h"
+#include "../Geoscape/GeoscapeCraftState.h"
 #include "../Geoscape/InterceptState.h"
 #include "../Geoscape/CraftPatrolState.h"
 #include "../Savegame/Waypoint.h"
@@ -1490,6 +1491,7 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
 		return new InterceptState(globe->getGlobe(), false);
 	}
+	case CalypsoHarnessScenario::F18CraftNavigation:
 	case CalypsoHarnessScenario::F18CourseMap:
 	case CalypsoHarnessScenario::F18CourseConfirm:
 	case CalypsoHarnessScenario::F18PatrolArrival:
@@ -1507,6 +1509,12 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 				auto *globe = new GeoscapeState();
 				game->pushState(globe);
 				calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+				if (id == CalypsoHarnessScenario::F18CraftNavigation)
+				{
+					craft->setDestination(base);
+					craft->setStatus("STR_OUT");
+					return new GeoscapeCraftState(craft, globe->getGlobe(), nullptr, false);
+				}
 				if (id == CalypsoHarnessScenario::F18CourseMap)
 					return new SelectDestinationState({craft}, globe->getGlobe());
 				if (id == CalypsoHarnessScenario::F18CourseConfirm)

@@ -23,6 +23,9 @@
 namespace OpenXcom
 {
 
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoFleetNavigationUi; }
+#endif
 class TextButton;
 class Window;
 class Text;
@@ -50,6 +53,12 @@ private:
 	Text *_txtETA;
 
 	int _weaponNum;
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoFleetNavigationUi;
+	Calypso::CalypsoFleetNavigationUi *_navigation = nullptr;
+	Text *_targetRange = nullptr;
+	Surface *_details = nullptr;
+#endif
 public:
 	/// Creates the Geoscape Craft state.
 	GeoscapeCraftState(Craft *craft, Globe *globe, Waypoint *waypoint, bool useCustomSound);
@@ -65,7 +74,8 @@ public:
 	void btnCancelClick(Action *action);
 #ifdef __EMSCRIPTEN__
 	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+	void resize(int &dX, int &dY) override;
+	void blit() override;
 #endif
 };
 

@@ -6,6 +6,7 @@ ru:
   STR_CAL_FLEET_MAX_SPEED: "Макс. скорость"
   STR_CAL_FLEET_ETA: "Время до цели"
   STR_CAL_ASSIGNED_PILOTS: "Пилоты на борту / нужно"
+  STR_CAL_TARGET_RANGE: "Дальность до цели"
   STR_CAL_FLEET_MAP: "Глобус"
   STR_CAL_FLEET_TARGET: "Цель"
   STR_CAL_FLEET_FUEL: "Топливо"
