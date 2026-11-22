@@ -59,6 +59,16 @@
         "id": "arrival",
         "label": "HOURS",
         "contentRole": "count"
+      },
+      {
+        "id": "destination",
+        "label": "DESTINATION",
+        "contentRole": "name"
+      },
+      {
+        "id": "capacity",
+        "label": "CAPACITY",
+        "contentRole": "name"
       }
     ],
     "items": [
@@ -67,11 +77,38 @@
         "values": [
           "Chemical Flare",
           "1",
-          "12"
+          "12",
+          "Batumi",
+          "Stores 580 / 515"
         ]
       }
     ]
   },
   "controls": [],
-  "toolbar": []
+  "toolbar": [
+    {
+      "id": "scope",
+      "label": "Base",
+      "action": "scope",
+      "tone": "normal"
+    },
+    {
+      "id": "category",
+      "label": "All cargo",
+      "action": "category",
+      "tone": "normal"
+    },
+    {
+      "id": "sort",
+      "label": "Arrival \u2191",
+      "action": "sort",
+      "tone": "normal"
+    },
+    {
+      "id": "search",
+      "label": "Search",
+      "action": "search",
+      "tone": "normal"
+    }
+  ]
 }

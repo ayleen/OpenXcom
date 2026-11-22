@@ -1,4 +1,12 @@
 ru:
+  STR_CAL_LEDGER_ALL_BASES: "Все базы"
+  STR_CAL_LEDGER_THIS_BASE: "Эта база"
+  STR_CAL_LEDGER_BASE_CAPACITY: "Склад базы"
+  STR_CAL_LEDGER_OVER: "Сверх лимита"
+  STR_CAL_LEDGER_CAPACITY: "Вместимость"
+  STR_CAL_LEDGER_ALL_CARGO: "Все грузы"
+  STR_CAL_LEDGER_EARLIEST: "Сначала ближайшие"
+  STR_CAL_LEDGER_LATEST: "Сначала поздние"
   STR_CANNOT_DISMANTLE_FACILITY_UPGRADING: "СНОС НЕВОЗМОЖЕН!{SMALLLINE}Строение невозможно снести в ходе модернизации."
   STR_CANNOT_UPGRADE_FACILITY_ALREADY_UPGRADING: "СТРОИТЕЛЬСТВО НЕВОЗМОЖНО!{SMALLLINE}Существующее сооружение уже надстроено."
   STR_CANNOT_UPGRADE_FACILITY_WRONG_SIZE: "СТРОИТЕЛЬСТВО НЕВОЗМОЖНО!{SMALLLINE}Выбранная постройка должна совпадать по размерам с существующим сооружением."

@@ -93,6 +93,9 @@ TransfersState::TransfersState(Base *base) : _base(base)
 	_lstTransfers->setBackground(_window);
 	_lstTransfers->setMargin(2);
 
+#ifdef __EMSCRIPTEN__
+	configureShipmentFilters();
+#else
 	for (const auto* transfer : *_base->getTransfers())
 	{
 		if (_nextArrivalHours < 0 || transfer->getHours() < _nextArrivalHours)
@@ -102,6 +105,7 @@ TransfersState::TransfersState(Base *base) : _base(base)
 		ss2 << transfer->getHours();
 		_lstTransfers->addRow(3, transfer->getName(_game->getLanguage()).c_str(), ss.str().c_str(), ss2.str().c_str());
 	}
+#endif
 #ifdef __EMSCRIPTEN__
 	_hdLedger = new Calypso::CalypsoInventoryLedger(*this);
 #endif
