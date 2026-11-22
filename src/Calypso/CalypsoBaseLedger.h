@@ -19,6 +19,11 @@ class MonthlyCostsState;
 class TargetInfoState;
 class UfoTrackerState;
 class MultipleTargetsState;
+class TrainingFinishedState;
+class CalypsoTrainingBases;
+class CalypsoTrainingOrder;
+class AllocateTrainingState;
+class AllocatePsiTrainingState;
 class StoresState;
 class TransfersState;
 class ItemsArrivingState;
@@ -49,6 +54,8 @@ public:
 	explicit CalypsoBaseLedger(CalypsoContractDeliverState &state);
 	explicit CalypsoBaseLedger(TechTreeSelectState &state);
 	explicit CalypsoBaseLedger(MonthlyCostsState &state);
+	explicit CalypsoBaseLedger(TrainingFinishedState &state);
+	explicit CalypsoBaseLedger(CalypsoTrainingBases &state);
 	explicit CalypsoBaseLedger(StoresState &state);
 	explicit CalypsoBaseLedger(UfoTrackerState &state);
 	explicit CalypsoBaseLedger(TargetInfoState &state);
@@ -67,12 +74,18 @@ public:
 	explicit CalypsoBaseLedger(DogfightExperienceState &state);
 	explicit CalypsoBaseLedger(FundingState &state);
 	explicit CalypsoBaseLedger(MonthlyReportState &state);
+	explicit CalypsoBaseLedger(CalypsoTrainingOrder &state);
+	explicit CalypsoBaseLedger(AllocateTrainingState &state);
+	explicit CalypsoBaseLedger(AllocatePsiTrainingState &state);
 	void refresh();
 private:
 	CalypsoHdOperationsChrome _chrome;
 	CalypsoHdOperationsRenderer _renderer;
 	std::function<CalypsoHdOperationsModel()> _collect;
 	void open();
+	template<class StateType, class Layout, class Collection, class Style, class Typography>
+	CalypsoHdOperationsModel rosterModel(StateType &state, const Layout &geometry, const Collection &table,
+		const Style &style, const Typography &typography);
 };
 }
 }

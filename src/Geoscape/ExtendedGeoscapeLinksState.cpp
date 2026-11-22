@@ -18,6 +18,9 @@
  */
 
 #include "ExtendedGeoscapeLinksState.h"
+#ifdef __EMSCRIPTEN__
+#include "TrainingState.h"
+#endif
 #include "FundingState.h"
 #include "GeoscapeState.h"
 #include "../Engine/Game.h"
@@ -157,6 +160,10 @@ ExtendedGeoscapeLinksState::ExtendedGeoscapeLinksState(GeoscapeState* parent) : 
 	}
 	_btnTest->onMouseClick((ActionHandler)&ExtendedGeoscapeLinksState::btnTestClick);
 #ifdef __EMSCRIPTEN__
+	auto *training = new TextButton(1, 1);
+	add(training, "button", "oxceLinks");
+	training->setText(tr("STR_TRAINING"));
+	training->onMouseClick((ActionHandler)&ExtendedGeoscapeLinksState::trainingClick);
 	_destinations = new TextList(220, 120);
 	add(_destinations, "list", "oxceLinks");
 	_destinations->setColumns(2, 120, 90);
@@ -186,6 +193,12 @@ ExtendedGeoscapeLinksState::~ExtendedGeoscapeLinksState()
 }
 
 #ifdef __EMSCRIPTEN__
+void ExtendedGeoscapeLinksState::trainingClick(Action *)
+{
+	_game->popState();
+	_game->pushState(new TrainingState());
+}
+
 void ExtendedGeoscapeLinksState::openDestination(Action *)
 {
 	const auto selected = _destinations->getSelectedRow();

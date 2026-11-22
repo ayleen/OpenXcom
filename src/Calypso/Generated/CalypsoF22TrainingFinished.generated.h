@@ -4,50 +4,302 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF22TrainingFinishedGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kFormId = "f22-training-finished";
 inline constexpr int kFamilyId = 22;
-inline constexpr const char* kArchetype = "small-confirmation";
-inline constexpr const char* kSourceConfig = "FormConfigs/f22-training-finished.json";
+inline constexpr const char* kArchetype = "operations-workspace";
+inline constexpr const char* kNativeState = "TrainingFinishedState";
+inline constexpr const char* kVisualShell = "base-operations";
+inline constexpr const char* kHeaderArt = "base-research";
+inline constexpr const char* kSharedChromeId = "base-command-shell";
+inline constexpr const char* kSharedChromeVersion = "hd.2026-09-07.1";
 
-inline constexpr const char* kDensityProfile = "standard";
-inline constexpr int kPresentationScaleNumerator = 1;
-inline constexpr int kPresentationScaleDenominator = 1;
-inline constexpr float kPresentationScale = 1.000000f;
-
-struct CalypsoF22TrainingFinishedGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
-inline constexpr CalypsoF22TrainingFinishedGenButton kButtons[] = {
-    { "ok", "OK", "safe", "ok", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
-    { "open", "OPEN", "primary", "open", 0x74FFB0FFu, 0x74FFB0FFu, 0x071013FFu },
-};
-inline constexpr int kButtonCount = 2;
-
-inline constexpr float kCutCornerPx = 14.000000f;
-inline constexpr float kProtocolTextInsetPx = 26.000000f;
-inline constexpr std::uint32_t kPanelFillTop = 0x08191DEBu;
-inline constexpr std::uint32_t kPanelFillBottom = 0x041014E8u;
-inline constexpr std::uint32_t kFrame = 0x74FFB073u;
-inline constexpr std::uint32_t kProtocolText = 0xA9D8C7FFu;
-inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
-inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
-inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
-inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
-
+/// One design-space rectangle (design px).
 struct CalypsoF22TrainingFinishedGenRect { int x; int y; int w; int h; };
-struct CalypsoF22TrainingFinishedGenLayout { int designWidth; int designHeight; CalypsoF22TrainingFinishedGenRect window; CalypsoF22TrainingFinishedGenRect status; CalypsoF22TrainingFinishedGenRect warning; CalypsoF22TrainingFinishedGenRect title; CalypsoF22TrainingFinishedGenRect message; CalypsoF22TrainingFinishedGenRect footer;
+
+/// Generated policy for an operations toolbar chooser.
+struct CalypsoF22TrainingFinishedGenToolbarChooser
+{
+	int optionRowHeight;
+	int optionInsetX;
+	int optionInsetY;
+	int maxOptions;
+	int minPanelWidth;
+	CalypsoF22TrainingFinishedGenRect bounds;
 };
-inline constexpr CalypsoF22TrainingFinishedGenLayout kLayouts[] = {
-    { 1280, 720, { 406, 230, 468, 236 }, { 406, 230, 468, 38 }, { 438, 290, 32, 32 }, { 486, 284, 356, 44 }, { 438, 336, 404, 54 }, { 406, 404, 468, 62 } }, // wide
-    { 740, 360, { 160, 60, 420, 221 }, { 160, 60, 420, 34 }, { 188, 111, 28, 28 }, { 230, 106, 322, 38 }, { 188, 150, 364, 48 }, { 160, 215, 420, 66 } }, // compact
+
+/// The complete f22-training-finished.json layout for one class.
+struct CalypsoF22TrainingFinishedGenLayout
+{
+	int designWidth;
+	int designHeight;
+	CalypsoF22TrainingFinishedGenRect window;
+	CalypsoF22TrainingFinishedGenRect screenHeader;
+	CalypsoF22TrainingFinishedGenRect headerArt;
+	CalypsoF22TrainingFinishedGenRect title;
+	CalypsoF22TrainingFinishedGenRect summaryBar;
+	CalypsoF22TrainingFinishedGenRect toolbarBar;
+	CalypsoF22TrainingFinishedGenRect collectionViewport;
+	CalypsoF22TrainingFinishedGenRect footer;
+	CalypsoF22TrainingFinishedGenRect summary_base;
+	CalypsoF22TrainingFinishedGenRect summary_type;
+	CalypsoF22TrainingFinishedGenRect summary_completed;
+	CalypsoF22TrainingFinishedGenRect tab_workspace_a;
+	CalypsoF22TrainingFinishedGenRect tab_workspace_b;
+	CalypsoF22TrainingFinishedGenRect collection_scroll_track;
+	CalypsoF22TrainingFinishedGenRect collection_scroll_thumb;
+	CalypsoF22TrainingFinishedGenRect collection_column_soldier;
+	CalypsoF22TrainingFinishedGenRect collection_column_rank;
+	CalypsoF22TrainingFinishedGenRect collection_row_slot_1;
+	CalypsoF22TrainingFinishedGenRect collection_row_slot_2;
+	CalypsoF22TrainingFinishedGenRect action_open;
+	CalypsoF22TrainingFinishedGenRect action_done;
+	CalypsoF22TrainingFinishedGenToolbarChooser toolbarChooser;
 };
-struct CalypsoF22TrainingFinishedGenButtonRect { const char* id; CalypsoF22TrainingFinishedGenRect rect; };
-inline constexpr CalypsoF22TrainingFinishedGenButtonRect kButtonRects[][ 2 ] = {
-    { { "ok", { 516, 413, 158, 44 } }, { "open", { 684, 413, 158, 44 } } }, // wide
-    { { "ok", { 244, 225, 148, 44 } }, { "open", { 404, 225, 148, 44 } } }, // compact
+
+inline constexpr CalypsoF22TrainingFinishedGenLayout kLayouts[] =
+{
+	// wide
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 360, 78 }, { 130, 119, 480, 36 }, { 1000, 96, 256, 78 }, { 112, 190, 816, 44 }, { 112, 190, 1144, 456 }, { 112, 658, 1144, 44 }, { 1000, 96, 84, 78 }, { 1085, 96, 84, 78 }, { 1170, 96, 86, 78 }, { 92, 158, 414, 44 }, { 514, 158, 414, 44 }, { 1238, 226, 18, 308 }, { 1238, 226, 18, 308 }, { 112, 190, 793, 36 }, { 906, 190, 296, 36 }, { 112, 226, 1090, 44 }, { 112, 270, 1090, 44 }, { 112, 658, 158, 44 }, { 1098, 658, 158, 44 }, { 44, 8, 0, 5, 240, { 112, 234, 1144, 412 } } },
+	// compact
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 420, 48, 100, 52 }, { 60, 61, 350, 26 }, { 520, 48, 212, 52 }, { 52, 108, 466, 44 }, { 52, 108, 680, 196 }, { 52, 312, 680, 44 }, { 520, 48, 70, 52 }, { 591, 48, 70, 52 }, { 662, 48, 70, 52 }, { 52, 102, 230, 44 }, { 288, 102, 230, 44 }, { 714, 136, 18, 88 }, { 714, 136, 18, 88 }, { 52, 108, 447, 28 }, { 500, 108, 180, 28 }, { 52, 136, 628, 44 }, { 52, 180, 628, 44 }, { 52, 312, 120, 44 }, { 612, 312, 120, 44 }, { 44, 8, 0, 5, 240, { 52, 52, 680, 260 } } },
 };
 inline constexpr int kLayoutCount = 2;
-inline constexpr int kMotionDurationMs = 200;
-inline constexpr float kMotionScaleFrom = 0.960000f;
+
+inline constexpr const char* kSourceConfig = "FormConfigs/f22-training-finished.json";
+inline constexpr const char* kPresentationProfile = "table-context";
+inline constexpr const char* kProvenanceTemplate = "FormTemplates/operations-workspace.json";
+inline constexpr int kProvenanceTemplateVersion = 4;
+inline constexpr const char* kProvenanceGeneratorKind = "operations";
+inline constexpr const char* kProfileId = "operations-ac";
+inline constexpr const char* kProfileVersion = "hd.2026-09-10.1";
+inline constexpr const char* kProfileThemeSource = "CommandCenter/CommandCenterTheme.h";
+inline constexpr const char* kProfileThemeSourceHash = "8c4eb7f074fe2868aac3d0835b324d42f4d57ca727dcea7ab1e16220c19e53b2";
+
+struct CalypsoF22TrainingFinishedGenActionTone
+{
+	const char* id;
+	std::uint32_t fill;
+	std::uint32_t border;
+	std::uint32_t text;
+};
+inline constexpr CalypsoF22TrainingFinishedGenActionTone kActionTones[] = {
+    { "normal", 0x071624FFu, 0x173246FFu, 0xE7F0F3FFu },
+    { "safe", 0x071624FFu, 0x285267FFu, 0xE7F0F3FFu },
+    { "primary", 0x81E0B5FFu, 0x81E0B5FFu, 0x03130DFFu },
+    { "warning", 0xF2C56DFFu, 0xF2C56DFFu, 0x03130DFFu },
+    { "danger", 0x071624FFu, 0xFF6E72FFu, 0xFF6E72FFu },
+};
+inline constexpr int kActionToneCount = 5;
+
+struct CalypsoF22TrainingFinishedGenProfileStyle
+{
+	std::uint32_t background;
+	std::uint32_t panel;
+	std::uint32_t panelRaised;
+	std::uint32_t hover;
+	std::uint32_t selected;
+	std::uint32_t border;
+	std::uint32_t borderStrong;
+	std::uint32_t accent;
+	std::uint32_t text;
+	std::uint32_t secondary;
+	std::uint32_t disabled;
+	std::uint32_t onAccent;
+	std::uint32_t warning;
+	std::uint32_t danger;
+	float cornerRadiusPx;
+	float cutCornerPx;
+};
+inline constexpr CalypsoF22TrainingFinishedGenProfileStyle kProfileStyle = {
+	0x02060EFFu,
+	0x071624FFu,
+	0x0A1C2DFFu,
+	0x0C2232FFu,
+	0x0D2931FFu,
+	0x173246FFu,
+	0x285267FFu,
+	0x81E0B5FFu,
+	0xE7F0F3FFu,
+	0xA8BBC4FFu,
+	0x455966FFu,
+	0x03130DFFu,
+	0xF2C56DFFu,
+	0xFF6E72FFu,
+	12.0f,
+	14.0f,
+};
+
+struct CalypsoF22TrainingFinishedGenTypography
+{
+	int title;
+	int detailTitle;
+	int body;
+	int label;
+	int data;
+	int input;
+	int action;
+};
+inline constexpr CalypsoF22TrainingFinishedGenTypography kTypographyWide = {
+	28, 18, 14, 12, 15, 14, 14
+};
+inline constexpr CalypsoF22TrainingFinishedGenTypography kTypographyCompact = {
+	18, 16, 12, 12, 13, 12, 12
+};
+
+struct CalypsoF22TrainingFinishedGenColumnRole
+{
+	const char* id;
+	int weight;
+	int minWidth;
+	const char* font;
+	const char* align;
+};
+inline constexpr CalypsoF22TrainingFinishedGenColumnRole kColumnRoles[] = {
+    { "category", 3, 72, "body", "left" },
+    { "count", 1, 64, "data", "right" },
+    { "date", 2, 72, "data", "right" },
+    { "money", 2, 72, "data", "right" },
+    { "name", 6, 96, "body", "left" },
+    { "quantity", 2, 64, "data", "right" },
+    { "status", 2, 64, "body", "left" },
+    { "time", 2, 64, "data", "right" },
+    { "type", 1, 64, "data", "right" },
+};
+inline constexpr int kColumnRoleCount = 9;
+
+struct CalypsoF22TrainingFinishedGenCollectionCell
+{
+	const char* id;
+	CalypsoF22TrainingFinishedGenRect rect;
+	const char* contentRole;
+	const char* font;
+	const char* align;
+	int minWidth;
+	int weight;
+};
+struct CalypsoF22TrainingFinishedGenCollectionRowSlot
+{
+	const char* id;
+	CalypsoF22TrainingFinishedGenRect rect;
+	const CalypsoF22TrainingFinishedGenCollectionCell* cells;
+	int cellCount;
+};
+struct CalypsoF22TrainingFinishedGenCollectionMetrics
+{
+	int totalItems;
+	int visibleCapacity;
+	int totalUnits;
+	int visibleUnits;
+	int itemsPerUnit;
+	const char* scrollUnit;
+	bool overflow;
+	int scrollSteps;
+	CalypsoF22TrainingFinishedGenRect track;
+	CalypsoF22TrainingFinishedGenRect thumb;
+	CalypsoF22TrainingFinishedGenRect trackHitTarget;
+	CalypsoF22TrainingFinishedGenRect thumbHitTarget;
+	int thumbTravelPx;
+};
+struct CalypsoF22TrainingFinishedGenCollectionLayout
+{
+	const char* id;
+	const CalypsoF22TrainingFinishedGenCollectionCell* columns;
+	int columnCount;
+	const CalypsoF22TrainingFinishedGenCollectionRowSlot* rowSlots;
+	int rowSlotCount;
+	int count;
+	CalypsoF22TrainingFinishedGenRect rowActionArea;
+	CalypsoF22TrainingFinishedGenCollectionMetrics metrics;
+};
+
+inline constexpr CalypsoF22TrainingFinishedGenCollectionCell kCollectionColumnHeadersWide[] = {
+    { "soldier", { 112, 190, 793, 36 }, "name", "body", "left", 96, 6 },
+    { "rank", { 906, 190, 296, 36 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF22TrainingFinishedGenCollectionCell kCollectionRowSlot1CellsWide[] = {
+    { "soldier", { 112, 226, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "rank", { 906, 226, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF22TrainingFinishedGenCollectionCell kCollectionRowSlot2CellsWide[] = {
+    { "soldier", { 112, 270, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "rank", { 906, 270, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF22TrainingFinishedGenCollectionCell kCollectionRowSlot3CellsWide[] = {
+    { "soldier", { 112, 314, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "rank", { 906, 314, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF22TrainingFinishedGenCollectionCell kCollectionRowSlot4CellsWide[] = {
+    { "soldier", { 112, 358, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "rank", { 906, 358, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF22TrainingFinishedGenCollectionCell kCollectionRowSlot5CellsWide[] = {
+    { "soldier", { 112, 402, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "rank", { 906, 402, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF22TrainingFinishedGenCollectionCell kCollectionRowSlot6CellsWide[] = {
+    { "soldier", { 112, 446, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "rank", { 906, 446, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF22TrainingFinishedGenCollectionCell kCollectionRowSlot7CellsWide[] = {
+    { "soldier", { 112, 490, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "rank", { 906, 490, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF22TrainingFinishedGenCollectionRowSlot kCollectionRowSlotsWide[] = {
+    { "row-slot-1", { 112, 226, 1090, 44 }, kCollectionRowSlot1CellsWide, 2 },
+    { "row-slot-2", { 112, 270, 1090, 44 }, kCollectionRowSlot2CellsWide, 2 },
+    { "row-slot-3", { 112, 314, 1090, 44 }, kCollectionRowSlot3CellsWide, 2 },
+    { "row-slot-4", { 112, 358, 1090, 44 }, kCollectionRowSlot4CellsWide, 2 },
+    { "row-slot-5", { 112, 402, 1090, 44 }, kCollectionRowSlot5CellsWide, 2 },
+    { "row-slot-6", { 112, 446, 1090, 44 }, kCollectionRowSlot6CellsWide, 2 },
+    { "row-slot-7", { 112, 490, 1090, 44 }, kCollectionRowSlot7CellsWide, 2 },
+};
+inline constexpr int kCollectionRowSlotWideCount = 7;
+inline constexpr CalypsoF22TrainingFinishedGenCollectionMetrics kCollectionMetricsWide = { 1, 7, 1, 7, 1, "record", false, 0, { 1238, 226, 18, 308 }, { 1238, 226, 18, 308 }, { 1212, 226, 44, 308 }, { 1212, 226, 44, 308 }, 0 };
+
+inline constexpr CalypsoF22TrainingFinishedGenCollectionCell kCollectionColumnHeadersCompact[] = {
+    { "soldier", { 52, 108, 447, 28 }, "name", "body", "left", 96, 6 },
+    { "rank", { 500, 108, 180, 28 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF22TrainingFinishedGenCollectionCell kCollectionRowSlot1CellsCompact[] = {
+    { "soldier", { 52, 136, 447, 44 }, "name", "body", "left", 96, 6 },
+    { "rank", { 500, 136, 180, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF22TrainingFinishedGenCollectionCell kCollectionRowSlot2CellsCompact[] = {
+    { "soldier", { 52, 180, 447, 44 }, "name", "body", "left", 96, 6 },
+    { "rank", { 500, 180, 180, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF22TrainingFinishedGenCollectionRowSlot kCollectionRowSlotsCompact[] = {
+    { "row-slot-1", { 52, 136, 628, 44 }, kCollectionRowSlot1CellsCompact, 2 },
+    { "row-slot-2", { 52, 180, 628, 44 }, kCollectionRowSlot2CellsCompact, 2 },
+};
+inline constexpr int kCollectionRowSlotCompactCount = 2;
+inline constexpr CalypsoF22TrainingFinishedGenCollectionMetrics kCollectionMetricsCompact = { 1, 2, 1, 2, 1, "record", false, 0, { 714, 136, 18, 88 }, { 714, 136, 18, 88 }, { 688, 136, 44, 88 }, { 688, 136, 44, 88 }, 0 };
+
+inline constexpr CalypsoF22TrainingFinishedGenCollectionLayout kCollectionsWide[1] = {
+    { "collection", kCollectionColumnHeadersWide, 2, kCollectionRowSlotsWide, 7, 1, { 0, 0, 0, 0 }, kCollectionMetricsWide },
+};
+inline constexpr int kCollectionLayoutWideCount = 1;
+inline constexpr CalypsoF22TrainingFinishedGenCollectionLayout kCollectionsCompact[1] = {
+    { "collection", kCollectionColumnHeadersCompact, 2, kCollectionRowSlotsCompact, 2, 1, { 0, 0, 0, 0 }, kCollectionMetricsCompact },
+};
+inline constexpr int kCollectionLayoutCompactCount = 1;
+
+struct CalypsoF22TrainingFinishedGenActionSlot { const char* id; CalypsoF22TrainingFinishedGenRect rect; };
+struct CalypsoF22TrainingFinishedGenStrictActionSlotGroup
+{
+	const char* id;
+	const CalypsoF22TrainingFinishedGenActionSlot* slots;
+	int slotCount;
+};
+inline constexpr CalypsoF22TrainingFinishedGenStrictActionSlotGroup kStrictActionSlotGroupsWide[1] = {
+};
+inline constexpr int kStrictActionSlotGroupWideCount = 0;
+inline constexpr CalypsoF22TrainingFinishedGenStrictActionSlotGroup kStrictActionSlotGroupsCompact[1] = {
+};
+inline constexpr int kStrictActionSlotGroupCompactCount = 0;
+
+/// Layout for a design canvas, or nullptr (the harness never guesses).
 inline const CalypsoF22TrainingFinishedGenLayout* layoutForDesign(int dw, int dh)
 {
 	for (int i = 0; i < kLayoutCount; ++i)
@@ -55,4 +307,9 @@ inline const CalypsoF22TrainingFinishedGenLayout* layoutForDesign(int dw, int dh
 			return &kLayouts[i];
 	return nullptr;
 }
+
+// Opening motion (capture mode deterministic).
+inline constexpr int kMotionDurationMs = 200;
+inline constexpr float kMotionScaleFrom = 0.960000f;
+inline constexpr bool kMotionDisabledInCapture = true;
 } } }

@@ -44,6 +44,7 @@ private:
 	Calypso::CalypsoStrategicList *_hdList = nullptr;
 	TextList *_destinations = nullptr;
 	std::vector<TextButton*> _routes;
+	void trainingClick(Action *action);
 	void openDestination(Action *action);
 #endif
 	TextButton *_btnOk;

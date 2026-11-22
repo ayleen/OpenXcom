@@ -3,40 +3,77 @@
   "id": "f22-training-finished",
   "familyId": 22,
   "version": "hd.2026-08-29.1",
-  "archetype": "small-confirmation",
-  "protocol": {
-    "authority": "CALYPSO COMMAND",
-    "record": "TACTICAL NOTICE",
-    "code": "F22-TF-01",
-    "revision": "1.0.21",
-    "effectiveDate": "15.07.2061"
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-research"
   },
-  "title": "TRAINING COMPLETE",
-  "body": [
-    "Training program",
-    "has finished."
-  ],
-  "icon": {
-    "kind": "info",
-    "glyph": "i",
-    "tone": "primary"
+  "state": "TrainingFinishedState",
+  "labelKeys": {
+    "title": "STR_CAL_TRAINING_COMPLETED",
+    "done": "STR_OK",
+    "open": "STR_TRAINING"
   },
-  "buttons": [
-    {
-      "id": "ok",
-      "label": "OK",
-      "tone": "safe",
-      "action": "ok"
-    },
+  "title": "TRAINING COMPLETED",
+  "actions": [
     {
       "id": "open",
-      "label": "OPEN",
-      "tone": "primary",
+      "label": "OPEN TRAINING",
+      "labelKey": "STR_TRAINING",
+      "tone": "safe",
       "action": "open"
+    },
+    {
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "tone": "primary",
+      "action": "done"
     }
   ],
-  "visibleButtons": [
-    "ok",
-    "open"
-  ]
+  "summary": [
+    {
+      "id": "base",
+      "label": "BASE",
+      "value": "Batumi"
+    },
+    {
+      "id": "type",
+      "label": "TRAINING",
+      "value": "Physical"
+    },
+    {
+      "id": "completed",
+      "label": "COMPLETED",
+      "value": "2"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "soldier",
+    "columns": [
+      {
+        "id": "soldier",
+        "label": "AQUANAUT",
+        "contentRole": "name"
+      },
+      {
+        "id": "rank",
+        "label": "RANK",
+        "contentRole": "status"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Molina",
+          "Ensign"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": []
 }

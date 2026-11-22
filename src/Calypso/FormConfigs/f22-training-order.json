@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "id": "f22-training-order",
+  "familyId": 22,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-research"
+  },
+  "state": "CalypsoTrainingOrder",
+  "labelKeys": {
+    "title": "STR_SORT_BY",
+    "up": "STR_CAL_TRAIN_UP",
+    "down": "STR_CAL_TRAIN_DOWN",
+    "done": "STR_OK",
+    "reverse": "STR_CAL_TRAIN_REVERSE"
+  },
+  "title": "TRAINING ORDER",
+  "actions": [
+    {
+      "id": "up",
+      "label": "MOVE UP",
+      "labelKey": "STR_CAL_TRAIN_UP",
+      "tone": "normal",
+      "action": "up"
+    },
+    {
+      "id": "down",
+      "label": "MOVE DOWN",
+      "labelKey": "STR_CAL_TRAIN_DOWN",
+      "tone": "normal",
+      "action": "down"
+    },
+    {
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "tone": "primary",
+      "action": "done"
+    }
+  ],
+  "summary": [],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "criterion",
+    "columns": [
+      {
+        "id": "name",
+        "label": "SORT BY",
+        "contentRole": "name"
+      },
+      {
+        "id": "status",
+        "label": "SELECTED",
+        "contentRole": "status"
+      }
+    ],
+    "items": [
+      {
+        "id": "original",
+        "values": [
+          "Original order",
+          "Yes"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [
+    {
+      "id": "reverse",
+      "label": "REVERSE",
+      "labelKey": "STR_CAL_TRAIN_REVERSE",
+      "tone": "normal",
+      "action": "reverse"
+    }
+  ]
+}

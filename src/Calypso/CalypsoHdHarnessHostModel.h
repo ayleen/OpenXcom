@@ -170,7 +170,11 @@ enum class CalypsoHarnessScenario
 	F18InterceptFleet = 147,
 	F18CourseConfirm = 148,
 	F18CourseMap = 149,
-	F18CraftNavigation = 150
+	F18CraftNavigation = 150,
+	F22PhysicalBases = 151,
+	F22PsiBases = 152,
+	F22PhysicalRoster = 153,
+	F22PsionicRoster = 154
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -290,7 +294,11 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F30Commendations)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F30ExperienceOverview)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F23Funding)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F23MonthlyReport);
+		|| id == static_cast<int>(CalypsoHarnessScenario::F23MonthlyReport)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F22PhysicalBases)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F22PsiBases)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F22PhysicalRoster)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F22PsionicRoster);
 }
 
 struct CalypsoHarnessSwitchRequest

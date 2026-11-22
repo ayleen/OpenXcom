@@ -1,0 +1,119 @@
+{
+  "schema": 1,
+  "id": "f22-psionic-roster",
+  "familyId": 22,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-research"
+  },
+  "state": "AllocatePsiTrainingState",
+  "labelKeys": {
+    "title": "STR_PSIONIC_TRAINING",
+    "assign": "STR_CAL_TRAIN_ASSIGN",
+    "clear": "STR_CAL_TRAIN_CLEAR",
+    "done": "STR_OK",
+    "order": "STR_SORT_BY",
+    "details": "STR_CAL_TRAIN_DETAILS",
+    "bonus": "STR_CAL_TRAIN_BONUSES"
+  },
+  "title": "PSIONIC TRAINING",
+  "actions": [
+    {
+      "id": "assign",
+      "label": "ASSIGN ALL",
+      "labelKey": "STR_CAL_TRAIN_ASSIGN",
+      "tone": "normal",
+      "action": "assign"
+    },
+    {
+      "id": "clear",
+      "label": "CLEAR ALL",
+      "labelKey": "STR_CAL_TRAIN_CLEAR",
+      "tone": "normal",
+      "action": "clear"
+    },
+    {
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "tone": "primary",
+      "action": "done"
+    }
+  ],
+  "summary": [
+    {
+      "id": "free",
+      "label": "FREE",
+      "value": "4"
+    },
+    {
+      "id": "capacity",
+      "label": "PLACES",
+      "value": "8"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "soldier",
+    "columns": [
+      {
+        "id": "name",
+        "label": "DIVER",
+        "contentRole": "name"
+      },
+      {
+        "id": "strength",
+        "label": "PSI STRENGTH",
+        "contentRole": "count"
+      },
+      {
+        "id": "skill",
+        "label": "PSI SKILL",
+        "contentRole": "count"
+      },
+      {
+        "id": "status",
+        "label": "IN TRAINING",
+        "contentRole": "status"
+      }
+    ],
+    "items": [
+      {
+        "id": "sample",
+        "values": [
+          "Molina",
+          "Unknown",
+          "0/+0",
+          "Yes"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [
+    {
+      "id": "order",
+      "label": "ORDER",
+      "labelKey": "STR_SORT_BY",
+      "tone": "normal",
+      "action": "order"
+    },
+    {
+      "id": "details",
+      "label": "DETAILS",
+      "labelKey": "STR_CAL_TRAIN_DETAILS",
+      "tone": "normal",
+      "action": "details"
+    },
+    {
+      "id": "bonus",
+      "label": "BONUSES",
+      "labelKey": "STR_CAL_TRAIN_BONUSES",
+      "tone": "normal",
+      "action": "bonus"
+    }
+  ]
+}

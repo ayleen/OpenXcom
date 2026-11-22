@@ -17,7 +17,11 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTrainingRoster.h"
+#else
 #include "../Engine/State.h"
+#endif
 #include <vector>
 
 namespace OpenXcom
@@ -37,9 +41,17 @@ struct SortFunctor;
  * Screen shown monthly to allow changing
  * soldiers currently in psi training.
  */
-class AllocatePsiTrainingState : public State
+class AllocatePsiTrainingState
+#ifdef __EMSCRIPTEN__
+	: public CalypsoTrainingRoster
+#else
+	: public State
+#endif
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoBaseLedger;
+#endif
 	TextButton *_btnOk;
 	ToggleTextButton *_btnPlus;
 	Window *_window;
@@ -47,7 +59,6 @@ private:
 	Text *_txtPsiStrength, *_txtPsiSkill;
 	ComboBox *_cbxSortBy;
 	TextList *_lstSoldiers;
-	std::vector<Soldier*> _soldiers;
 	size_t _sel;
 	int _labSpace;
 	Base *_base;

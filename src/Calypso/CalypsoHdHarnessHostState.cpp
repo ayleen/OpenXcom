@@ -134,6 +134,10 @@
 #include "../Savegame/AlienMission.h"
 #include "../Mod/UfoTrajectory.h"
 #include "../Geoscape/TrainingFinishedState.h"
+#include "../Geoscape/PsiTrainingState.h"
+#include "../Geoscape/TrainingState.h"
+#include "../Geoscape/AllocateTrainingState.h"
+#include "../Geoscape/AllocatePsiTrainingState.h"
 #include "../Geoscape/ProductionCompleteState.h"
 #include "../Geoscape/ItemsArrivingState.h"
 #include "../Geoscape/GeoscapeEventState.h"
@@ -1940,9 +1944,37 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 			}
 			return nullptr;
 		}
+	case CalypsoHarnessScenario::F22PhysicalRoster:
+	case CalypsoHarnessScenario::F22PsionicRoster:
+		{
+			auto *game = getCurrentGame();
+			if (!prepareOperationsSave(game, true)) return nullptr;
+			for (auto *base : *game->getSavedGame()->getBases())
+			{
+				if (!base || base->getSoldiers()->empty()) continue;
+				if (id == CalypsoHarnessScenario::F22PsionicRoster) return new AllocatePsiTrainingState(base);
+				return new AllocateTrainingState(base);
+			}
+			return nullptr;
+		}
+	case CalypsoHarnessScenario::F22PhysicalBases:
+	case CalypsoHarnessScenario::F22PsiBases:
+		if (!prepareOperationsSave(getCurrentGame(), true)) return nullptr;
+		if (id == CalypsoHarnessScenario::F22PsiBases) return new PsiTrainingState();
+		return new TrainingState();
 	case CalypsoHarnessScenario::F22TrainingFinished:
-		return new CraftErrorState(nullptr, "Training program has finished.");
-
+		{
+			auto *game = getCurrentGame();
+			if (!prepareOperationsSave(game, true)) return nullptr;
+			for (auto *base : *game->getSavedGame()->getBases())
+			{
+				if (base->getSoldiers()->empty()) continue;
+				const auto &soldiers = *base->getSoldiers();
+				std::vector<Soldier*> completed(soldiers.begin(), soldiers.begin() + std::min<std::size_t>(3, soldiers.size()));
+				return new TrainingFinishedState(base, completed, false);
+			}
+			return nullptr;
+		}
 	case CalypsoHarnessScenario::F24ProductionComplete:
 		{
 			auto *game = getCurrentGame();

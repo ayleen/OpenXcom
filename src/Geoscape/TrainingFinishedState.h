@@ -21,7 +21,7 @@
 
 namespace OpenXcom
 {
-namespace Calypso { class CalypsoF22TrainingFinishedUi; }
+namespace Calypso { class CalypsoBaseLedger; }
 
 class Game;
 class Window;
@@ -38,7 +38,7 @@ class Soldier;
 class TrainingFinishedState : public State
 {
 #ifdef __EMSCRIPTEN__
-friend class Calypso::CalypsoF22TrainingFinishedUi;
+friend class Calypso::CalypsoBaseLedger;
 #endif
 private:
 	Window *_window;
@@ -58,9 +58,7 @@ public:
 
 #ifdef __EMSCRIPTEN__
 private:
-    bool _hdLayout = false;
-    bool _hdWideLayout = false;
-    Calypso::CalypsoF22TrainingFinishedUi *_hdAdapter = nullptr;
+    Calypso::CalypsoBaseLedger *_hdAdapter = nullptr;
 public:
     void resize(int &dX, int &dY) override;
 #endif
