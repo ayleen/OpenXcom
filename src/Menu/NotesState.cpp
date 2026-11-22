@@ -29,6 +29,7 @@
 #include "../Calypso/CalypsoNotesInput.h"
 #include "../Calypso/CalypsoNotesUi.h" // Phase 46.2-HD (empty on native)
 #ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoDialogRoute.h"
 #include "../Mod/Mod.h"
 #endif
 #include "../Interface/Text.h"
@@ -55,12 +56,8 @@ NotesState::NotesState(OptionsOrigin origin) :
 	_screen = false;
 
 #ifdef __EMSCRIPTEN__
-	_hdLayout = _game && _game->getMod()
-		&& _game->getLanguage()
-		&& Calypso::isF34PhysicalRouteEligible(
-			_game->getMod()->isHdUiFamilyEnabled("F34"),
-			_game->getLanguage()->getTextDirection() == DIRECTION_RTL,
-			false);
+	_hdLayout = Calypso::calypsoDialogUsesHd(_game, "F34");
+	if (_hdLayout) _screen = true;
 #endif
 
 	// Create objects

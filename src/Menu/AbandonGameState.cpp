@@ -30,6 +30,7 @@
 #include "../Savegame/SavedBattleGame.h"
 #include "SaveGameState.h"
 #ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoDialogRoute.h"
 #include "../Calypso/CalypsoDirector.h"
 #include "../Calypso/CalypsoPrologueCampaign.h"
 #include "../Calypso/CalypsoAbandonPopupUi.h"
@@ -59,7 +60,11 @@ AbandonGameState::AbandonGameState(OptionsOrigin origin) : _origin(origin)
 	}
 
 	// Create objects
-	_window = new Window(this, 216, 160, x, 20, POPUP_BOTH);
+	bool hdDialog = false;
+#ifdef __EMSCRIPTEN__
+	hdDialog = Calypso::calypsoDialogUsesHd(_game, "F33");
+#endif
+	_window = new Window(this, 216, 160, x, 20, hdDialog ? POPUP_NONE : POPUP_BOTH);
 	_btnYes = new TextButton(50, 20, x+18, 140);
 	_btnNo = new TextButton(50, 20, x+148, 140);
 	_txtTitle = new Text(206, 17, x+5, 70);
@@ -75,7 +80,7 @@ AbandonGameState::AbandonGameState(OptionsOrigin origin) : _origin(origin)
 	centerAllSurfaces();
 
 	// Set up objects
-	setWindowBackground(_window, "geoscape");
+	if (!hdDialog) setWindowBackground(_window, "geoscape");
 
 	_btnYes->setText(tr("STR_YES"));
 	_btnYes->onMouseClick((ActionHandler)&AbandonGameState::btnYesClick);
@@ -89,15 +94,12 @@ AbandonGameState::AbandonGameState(OptionsOrigin origin) : _origin(origin)
 	_txtTitle->setBig();
 	_txtTitle->setText(tr("STR_ABANDON_GAME_QUESTION"));
 
-	if (_origin == OPT_BATTLESCAPE)
+	if (!hdDialog && _origin == OPT_BATTLESCAPE)
 	{
 		applyBattlescapeTheme("geoscape");
 	}
 
 #ifdef __EMSCRIPTEN__
-	// F33 (Phase 46.2-HD): physical-route configure. Battlescape-origin
-	// confirmations stay logical, mirroring the F34 error-over-battlescape
-	// exclusion (gameplay effects and modal UI have no separate strata yet).
 	Calypso::CalypsoAbandonPopupUi::configure(*this, _origin != OPT_BATTLESCAPE);
 #endif
 }

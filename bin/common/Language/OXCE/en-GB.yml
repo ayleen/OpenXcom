@@ -1,4 +1,6 @@
 en-GB:
+  STR_CAL_DIALOG_PROTOCOL: "Calypso"
+  STR_CAL_DIALOG_WARNING: "Operational warning"
   STR_CAL_LEDGER_ALL_BASES: "All bases"
   STR_CAL_LEDGER_THIS_BASE: "This base"
   STR_CAL_LEDGER_BASE_CAPACITY: "Base stores"

@@ -22,6 +22,7 @@
  */
 #ifdef __EMSCRIPTEN__
 
+#include "CalypsoDialogRoute.h"
 #include "CalypsoAbandonPopupUi.h"
 
 #include <algorithm>
@@ -201,13 +202,9 @@ void CalypsoAbandonPopupUi::applyRects(AbandonGameState& state, const CalypsoF33
 
 void CalypsoAbandonPopupUi::configure(AbandonGameState& state, bool allowPhysicalOverlay)
 {
-	state._hdLayout = state._game && state._game->getMod()
-		&& state._game->getLanguage()
-		&& isF34PhysicalRouteEligible(
-			state._game->getMod()->isHdUiFamilyEnabled("F33"),
-			state._game->getLanguage()->getTextDirection() == DIRECTION_RTL,
-			!allowPhysicalOverlay);
+	state._hdLayout = calypsoDialogUsesHd(state._game, "F33");
 	if (!state._hdLayout) return;
+	if (!allowPhysicalOverlay) state._screen = true;
 
 	state._hdWideLayout = currentF33LayoutClass() == CalypsoLayoutClass::Wide;
 	state._hdHarnessGeneration = calypsoHarnessSession().generation;

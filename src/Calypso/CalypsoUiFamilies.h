@@ -119,18 +119,12 @@ inline bool isHdUiFamilyEnabled(bool hdPackActive,
 	                          familyId);                    // O(log n), no allocation
 }
 
-// --- F34 rollout safety ----------------------------------------------------
+enum class CalypsoDialogRoute { Unregistered, Physical, UnsupportedText };
 
-/// Applies the production safety policy on top of the family-wide F34 gate.
-/// RTL stays logical until the physical raster path supports bidi/shaping, and
-/// Battlescape error popups stay logical until gameplay post-effects and modal
-/// UI have separate compositor strata. Statistics and Notes pass false for the
-/// third argument.
-inline bool isF34PhysicalRouteEligible(bool familyEnabled,
-	bool rtlLanguage,
-	bool errorOverBattlescape)
+inline CalypsoDialogRoute calypsoDialogRoute(bool registered, bool textSupported)
 {
-	return familyEnabled && !rtlLanguage && !errorOverBattlescape;
+	if (!registered) return CalypsoDialogRoute::Unregistered;
+	return textSupported ? CalypsoDialogRoute::Physical : CalypsoDialogRoute::UnsupportedText;
 }
 
 // --- Pure parse helper ------------------------------------------------------
