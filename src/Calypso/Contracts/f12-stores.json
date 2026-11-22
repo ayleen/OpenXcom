@@ -52,11 +52,6 @@
     },
     "summary": [
       {
-        "id": "scope",
-        "label": "SCOPE",
-        "value": "Batumi"
-      },
-      {
         "id": "capacity",
         "label": "STORES",
         "value": "580/515"
@@ -134,11 +129,6 @@
       "workspace-b": "WORKSPACE"
     },
     "summary": [
-      {
-        "id": "scope",
-        "label": "SCOPE",
-        "value": "Batumi"
-      },
       {
         "id": "capacity",
         "label": "STORES",
@@ -229,22 +219,16 @@
         "height": 78
       },
       "summary": {
-        "scope": {
+        "capacity": {
           "x": 1000,
           "y": 96,
-          "width": 84,
-          "height": 78
-        },
-        "capacity": {
-          "x": 1085,
-          "y": 96,
-          "width": 84,
+          "width": 127,
           "height": 78
         },
         "over": {
-          "x": 1170,
+          "x": 1128,
           "y": 96,
-          "width": 86,
+          "width": 128,
           "height": 78
         }
       },
@@ -923,22 +907,16 @@
           "width": 1144,
           "height": 44
         },
-        "summary.scope": {
+        "summary.capacity": {
           "x": 1000,
           "y": 96,
-          "width": 84,
-          "height": 78
-        },
-        "summary.capacity": {
-          "x": 1085,
-          "y": 96,
-          "width": 84,
+          "width": 127,
           "height": 78
         },
         "summary.over": {
-          "x": 1170,
+          "x": 1128,
           "y": 96,
-          "width": 86,
+          "width": 128,
           "height": 78
         },
         "tab.workspace-a": {
@@ -1049,22 +1027,16 @@
         "height": 52
       },
       "summary": {
-        "scope": {
+        "capacity": {
           "x": 520,
           "y": 48,
-          "width": 70,
-          "height": 52
-        },
-        "capacity": {
-          "x": 591,
-          "y": 48,
-          "width": 70,
+          "width": 105,
           "height": 52
         },
         "over": {
-          "x": 662,
+          "x": 626,
           "y": 48,
-          "width": 70,
+          "width": 106,
           "height": 52
         }
       },
@@ -1408,22 +1380,16 @@
           "width": 680,
           "height": 44
         },
-        "summary.scope": {
+        "summary.capacity": {
           "x": 520,
           "y": 48,
-          "width": 70,
-          "height": 52
-        },
-        "summary.capacity": {
-          "x": 591,
-          "y": 48,
-          "width": 70,
+          "width": 105,
           "height": 52
         },
         "summary.over": {
-          "x": 662,
+          "x": 626,
           "y": 48,
-          "width": 70,
+          "width": 106,
           "height": 52
         },
         "tab.workspace-a": {
@@ -1912,7 +1878,6 @@
     "toolbarBar",
     "collectionViewport",
     "footer",
-    "summary.scope",
     "summary.capacity",
     "summary.over",
     "tab.workspace-a",

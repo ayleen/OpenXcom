@@ -1,6 +1,8 @@
 ru:
   STR_CAL_DIALOG_PROTOCOL: "Калипсо"
   STR_CAL_DIALOG_WARNING: "Предупреждение"
+  STR_CAL_LEDGER_HOURS: "Часы"
+  STR_CAL_LEDGER_NEXT_HOURS: "Ближайший, ч"
   STR_CAL_LEDGER_ALL_BASES: "Все базы"
   STR_CAL_LEDGER_THIS_BASE: "Эта база"
   STR_CAL_LEDGER_BASE_CAPACITY: "Склад базы"
