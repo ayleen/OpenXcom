@@ -118,6 +118,9 @@
 #include "../Geoscape/DogfightExperienceState.h"
 #include "../Geoscape/MonthlyReportState.h"
 #include "../Savegame/GameTime.h"
+#include "../Geoscape/ConfirmLandingState.h"
+#include "../Geoscape/ConfirmCydoniaState.h"
+#include "../Geoscape/SelectDestinationState.h"
 #include "../Geoscape/ExtendedGeoscapeLinksState.h"
 #include "../Geoscape/SelectMusicTrackState.h"
 #include "../Geoscape/Globe.h"
@@ -1674,9 +1677,42 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new DogfightErrorState(craft.front(), game->getLanguage()->getString("STR_UNABLE_TO_ENGAGE_DEPTH"));
 	}
 	case CalypsoHarnessScenario::F20ConfirmLanding:
-		return new CraftErrorState(nullptr, "Confirm landing at selected site?");
 	case CalypsoHarnessScenario::F20ConfirmCydonia:
-		return new CraftErrorState(nullptr, "Confirm final mission?");
+		{
+			auto *game = getCurrentGame();
+			if (!prepareOperationsSave(game, true)) return nullptr;
+			auto *mod = game->getMod();
+			for (auto *base : *game->getSavedGame()->getBases())
+			{
+				if (!base || base->getCrafts()->empty()) continue;
+				auto *craft = base->getCrafts()->front();
+				if (id == CalypsoHarnessScenario::F20ConfirmCydonia)
+				{
+					auto *globe = new GeoscapeState();
+					game->pushState(globe);
+					calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+					game->pushState(new SelectDestinationState({craft}, globe->getGlobe()));
+					return new ConfirmCydoniaState(craft);
+				}
+				if (mod->getAlienMissionList().empty() || mod->getAlienRacesList().empty()) return nullptr;
+				for (const auto &name : mod->getDeploymentsList())
+				{
+					auto *rule = mod->getDeployment(name);
+					if (!rule || rule->getAlertMessage().empty() || rule->getAlertBackground().empty()) continue;
+					auto *site = new MissionSite(mod->getAlienMission(mod->getAlienMissionList().front()), rule, nullptr);
+					site->setDetected(true);
+					site->setId(1);
+					site->setAlienRace(mod->getAlienRacesList().front());
+					game->getSavedGame()->getMissionSites()->push_back(site);
+					craft->setDestination(site);
+					auto *globe = new GeoscapeState();
+					game->pushState(globe);
+					calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+					return new ConfirmLandingState(craft, nullptr, nullptr, 0);
+				}
+			}
+			return nullptr;
+		}
 	case CalypsoHarnessScenario::F24ResearchRequired:
 	case CalypsoHarnessScenario::F24ResearchComplete:
 	{

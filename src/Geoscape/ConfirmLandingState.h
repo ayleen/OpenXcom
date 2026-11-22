@@ -65,8 +65,8 @@ public:
 
 #ifdef __EMSCRIPTEN__
 private:
-    bool _hdLayout = false;
-    bool _hdWideLayout = false;
+    void reviewTabClick(Action *action);
+    void reviewPatrolClick(Action *action);
     Calypso::CalypsoF20ConfirmLandingUi *_hdAdapter = nullptr;
 public:
     void resize(int &dX, int &dY) override;

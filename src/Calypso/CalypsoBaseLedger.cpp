@@ -63,6 +63,10 @@
 #include "Generated/CalypsoF23MonthlyReport.generated.h"
 #include "../Savegame/GameTime.h"
 #include "Generated/CalypsoF23Funding.generated.h"
+#include "../Savegame/Craft.h"
+#include "CalypsoMissionReview.h"
+#include "Generated/CalypsoF20ConfirmLanding.generated.h"
+#include "Generated/CalypsoF20ConfirmCydonia.generated.h"
 #include "../Interface/ArrowButton.h"
 #include "../Interface/Text.h"
 #include "../Interface/TextEdit.h"
@@ -1115,6 +1119,53 @@ CalypsoBaseLedger::CalypsoBaseLedger(MonthlyReportState &s)
 		return model;
 	};
 	open();
+}
+CalypsoHdOperationsModel CalypsoMissionReview::model()
+{
+	const bool wide = wideLayout();
+	auto collect = [&](const auto &g, const auto &table, const auto &style, const auto &type,
+		const std::vector<Button> &footer) {
+		auto buttons = footer;
+		buttons.push_back({"brief", _brief, _brief->getText(), design(g.toolbar_brief), !_showRoster, true});
+		buttons.push_back({"roster", _roster, _roster->getText(), design(g.toolbar_roster), _showRoster, true});
+		auto m = ledgerModel(_state, _state.tr(_patrol ? "STR_CAL_DROP_LANDING" : "STR_CAL_DROP_FINAL"),
+			*_rows, _craft->getBase(), g, table, style, type,
+			{{"craft", _state.tr("STR_CRAFT"), _craft->getName(getCurrentGame()->getLanguage()), design(g.summary_craft)},
+			 {"target", _state.tr("STR_DESTINATION_UC"), _targetName, design(g.summary_target)},
+			 {"units", _state.tr("STR_CAL_DROP_UNITS"), std::to_string(_craft->getNumTotalUnits()), design(g.summary_units)}},
+			{{_state.tr(_showRoster ? "STR_CAL_DROP_DIVER" : "STR_CAL_DROP_ENTRY")}, {_state.tr("STR_CAL_DROP_VALUE")}},
+			buttons, "STR_CAL_DROP_ROSTER", "STR_CAL_DROP_UNITS", 20);
+		m.sectionLabel = _state.tr(_showRoster ? "STR_CAL_DROP_ROSTER" : "STR_CAL_DROP_BRIEF");
+		return m;
+	};
+	if (_patrol)
+	{
+		namespace Gen = CalypsoF20ConfirmLandingGen;
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		auto m = collect(g, table, Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"home", _cancel, _state.tr(getCurrentGame()->isCtrlPressed() ? "STR_PATROL" : "STR_RETURN_TO_BASE"), design(g.action_home)},
+			 {"patrol", _patrol, _state.tr("STR_PATROL"), design(g.action_patrol)},
+			 {"begin", _begin, _state.tr("STR_BEGIN_MISSION"), design(g.action_begin)}});
+		m.headerArtId = Gen::kHeaderArt;
+		m.profileId = Gen::kProfileId;
+		m.profileVersion = Gen::kProfileVersion;
+		m.provenance = Gen::kProvenanceTemplate;
+		return m;
+	}
+	{
+		namespace Gen = CalypsoF20ConfirmCydoniaGen;
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		auto m = collect(g, table, Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"cancel", _cancel, _state.tr("STR_CANCEL"), design(g.action_cancel)},
+			 {"begin", _begin, _state.tr("STR_BEGIN_MISSION"), design(g.action_begin)}});
+		m.headerArtId = Gen::kHeaderArt;
+		m.profileId = Gen::kProfileId;
+		m.profileVersion = Gen::kProfileVersion;
+		m.provenance = Gen::kProvenanceTemplate;
+		return m;
+	}
 }
 } } // namespace OpenXcom::Calypso
 #endif
