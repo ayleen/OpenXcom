@@ -1,0 +1,49 @@
+{
+  "actions": [
+    {
+      "action": "cancel",
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "columns": [
+      {
+        "id": "name",
+        "label": "DESTINATION"
+      },
+      {
+        "id": "state",
+        "label": "SECTION"
+      }
+    ],
+    "heading": "DESTINATIONS",
+    "items": [
+      {
+        "id": "example-0",
+        "values": [
+          "Funding overview",
+          "Finance"
+        ]
+      },
+      {
+        "id": "example-1",
+        "values": [
+          "Research overview",
+          "Research"
+        ]
+      }
+    ],
+    "mode": "table",
+    "selectionRole": "route"
+  },
+  "controls": [],
+  "familyId": 16,
+  "id": "f16-extended-links",
+  "schema": 1,
+  "title": "EXTENDED LINKS",
+  "version": "hd.2026-08-29.1",
+  "state": "ExtendedGeoscapeLinksState"
+}

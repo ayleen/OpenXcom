@@ -77,6 +77,7 @@
 #include "../Basescape/GlobalResearchDiaryState.h"
 #include "../Basescape/GlobalManufactureState.h"
 #include "../Basescape/TechTreeViewerState.h"
+#include "../Basescape/TechTreeSelectState.h"
 #include "../Ufopaedia/ArticleStateCraftWeapon.h"
 #include "../Basescape/BasescapeState.h"
 #include "../Basescape/BaseInfoState.h"
@@ -99,6 +100,8 @@
 #include "../Geoscape/UfoLostState.h"
 #include "../Geoscape/UfoDetectedState.h"
 #include "../Geoscape/GeoscapeState.h"
+#include "../Geoscape/ExtendedGeoscapeLinksState.h"
+#include "../Geoscape/SelectMusicTrackState.h"
 #include "../Geoscape/Globe.h"
 #include "../Mod/RuleResearch.h"
 #include "../Mod/RuleManufacture.h"
@@ -198,7 +201,7 @@ void restoreHarnessCursor(Game* game)
 	}
 	g_harnessCursorCaptured = false;
 }
-bool prepareOperationsSave(Game *game)
+bool prepareOperationsSave(Game *game, bool withGlobe = false)
 {
 	if (!game || !game->getMod()) return false;
 	// Fixture routes may only mutate a save owned by this harness.  Reusing a
@@ -212,7 +215,8 @@ bool prepareOperationsSave(Game *game)
 			return false;
 		else
 		{
-			g_harnessSaveLease.fixture = new SavedGame();
+			// A playable globe needs the mod's countries, regions and alien strategy.
+			g_harnessSaveLease.fixture = withGlobe ? game->getMod()->newSave(DIFF_BEGINNER) : new SavedGame();
 			game->setSavedGame(g_harnessSaveLease.fixture);
 		}
 		g_harnessSaveLease.active = true;
@@ -2033,6 +2037,28 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 			: makeGlobalManufactureFixture(getCurrentGame());
 		const bool openedFromBasescape = profile == 208;
 		return fixture.base ? new GlobalManufactureState(openedFromBasescape) : nullptr;
+	}
+	case CalypsoHarnessScenario::F16ExtendedLinks:
+	case CalypsoHarnessScenario::F16MusicSelector:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		if (id == CalypsoHarnessScenario::F16ExtendedLinks)
+			return new ExtendedGeoscapeLinksState(globe);
+		return new SelectMusicTrackState(SMT_GEOSCAPE);
+	}
+	case CalypsoHarnessScenario::F15TopicSelector:
+	{
+		auto *game = getCurrentGame();
+		auto fixture = makeOperationsFixture(game, true, false);
+		if (!fixture.research) return nullptr;
+		auto *viewer = new TechTreeViewerState(fixture.research);
+		game->pushState(viewer);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), viewer);
+		return new TechTreeSelectState(viewer);
 	}
 	case CalypsoHarnessScenario::F15TechTree:
 	{

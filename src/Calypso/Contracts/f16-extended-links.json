@@ -1,0 +1,965 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f16-extended-links",
+    "familyId": 16,
+    "archetype": "scrollable-collection",
+    "source": "FormConfigs/f16-extended-links.json",
+    "actions": [
+      {
+        "action": "cancel",
+        "id": "cancel",
+        "label": "CANCEL",
+        "tone": "safe",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "state": "ExtendedGeoscapeLinksState",
+    "collection": {
+      "columns": [
+        {
+          "id": "name",
+          "label": "DESTINATION"
+        },
+        {
+          "id": "state",
+          "label": "SECTION"
+        }
+      ],
+      "heading": "DESTINATIONS",
+      "items": [
+        {
+          "id": "example-0",
+          "values": [
+            "Funding overview",
+            "Finance"
+          ]
+        },
+        {
+          "id": "example-1",
+          "values": [
+            "Research overview",
+            "Research"
+          ]
+        }
+      ],
+      "mode": "table",
+      "selectionRole": "route"
+    },
+    "controls": [],
+    "buttons": [
+      {
+        "id": "cancel",
+        "label": "CANCEL",
+        "tone": "safe",
+        "action": "cancel",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "visibleButtons": [
+      "cancel"
+    ]
+  },
+  "copy": {
+    "title": "EXTENDED LINKS",
+    "heading": "DESTINATIONS"
+  },
+  "style": {
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "divider": "74FFB04D",
+    "text": "E8FFF5FF",
+    "mutedText": "A9D8C7FF",
+    "selection": "74FFB033",
+    "scrollTrack": "061B1CD6",
+    "scrollThumb": "74FFB099",
+    "cutCornerPx": 14,
+    "headerArtOpacityPct": 85,
+    "headerArtScrim": "04090DCC"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 100,
+        "y": 50,
+        "width": 1080,
+        "height": 620
+      },
+      "title": {
+        "x": 132,
+        "y": 74,
+        "width": 500,
+        "height": 44
+      },
+      "summaryBar": {
+        "x": 648,
+        "y": 74,
+        "width": 500,
+        "height": 44
+      },
+      "controlBar": {
+        "x": 132,
+        "y": 124,
+        "width": 1016,
+        "height": 44
+      },
+      "controls": {},
+      "controlParts": {},
+      "viewport": {
+        "x": 132,
+        "y": 178,
+        "width": 1016,
+        "height": 406
+      },
+      "footer": {
+        "x": 100,
+        "y": 600,
+        "width": 1080,
+        "height": 70
+      },
+      "actions": {
+        "cancel": {
+          "x": 990,
+          "y": 613,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "rowHeight": 44,
+      "visibleRows": 8,
+      "headerHeight": 36,
+      "scrollbarWidth": 18,
+      "minThumbHeight": 44,
+      "headerArt": {
+        "x": 100,
+        "y": 50,
+        "width": 1080,
+        "height": 68
+      },
+      "collectionHeading": {
+        "x": 132,
+        "y": 124,
+        "width": 1016,
+        "height": 44
+      },
+      "columnHeaders": [
+        {
+          "id": "name",
+          "rect": {
+            "x": 132,
+            "y": 178,
+            "width": 480,
+            "height": 36
+          }
+        },
+        {
+          "id": "state",
+          "rect": {
+            "x": 613,
+            "y": 178,
+            "width": 481,
+            "height": 36
+          }
+        }
+      ],
+      "rowSlots": [
+        {
+          "id": "row-slot-1",
+          "rect": {
+            "x": 132,
+            "y": 214,
+            "width": 962,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "name",
+              "rect": {
+                "x": 132,
+                "y": 214,
+                "width": 480,
+                "height": 44
+              }
+            },
+            {
+              "id": "state",
+              "rect": {
+                "x": 613,
+                "y": 214,
+                "width": 481,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-2",
+          "rect": {
+            "x": 132,
+            "y": 258,
+            "width": 962,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "name",
+              "rect": {
+                "x": 132,
+                "y": 258,
+                "width": 480,
+                "height": 44
+              }
+            },
+            {
+              "id": "state",
+              "rect": {
+                "x": 613,
+                "y": 258,
+                "width": 481,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-3",
+          "rect": {
+            "x": 132,
+            "y": 302,
+            "width": 962,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "name",
+              "rect": {
+                "x": 132,
+                "y": 302,
+                "width": 480,
+                "height": 44
+              }
+            },
+            {
+              "id": "state",
+              "rect": {
+                "x": 613,
+                "y": 302,
+                "width": 481,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-4",
+          "rect": {
+            "x": 132,
+            "y": 346,
+            "width": 962,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "name",
+              "rect": {
+                "x": 132,
+                "y": 346,
+                "width": 480,
+                "height": 44
+              }
+            },
+            {
+              "id": "state",
+              "rect": {
+                "x": 613,
+                "y": 346,
+                "width": 481,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-5",
+          "rect": {
+            "x": 132,
+            "y": 390,
+            "width": 962,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "name",
+              "rect": {
+                "x": 132,
+                "y": 390,
+                "width": 480,
+                "height": 44
+              }
+            },
+            {
+              "id": "state",
+              "rect": {
+                "x": 613,
+                "y": 390,
+                "width": 481,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-6",
+          "rect": {
+            "x": 132,
+            "y": 434,
+            "width": 962,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "name",
+              "rect": {
+                "x": 132,
+                "y": 434,
+                "width": 480,
+                "height": 44
+              }
+            },
+            {
+              "id": "state",
+              "rect": {
+                "x": 613,
+                "y": 434,
+                "width": 481,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-7",
+          "rect": {
+            "x": 132,
+            "y": 478,
+            "width": 962,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "name",
+              "rect": {
+                "x": 132,
+                "y": 478,
+                "width": 480,
+                "height": 44
+              }
+            },
+            {
+              "id": "state",
+              "rect": {
+                "x": 613,
+                "y": 478,
+                "width": 481,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-8",
+          "rect": {
+            "x": 132,
+            "y": 522,
+            "width": 962,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "name",
+              "rect": {
+                "x": 132,
+                "y": 522,
+                "width": 480,
+                "height": 44
+              }
+            },
+            {
+              "id": "state",
+              "rect": {
+                "x": 613,
+                "y": 522,
+                "width": 481,
+                "height": 44
+              }
+            }
+          ]
+        }
+      ],
+      "scroll": {
+        "track": {
+          "x": 1130,
+          "y": 214,
+          "width": 18,
+          "height": 352
+        },
+        "thumb": {
+          "x": 1130,
+          "y": 214,
+          "width": 18,
+          "height": 352
+        }
+      },
+      "rowHit": {
+        "x": 132,
+        "y": 214,
+        "width": 962,
+        "height": 352
+      },
+      "partRects": {
+        "window": {
+          "x": 100,
+          "y": 50,
+          "width": 1080,
+          "height": 620
+        },
+        "title": {
+          "x": 132,
+          "y": 74,
+          "width": 500,
+          "height": 44
+        },
+        "summaryBar": {
+          "x": 648,
+          "y": 74,
+          "width": 500,
+          "height": 44
+        },
+        "headerArt": {
+          "x": 100,
+          "y": 50,
+          "width": 1080,
+          "height": 68
+        },
+        "controlBar": {
+          "x": 132,
+          "y": 124,
+          "width": 1016,
+          "height": 44
+        },
+        "viewport": {
+          "x": 132,
+          "y": 178,
+          "width": 1016,
+          "height": 406
+        },
+        "scroll.track": {
+          "x": 1130,
+          "y": 214,
+          "width": 18,
+          "height": 352
+        },
+        "scroll.thumb": {
+          "x": 1130,
+          "y": 214,
+          "width": 18,
+          "height": 352
+        },
+        "footer": {
+          "x": 100,
+          "y": 600,
+          "width": 1080,
+          "height": 70
+        },
+        "collectionHeading": {
+          "x": 132,
+          "y": 124,
+          "width": 1016,
+          "height": 44
+        },
+        "action.cancel": {
+          "x": 990,
+          "y": 613,
+          "width": 158,
+          "height": 44
+        },
+        "column.name": {
+          "x": 132,
+          "y": 178,
+          "width": 480,
+          "height": 36
+        },
+        "column.state": {
+          "x": 613,
+          "y": 178,
+          "width": 481,
+          "height": 36
+        },
+        "row-slot.1": {
+          "x": 132,
+          "y": 214,
+          "width": 962,
+          "height": 44
+        },
+        "row-slot.2": {
+          "x": 132,
+          "y": 258,
+          "width": 962,
+          "height": 44
+        },
+        "row-slot.3": {
+          "x": 132,
+          "y": 302,
+          "width": 962,
+          "height": 44
+        },
+        "row-slot.4": {
+          "x": 132,
+          "y": 346,
+          "width": 962,
+          "height": 44
+        },
+        "row-slot.5": {
+          "x": 132,
+          "y": 390,
+          "width": 962,
+          "height": 44
+        },
+        "row-slot.6": {
+          "x": 132,
+          "y": 434,
+          "width": 962,
+          "height": 44
+        },
+        "row-slot.7": {
+          "x": 132,
+          "y": 478,
+          "width": 962,
+          "height": 44
+        },
+        "row-slot.8": {
+          "x": 132,
+          "y": 522,
+          "width": 962,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 20,
+        "y": 8,
+        "width": 700,
+        "height": 344
+      },
+      "title": {
+        "x": 44,
+        "y": 24,
+        "width": 328,
+        "height": 44
+      },
+      "summaryBar": {
+        "x": 384,
+        "y": 24,
+        "width": 312,
+        "height": 44
+      },
+      "controlBar": {
+        "x": 44,
+        "y": 72,
+        "width": 652,
+        "height": 44
+      },
+      "controls": {},
+      "controlParts": {},
+      "viewport": {
+        "x": 44,
+        "y": 122,
+        "width": 652,
+        "height": 160
+      },
+      "footer": {
+        "x": 20,
+        "y": 294,
+        "width": 700,
+        "height": 58
+      },
+      "actions": {
+        "cancel": {
+          "x": 548,
+          "y": 301,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "rowHeight": 44,
+      "visibleRows": 2,
+      "headerHeight": 32,
+      "scrollbarWidth": 18,
+      "minThumbHeight": 44,
+      "headerArt": {
+        "x": 20,
+        "y": 8,
+        "width": 700,
+        "height": 60
+      },
+      "collectionHeading": {
+        "x": 44,
+        "y": 72,
+        "width": 652,
+        "height": 44
+      },
+      "columnHeaders": [
+        {
+          "id": "name",
+          "rect": {
+            "x": 44,
+            "y": 122,
+            "width": 299,
+            "height": 32
+          }
+        },
+        {
+          "id": "state",
+          "rect": {
+            "x": 344,
+            "y": 122,
+            "width": 300,
+            "height": 32
+          }
+        }
+      ],
+      "rowSlots": [
+        {
+          "id": "row-slot-1",
+          "rect": {
+            "x": 44,
+            "y": 154,
+            "width": 600,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "name",
+              "rect": {
+                "x": 44,
+                "y": 154,
+                "width": 299,
+                "height": 44
+              }
+            },
+            {
+              "id": "state",
+              "rect": {
+                "x": 344,
+                "y": 154,
+                "width": 300,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-2",
+          "rect": {
+            "x": 44,
+            "y": 198,
+            "width": 600,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "name",
+              "rect": {
+                "x": 44,
+                "y": 198,
+                "width": 299,
+                "height": 44
+              }
+            },
+            {
+              "id": "state",
+              "rect": {
+                "x": 344,
+                "y": 198,
+                "width": 300,
+                "height": 44
+              }
+            }
+          ]
+        }
+      ],
+      "scroll": {
+        "track": {
+          "x": 678,
+          "y": 154,
+          "width": 18,
+          "height": 88
+        },
+        "thumb": {
+          "x": 678,
+          "y": 154,
+          "width": 18,
+          "height": 88
+        }
+      },
+      "rowHit": {
+        "x": 44,
+        "y": 154,
+        "width": 600,
+        "height": 88
+      },
+      "partRects": {
+        "window": {
+          "x": 20,
+          "y": 8,
+          "width": 700,
+          "height": 344
+        },
+        "title": {
+          "x": 44,
+          "y": 24,
+          "width": 328,
+          "height": 44
+        },
+        "summaryBar": {
+          "x": 384,
+          "y": 24,
+          "width": 312,
+          "height": 44
+        },
+        "headerArt": {
+          "x": 20,
+          "y": 8,
+          "width": 700,
+          "height": 60
+        },
+        "controlBar": {
+          "x": 44,
+          "y": 72,
+          "width": 652,
+          "height": 44
+        },
+        "viewport": {
+          "x": 44,
+          "y": 122,
+          "width": 652,
+          "height": 160
+        },
+        "scroll.track": {
+          "x": 678,
+          "y": 154,
+          "width": 18,
+          "height": 88
+        },
+        "scroll.thumb": {
+          "x": 678,
+          "y": 154,
+          "width": 18,
+          "height": 88
+        },
+        "footer": {
+          "x": 20,
+          "y": 294,
+          "width": 700,
+          "height": 58
+        },
+        "collectionHeading": {
+          "x": 44,
+          "y": 72,
+          "width": 652,
+          "height": 44
+        },
+        "action.cancel": {
+          "x": 548,
+          "y": 301,
+          "width": 148,
+          "height": 44
+        },
+        "column.name": {
+          "x": 44,
+          "y": 122,
+          "width": 299,
+          "height": 32
+        },
+        "column.state": {
+          "x": 344,
+          "y": 122,
+          "width": 300,
+          "height": 32
+        },
+        "row-slot.1": {
+          "x": 44,
+          "y": 154,
+          "width": 600,
+          "height": 44
+        },
+        "row-slot.2": {
+          "x": 44,
+          "y": 198,
+          "width": 600,
+          "height": 44
+        },
+        "row-slot.3": {
+          "x": 44,
+          "y": 198,
+          "width": 600,
+          "height": 44
+        },
+        "row-slot.4": {
+          "x": 44,
+          "y": 198,
+          "width": 600,
+          "height": 44
+        },
+        "row-slot.5": {
+          "x": 44,
+          "y": 198,
+          "width": 600,
+          "height": 44
+        },
+        "row-slot.6": {
+          "x": 44,
+          "y": 198,
+          "width": 600,
+          "height": 44
+        },
+        "row-slot.7": {
+          "x": 44,
+          "y": 198,
+          "width": 600,
+          "height": 44
+        },
+        "row-slot.8": {
+          "x": 44,
+          "y": 198,
+          "width": 600,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/scrollable-collection.json",
+    "templateVersion": 5,
+    "generatorKind": "collection"
+  },
+  "collectionMetrics": {
+    "wide": {
+      "totalItems": 2,
+      "visibleCapacity": 8,
+      "totalUnits": 2,
+      "visibleUnits": 8,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 1130,
+        "y": 214,
+        "width": 18,
+        "height": 352
+      },
+      "thumb": {
+        "x": 1130,
+        "y": 214,
+        "width": 18,
+        "height": 352
+      },
+      "trackHitTarget": {
+        "x": 1104,
+        "y": 214,
+        "width": 44,
+        "height": 352
+      },
+      "thumbHitTarget": {
+        "x": 1104,
+        "y": 214,
+        "width": 44,
+        "height": 352
+      },
+      "thumbTravelPx": 0
+    },
+    "compact": {
+      "totalItems": 2,
+      "visibleCapacity": 2,
+      "totalUnits": 2,
+      "visibleUnits": 2,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 678,
+        "y": 154,
+        "width": 18,
+        "height": 88
+      },
+      "thumb": {
+        "x": 678,
+        "y": 154,
+        "width": 18,
+        "height": 88
+      },
+      "trackHitTarget": {
+        "x": 652,
+        "y": 154,
+        "width": 44,
+        "height": 88
+      },
+      "thumbHitTarget": {
+        "x": 652,
+        "y": 154,
+        "width": 44,
+        "height": 88
+      },
+      "thumbTravelPx": 0
+    }
+  },
+  "actions": [
+    "action.cancel"
+  ],
+  "parts": [
+    "window",
+    "title",
+    "summaryBar",
+    "headerArt",
+    "controlBar",
+    "viewport",
+    "scroll.track",
+    "scroll.thumb",
+    "footer",
+    "collectionHeading",
+    "action.cancel",
+    "column.name",
+    "column.state",
+    "row-slot.1",
+    "row-slot.2",
+    "row-slot.3",
+    "row-slot.4",
+    "row-slot.5",
+    "row-slot.6",
+    "row-slot.7",
+    "row-slot.8"
+  ]
+}

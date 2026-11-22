@@ -22,6 +22,9 @@
 
 namespace OpenXcom
 {
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoStrategicList; }
+#endif
 
 enum SelectMusicTrackOrigin
 {
@@ -42,6 +45,15 @@ class Music;
 class SelectMusicTrackState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+	TextButton *_btnKeep = nullptr;
+	int _preview = -1, _browserMusic = 0;
+	bool _wasPlaying = false;
+	std::string _previousTrack;
+	void keepTrack(Action *action);
+	void updateTrackLabels();
+#endif
 	SelectMusicTrackOrigin _origin;
 	Window *_window;
 	Text *_txtTitle;
@@ -50,6 +62,9 @@ private:
 	std::vector<Music*> _tracks;
 	std::vector<std::string> _trackNames;
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 	/// Creates the Select Music Track state.
 	SelectMusicTrackState(SelectMusicTrackOrigin origin);
 	/// Cleans up the Select Music Track state.
