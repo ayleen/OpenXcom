@@ -134,6 +134,7 @@ struct CalypsoTabbedRow
 	std::string text;
 	std::vector<std::string> cells;
 	bool enabled = true;
+	std::uint32_t labelColor = 0;
 };
 
 /// One painted grid tile (mount/weapon cards). The native control bound to
@@ -193,6 +194,9 @@ struct CalypsoTabbedModel
 	/// rows (mount cards). Empty for list/table collections.
 	std::vector<CalypsoTabbedTile> tiles;
 
+	CalypsoHdImageDescriptor plotImage;
+	CalypsoLogicalRect plotRect{};
+	std::vector<CalypsoTabbedSummaryField> plotLabels;
 	CalypsoTabbedDetail detail;
 	std::vector<CalypsoTabbedAction> actions;
 
@@ -224,6 +228,7 @@ struct CalypsoTabbedModel
 
 	double uiScale = 1.0;
 	double visualScale = 1.0;
+	double textRasterScale = 1.0;
 	double projectionScaleX = 1.0;
 	double projectionScaleY = 1.0;
 	int titleDesignHeight = 1;

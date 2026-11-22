@@ -412,6 +412,7 @@ void SavedGame::load(const std::string &filename, Mod *mod, Language *lang)
 	reader.tryRead("vehiclesLost", _vehiclesLost);
 	reader.tryRead("craftLostDogfight", _craftLostDogfight);
 	reader.tryRead("craftLostMission", _craftLostMission);
+	reader.tryRead("graphVisibility", _graphVisibility);
 	reader.tryRead("graphRegionToggles", _graphRegionToggles);
 	reader.tryRead("graphCountryToggles", _graphCountryToggles);
 	reader.tryRead("graphFinanceToggles", _graphFinanceToggles);
@@ -821,6 +822,7 @@ void SavedGame::save(const std::string &filename, Mod *mod) const
 	writer.write("vehiclesLost", _vehiclesLost);
 	writer.write("craftLostDogfight", _craftLostDogfight);
 	writer.write("craftLostMission", _craftLostMission);
+	if (!_graphVisibility.empty()) writer.write("graphVisibility", _graphVisibility);
 	writer.write("graphRegionToggles", _graphRegionToggles);
 	writer.write("graphCountryToggles", _graphCountryToggles);
 	writer.write("graphFinanceToggles", _graphFinanceToggles);

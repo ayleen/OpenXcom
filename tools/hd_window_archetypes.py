@@ -1628,8 +1628,16 @@ def _validate_tabbed(config, template):
             "controls",
             "toolbar",
         },
-        {"detail", "visual", "toolbarChooser"},
+        {"detail", "visual", "toolbarChooser", "plotPreview"},
     )
+    if "plotPreview" in config:
+        plot = config["plotPreview"]
+        _strict(plot, {"months", "ticks", "hint"}, set(), "config.plotPreview")
+        if (template["generatorKind"] != "tabbed" or not isinstance(plot["months"], list)
+                or not isinstance(plot["ticks"], list) or len(plot["months"]) != 12
+                or len(plot["ticks"]) != 4 or not isinstance(plot["hint"], str)
+                or any(not isinstance(label, str) or not label for label in plot["months"] + plot["ticks"])):
+            raise ArchetypeError("config.plotPreview requires twelve months, four scale labels and a hint")
     if template["generatorKind"] == "operations":
         visual = config.get("visual")
         presentation = _operations_presentation(config, template)
@@ -3330,6 +3338,8 @@ def _build_tabbed(config, template, source_name, template_name):
     out = _base_contract(config, template, source_name, template_name, actions)
     out["form"]["tabs"] = copy.deepcopy(config["tabs"])
     out["form"]["selectedTab"] = config["selectedTab"]
+    if "plotPreview" in config:
+        out["form"]["plotPreview"] = copy.deepcopy(config["plotPreview"])
     out["form"]["summary"] = copy.deepcopy(config["summary"])
     out["form"]["collection"] = copy.deepcopy(config["collection"])
     out["form"]["controls"] = controls

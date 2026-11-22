@@ -109,6 +109,7 @@
 #include "../Mod/AlienDeployment.h"
 #include "../Geoscape/UfoDetectedState.h"
 #include "../Geoscape/GeoscapeState.h"
+#include "../Geoscape/GraphsState.h"
 #include "../Geoscape/FundingState.h"
 #include "../Geoscape/MonthlyReportState.h"
 #include "../Savegame/GameTime.h"
@@ -1577,6 +1578,9 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
 		return new MonthlyReportState(globe->getGlobe());
 	}
+	case CalypsoHarnessScenario::F23Graphs:
+		if (!prepareOperationsSave(getCurrentGame(), true)) return nullptr;
+		return new GraphsState();
 	case CalypsoHarnessScenario::F23Funding:
 		if (!prepareOperationsSave(getCurrentGame(), true)) return nullptr;
 		return new FundingState();

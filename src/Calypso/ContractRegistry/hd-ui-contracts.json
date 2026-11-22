@@ -1099,6 +1099,7 @@
       "harnessScenarioIds": [
         161
       ]
-    }
+    },
+    {"id": "f23-strategic-graphs", "contract": "f23-strategic-graphs.json", "emitter": "family", "validationProfile": "tabbed-management", "native": {"namespace": "CalypsoF23StrategicGraphsGen", "prefix": "CalypsoF23StrategicGraphs", "output": "CalypsoF23StrategicGraphs.generated.h"}, "browser": {"global": "CalypsoF23StrategicGraphs", "output": "f23-strategic-graphs.js"}, "rendererOwnership": "tabbed-management", "harnessScenarioIds": [162]}
   ]
 }

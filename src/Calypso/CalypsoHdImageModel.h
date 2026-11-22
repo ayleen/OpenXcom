@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 
 namespace OpenXcom
@@ -14,6 +15,8 @@ namespace Calypso
 
 inline constexpr int kCalypsoHdImageMaxExtent = 2048;
 inline constexpr long long kCalypsoHdImageMaxBytes = 64LL * 1024LL * 1024LL;
+
+struct CalypsoHdImageRgba;
 
 struct CalypsoHdImageDescriptor
 {
@@ -30,6 +33,8 @@ struct CalypsoHdImageDescriptor
 	int clipH = 0;
 	// Center-crop UVs to the physical destination; the decoded texture is reused.
 	bool cover = false;
+	// Optional immutable procedural artwork, keyed by source and generation.
+	std::shared_ptr<const CalypsoHdImageRgba> pixels;
 };
 
 struct CalypsoHdImageValidation

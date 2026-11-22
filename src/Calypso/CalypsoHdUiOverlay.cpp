@@ -972,17 +972,21 @@ GpuTexture* CalypsoHdUiOverlay::textureForImage(const CalypsoHdImageDescriptor& 
 		}
 	}
 
-	CalypsoHdImageRgba decoded;
-	if (!calypsoHdImageDecode(desc.source, decoded))
+	CalypsoHdImageRgba filePixels;
+	if (!desc.pixels)
 	{
-		failHdRoute("image decode failed: " + desc.source);
+		if (!calypsoHdImageDecode(desc.source, filePixels))
+			failHdRoute("image decode failed: " + desc.source);
+		++_imageDecodes;
 	}
-	++_imageDecodes;
+	const auto &decoded = desc.pixels ? *desc.pixels : filePixels;
 	const CalypsoHdImageValidation valid = calypsoHdImageValidate(desc, decoded.w, decoded.h);
 	if (!valid.ok)
 	{
 		failHdRoute(std::string("invalid image descriptor for ") + desc.source + ": " + valid.reason);
 	}
+	if (decoded.px.size() != static_cast<std::size_t>(decoded.w) * decoded.h * 4u)
+		failHdRoute("invalid RGBA image storage: " + desc.source);
 	GpuTexture* tex = new GpuTexture(/*srgb=*/false,
 		GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Linear);
 	if (!tex->uploadRGBA(decoded.px.data(), decoded.w, decoded.h) || !tex->isValid())
