@@ -156,6 +156,11 @@ enum class CalypsoHarnessScenario
 	F30TurnDiary = 191,
 	F29AutomaticRecovery = 211,
 	F29Debriefing = 210,
+	F26Shortages = 219,
+	F26SaveTemplate = 218,
+	F26PersonalTemplate = 217,
+	F26LoadTemplate = 216,
+	F26InventoryLinks = 215,
 	F28TacticalAlert = 201,
 	F28TacticalNotice = 200,
 	F28TacticalLinks = 199,
@@ -287,6 +292,11 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F30TurnDiary)
 	|| id == static_cast<int>(CalypsoHarnessScenario::F29AutomaticRecovery)
 	|| id == static_cast<int>(CalypsoHarnessScenario::F29Debriefing)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F26Shortages)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F26SaveTemplate)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F26PersonalTemplate)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F26LoadTemplate)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F26InventoryLinks)
 	|| id == static_cast<int>(CalypsoHarnessScenario::F28TacticalAlert)
 	|| id == static_cast<int>(CalypsoHarnessScenario::F28TacticalNotice)
 	|| id == static_cast<int>(CalypsoHarnessScenario::F28TacticalLinks)

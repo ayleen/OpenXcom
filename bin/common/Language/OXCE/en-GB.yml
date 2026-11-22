@@ -942,3 +942,6 @@ en-GB:
   STR_CAL_DEBRIEF_PREVIOUS: "Previous"
   STR_CAL_DEBRIEF_CONTINUE: "Continue"
   STR_CAL_DEBRIEF_ATTRIBUTE: "Attribute"
+  STR_CAL_LAYOUT_APPLY: "Apply loadout"
+  STR_CAL_LAYOUT_CLEAR: "Clear movable equipment"
+  STR_CAL_LAYOUT_EMPTY: "Personal template is empty"

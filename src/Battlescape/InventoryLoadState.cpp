@@ -17,6 +17,9 @@
 * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "InventoryLoadState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#endif
 #include "InventoryState.h"
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
@@ -39,7 +42,12 @@ InventoryLoadState::InventoryLoadState(InventoryState *parent) : _parent(parent)
 	_screen = false;
 
 	// Create objects
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_window = new Window(this, 240, 136, 40, 36+1);
+#else
 	_window = new Window(this, 240, 136, 40, 36+1, POPUP_BOTH);
+#endif
 	_txtTitle = new Text(230, 16, 45, 44+3);
 	_lstLayout = new TextList(208, 80, 48, 60);
 	_btnCancel = new TextButton(120, 16, 90, 148);
@@ -55,7 +63,9 @@ InventoryLoadState::InventoryLoadState(InventoryState *parent) : _parent(parent)
 
 	// Set up objects
 	_window->setHighContrast(true);
+#ifndef __EMSCRIPTEN__
 	_window->setBackground(_game->getMod()->getSurface("TAC00.SCR"));
+#endif
 
 	_txtTitle->setHighContrast(true);
 	_txtTitle->setAlign(ALIGN_CENTER);
@@ -96,6 +106,17 @@ InventoryLoadState::InventoryLoadState(InventoryState *parent) : _parent(parent)
 		}
 		_lstLayout->addRow(1, ss.str().c_str());
 	}
+#ifdef __EMSCRIPTEN__
+	_hdApply = new TextButton(1,1,0,0);
+	add(_hdApply,"messageWindowButtons","battlescape");
+	_hdApply->setText(tr("STR_CAL_LAYOUT_APPLY"));
+	_hdApply->setVisible(false);
+	_hdApply->onMouseClick((ActionHandler)&InventoryLoadState::applySlot);
+	_hdList = new Calypso::CalypsoStrategicList(this, nullptr, _game->getMod(), _window, _txtTitle,
+		_lstLayout, _btnCancel, Calypso::CalypsoStrategicList::Content::LoadTemplate, _hdApply);
+	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+#endif
 }
 
 /**
@@ -103,6 +124,9 @@ InventoryLoadState::InventoryLoadState(InventoryState *parent) : _parent(parent)
 */
 InventoryLoadState::~InventoryLoadState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
 
 }
 
@@ -122,9 +146,42 @@ void InventoryLoadState::btnCancelClick(Action *)
 void InventoryLoadState::lstLayoutClick(Action *)
 {
 	auto index = _lstLayout->getSelectedRow();
+#ifdef __EMSCRIPTEN__
+	if (index >= size_t(Options::oxceMaxEquipmentLayoutTemplates)) return;
+	_pendingSlot = int(index);
+	const bool empty = _game->getSavedGame()->getGlobalEquipmentLayout(_pendingSlot)->empty();
+	_hdApply->setText(tr(empty ? "STR_CAL_LAYOUT_CLEAR" : "STR_CAL_LAYOUT_APPLY"));
+	_hdApply->setVisible(true);
+	int dx = 0, dy = 0;
+	resize(dx, dy);
+#else
+	loadLayout(index);
+#endif
+}
+
+#ifdef __EMSCRIPTEN__
+void InventoryLoadState::applySlot(Action *)
+{
+	if (_pendingSlot >= 0 && _pendingSlot < Options::oxceMaxEquipmentLayoutTemplates)
+		loadLayout(_pendingSlot);
+}
+#endif
+
+void InventoryLoadState::loadLayout(int index)
+{
 	bool armorChanged = _parent->loadGlobalLayoutArmor(index);
 	_parent->setGlobalLayoutIndex(index, armorChanged);
 	_game->popState();
 }
+
+#ifdef __EMSCRIPTEN__
+void InventoryLoadState::resize(int &dx, int &dy)
+{
+	if (!_hdList) { State::resize(dx,dy); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(),1.0f,false);
+	_hdList->fitInput();
+}
+#endif
 
 }

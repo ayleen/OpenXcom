@@ -1,0 +1,42 @@
+{
+  "actions": [
+    {
+      "id": "cancel",
+      "label": "Cancel",
+      "action": "cancel",
+      "tone": "safe"
+    },
+    {
+      "id": "keep",
+      "label": "Apply",
+      "action": "keep",
+      "tone": "primary"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "mode": "list",
+    "selectionRole": "inventory",
+    "columns": [
+      {
+        "id": "field-0",
+        "label": "Equipment template"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Empty slot 1"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "familyId": 26,
+  "id": "f26-load-template",
+  "schema": 1,
+  "title": "Load equipment template",
+  "version": "hd.2026-08-29.1",
+  "state": "InventoryLoadState"
+}

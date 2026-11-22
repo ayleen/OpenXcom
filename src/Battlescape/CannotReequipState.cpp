@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "CannotReequipState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#include "../Interface/TextList.h"
+#endif
 #include <sstream>
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
@@ -67,7 +71,9 @@ CannotReequipState::CannotReequipState(std::vector<ReequipStat> &missingItems, B
 	centerAllSurfaces();
 
 	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "cannotReequip");
+#endif
 
 	_btnManufacture->setText(tr("STR_MANUFACTURE"));
 	_btnManufacture->onMouseClick((ActionHandler)&CannotReequipState::btnManufactureClick);
@@ -95,6 +101,12 @@ CannotReequipState::CannotReequipState(std::vector<ReequipStat> &missingItems, B
 	_lstItems->setSelectable(true);
 	_lstItems->setBackground(_window);
 	_lstItems->setMargin(2);
+#ifdef __EMSCRIPTEN__
+	_hdList = new Calypso::CalypsoStrategicList(this, nullptr, _game->getMod(), _window, _txtTitle,
+		_lstItems, _btnOk, Calypso::CalypsoStrategicList::Content::Shortages, _btnPurchase, _btnManufacture);
+	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+#endif
 }
 
 /**
@@ -102,6 +114,9 @@ CannotReequipState::CannotReequipState(std::vector<ReequipStat> &missingItems, B
  */
 CannotReequipState::~CannotReequipState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
 }
 
 /**
@@ -170,10 +185,22 @@ void CannotReequipState::decreaseMissingItemCount(const RuleItem* rule, int amou
 	{
 		if (reequipStat.item == rule->getType())
 		{
-			reequipStat.qty = std::max(0, reequipStat.qty - amount);
-			break;
+			const int used = std::min(std::max(0,amount), std::max(0,reequipStat.qty));
+			reequipStat.qty -= used;
+			amount -= used;
+			if (amount <= 0) break;
 		}
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void CannotReequipState::resize(int &dx, int &dy)
+{
+	if (!_hdList) { State::resize(dx,dy); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(),1.0f,false);
+	_hdList->fitInput();
+}
+#endif
 
 }

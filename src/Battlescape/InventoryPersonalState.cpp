@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "InventoryPersonalState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#include "../Interface/TextList.h"
+#endif
 #include <algorithm>
 #include "../Engine/Game.h"
 #include "../Engine/LocalizedText.h"
@@ -42,7 +46,12 @@ InventoryPersonalState::InventoryPersonalState(Soldier* soldier)
 	_screen = false;
 
 	// Create objects
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_window = new Window(this, 196, 160, 64, 20);
+#else
 	_window = new Window(this, 196, 160, 64, 20, POPUP_BOTH);
+#endif
 	_txtTitle = new Text(186, 16, 69, 30);
 	_lstLayout = new TextList(164, 104, 72, 44);
 	_btnCancel = new TextButton(144, 16, 90, 156);
@@ -58,7 +67,9 @@ InventoryPersonalState::InventoryPersonalState(Soldier* soldier)
 
 	// Set up objects
 	_window->setHighContrast(true);
+#ifndef __EMSCRIPTEN__
 	_window->setBackground(_game->getMod()->getSurface("TAC00.SCR"));
+#endif
 
 	_txtTitle->setHighContrast(true);
 	_txtTitle->setAlign(ALIGN_CENTER);
@@ -130,6 +141,17 @@ InventoryPersonalState::InventoryPersonalState(Soldier* soldier)
 		ss2 << summary[ruleItem];
 		_lstLayout->addRow(2, ss1.str().c_str(), ss2.str().c_str());
 	}
+#ifdef __EMSCRIPTEN__
+	if (_lstLayout->getTexts() == 0 || (_lstLayout->getTexts() == 1 && _lstLayout->getCellText(0,0).empty()))
+	{
+		_lstLayout->clearList();
+		_lstLayout->addRow(2,tr("STR_CAL_LAYOUT_EMPTY").c_str(),"");
+	}
+	_hdList = new Calypso::CalypsoStrategicList(this, nullptr, _game->getMod(), _window, _txtTitle,
+		_lstLayout, _btnCancel, Calypso::CalypsoStrategicList::Content::PersonalTemplate);
+	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+#endif
 }
 
 /**
@@ -140,5 +162,22 @@ void InventoryPersonalState::btnCancelClick(Action*)
 {
 	_game->popState();
 }
+
+InventoryPersonalState::~InventoryPersonalState()
+{
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
+}
+
+#ifdef __EMSCRIPTEN__
+void InventoryPersonalState::resize(int &dx, int &dy)
+{
+	if (!_hdList) { State::resize(dx,dy); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(),1.0f,false);
+	_hdList->fitInput();
+}
+#endif
 
 }

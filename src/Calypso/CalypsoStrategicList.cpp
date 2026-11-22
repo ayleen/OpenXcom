@@ -8,6 +8,11 @@
 #include "Generated/CalypsoF16MusicSelector.generated.h"
 #include "Generated/CalypsoF30NoExperience.generated.h"
 #include "Generated/CalypsoF30TurnDiary.generated.h"
+#include "Generated/CalypsoF26Shortages.generated.h"
+#include "Generated/CalypsoF26SaveTemplate.generated.h"
+#include "Generated/CalypsoF26PersonalTemplate.generated.h"
+#include "Generated/CalypsoF26LoadTemplate.generated.h"
+#include "Generated/CalypsoF26InventoryLinks.generated.h"
 #include "Generated/CalypsoF28TacticalLinks.generated.h"
 #include "Generated/CalypsoF28TurnTransition.generated.h"
 #include "Generated/CalypsoF27TargetBriefing.generated.h"
@@ -22,6 +27,7 @@
 #include "../Mod/Mod.h"
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
+#include "../Interface/TextEdit.h"
 #include "../Interface/TextList.h"
 #include "../Interface/TextButton.h"
 namespace OpenXcom { namespace Calypso {
@@ -32,7 +38,7 @@ template<class Layout, class Slot, class Button, class ButtonRect, class Column>
 void readTable(CalypsoScrollableCollectionModel &m, const Layout &g, const Slot *slots,
 	const Slot *cells, const Slot *headers, const Column *columns, int columnCount,
 	const Button *buttons, const ButtonRect *buttonRects, int buttonCount,
-	TextButton *cancel, TextButton *keep)
+	TextButton *cancel, TextButton *keep, TextButton *extra)
 {
 	m.designWidth = g.designWidth;
 	m.designHeight = g.designHeight;
@@ -67,7 +73,7 @@ void readTable(CalypsoScrollableCollectionModel &m, const Layout &g, const Slot 
 	{
 		const bool primary = std::string(buttons[b].id) == "keep";
 		CalypsoSmallConfirmationButton action;
-		action.widget = primary ? keep : cancel;
+		action.widget = primary ? keep : std::string(buttons[b].id) == "extra" ? extra : cancel;
 		if (!action.widget || !action.widget->getVisible()) continue;
 		action.text = action.widget->getText();
 		action.tone = primary ? CalypsoActionTone::Primary : CalypsoActionTone::Safe;
@@ -91,9 +97,9 @@ void place(Surface *widget, CalypsoLogicalRect r)
 } // namespace
 
 CalypsoStrategicList::CalypsoStrategicList(State *owner, const State *underlay, Mod *mod,
-	Window *window, Text *title, TextList *list, TextButton *cancel, Content content, TextButton *keep)
+	Window *window, Text *title, TextList *list, TextButton *cancel, Content content, TextButton *keep, TextButton *extra, TextEdit *editor)
 	: _owner(owner), _underlay(underlay), _mod(mod), _window(window), _title(title),
-	  _list(list), _cancel(cancel), _keep(keep), _content(content)
+	  _list(list), _cancel(cancel), _keep(keep), _extra(extra), _editor(editor), _content(content)
 {
 	if (!_owner || !_mod || !_window || !_title || !_list || !_cancel)
 		CalypsoHdUiOverlay::instance().failHdRoute("HD list prerequisites are unavailable");
@@ -117,7 +123,7 @@ void CalypsoStrategicList::layout()
 	const bool wide = calypsoHarnessEffectiveLayout(calypsoHarnessSession(), {v.safeX, v.safeY, v.safeWidth, v.safeHeight}) == CalypsoLayoutClass::Wide;
 	_design = {};
 	_design.wide = wide;
-	auto read = [&](const auto &... fields) { readTable(_design, fields..., _cancel, _keep); };
+	auto read = [&](const auto &... fields) { readTable(_design, fields..., _cancel, _keep, _extra); };
 	bool found = false;
 	switch (_content)
 	{
@@ -158,6 +164,36 @@ void CalypsoStrategicList::layout()
 	case Content::TacticalLinks:
 		found = CalypsoF28TacticalLinksGen::bindTable(wide, _design, read);
 		_design.columnLabels = {_owner->tr("STR_EXTENDED_LINKS"), _owner->tr("STR_CAL_BATTLE_CONTEXT")};
+		break;
+	case Content::InventoryLinks:
+		found = CalypsoF26InventoryLinksGen::bindTable(wide, _design, read);
+		_design.columnLabels = {_owner->tr("STR_EXTENDED_LINKS")};
+		break;
+	case Content::LoadTemplate:
+		found = CalypsoF26LoadTemplateGen::bindTable(wide, _design, read);
+		_design.columnLabels = {_owner->tr("STR_LOAD_EQUIPMENT_TEMPLATE")};
+		break;
+	case Content::PersonalTemplate:
+		found = CalypsoF26PersonalTemplateGen::bindTable(wide, _design, read);
+		_design.columnLabels = {_owner->tr("STR_ITEM"), _owner->tr("STR_QUANTITY")};
+		break;
+	case Content::SaveTemplate:
+		found = CalypsoF26SaveTemplateGen::bindTable(wide, _design, read);
+		if (_editor)
+		{
+			namespace G = CalypsoF26SaveTemplateGen;
+			auto &field = _design.controls.emplace_back();
+			field.id = "template-name";
+			field.label = _owner->tr("STR_NAME");
+			field.widget = field.textEdit = _editor;
+			field.rect = rect(wide ? G::kControlRectsWide[0].rect : G::kControlRectsCompact[0].rect);
+			place(_editor, field.rect);
+		}
+		_design.columnLabels = {_owner->tr("STR_SAVE_EQUIPMENT_TEMPLATE")};
+		break;
+	case Content::Shortages:
+		found = CalypsoF26ShortagesGen::bindTable(wide, _design, read);
+		_design.columnLabels = {_owner->tr("STR_ITEM"), _owner->tr("STR_QUANTITY"), _owner->tr("STR_CRAFT")};
 		break;
 	case Content::TurnDiary:
 		found = CalypsoF30TurnDiaryGen::bindTable(wide, _design, read);
@@ -209,6 +245,12 @@ void CalypsoStrategicList::collect(CalypsoHdFrameBuilder &builder) const
 	for (auto &r : m.rowSlots) project(r);
 	for (auto &row : m.rowCells) for (auto &r : row) project(r);
 	for (auto &button : m.buttons) project(button.rect);
+	for (auto &field : m.controls)
+	{
+		project(field.rect);
+		field.value = _editor->getText();
+	}
+	if (_editor && !_editor->getVisible()) m.controls.clear();
 	m.mod = _mod;
 	m.instance = _owner;
 	m.titleText = _title->getText();
@@ -226,7 +268,7 @@ void CalypsoStrategicList::collect(CalypsoHdFrameBuilder &builder) const
 	}
 	m.selectedRow = _list->getSelectedRow();
 	const bool article = _articleIds && m.selectedRow < _articleIds->size() && !(*_articleIds)[m.selectedRow].empty();
-	m.hasSelection = m.selectedRow < m.rows.size() && (article || _content == Content::Tracks
+	m.hasSelection = m.selectedRow < m.rows.size() && (article || _content == Content::InventoryLinks || _content == Content::LoadTemplate || _content == Content::SaveTemplate || _content == Content::Tracks
 		|| _content == Content::Destinations || _content == Content::TacticalLinks || _content == Content::ExperienceOverview);
 	m.scrollOffset = _list->getScroll();
 	m.nativeTrack = rect(_list->getCalypsoHdTrackRect());

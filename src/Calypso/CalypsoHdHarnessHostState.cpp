@@ -155,6 +155,12 @@
 #include "../Geoscape/NewPossiblePurchaseState.h"
 #include "../Geoscape/NewPossibleResearchState.h"
 #include "../Geoscape/ResearchCompleteState.h"
+#include "../Battlescape/InventoryState.h"
+#include "../Battlescape/InventoryLoadState.h"
+#include "../Battlescape/InventorySaveState.h"
+#include "../Battlescape/InventoryPersonalState.h"
+#include "../Battlescape/ExtendedInventoryLinksState.h"
+#include "../Battlescape/CannotReequipState.h"
 #include "../Battlescape/AbortMissionState.h"
 #include "../Battlescape/BattlescapeState.h"
 #include "../Battlescape/BattlescapeGame.h"
@@ -1756,6 +1762,43 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		if (!prepareTacticalBattleData(game)) return nullptr;
 		if (id == CalypsoHarnessScenario::F29AutomaticRecovery) return new AliensCrashState();
 		return new DebriefingState();
+	}
+	case CalypsoHarnessScenario::F26InventoryLinks:
+	case CalypsoHarnessScenario::F26LoadTemplate:
+	case CalypsoHarnessScenario::F26SaveTemplate:
+	{
+		auto *game = getCurrentGame();
+		auto *state = prepareTacticalPreview(game);
+		if (!state) return nullptr;
+		auto *battle = game->getSavedGame()->getSavedBattle();
+		auto *inventory = new InventoryState(false, state, nullptr);
+		game->pushState(inventory);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), inventory);
+		if (id == CalypsoHarnessScenario::F26LoadTemplate) return new InventoryLoadState(inventory);
+		if (id == CalypsoHarnessScenario::F26SaveTemplate) return new InventorySaveState(inventory);
+		return new ExtendedInventoryLinksState(inventory, battle, false, true);
+	}
+	case CalypsoHarnessScenario::F26PersonalTemplate:
+	case CalypsoHarnessScenario::F26Shortages:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		auto *base = game->getSavedGame()->getBases()->front();
+		if (id == CalypsoHarnessScenario::F26PersonalTemplate)
+			return base->getSoldiers()->empty() ? nullptr : new InventoryPersonalState(base->getSoldiers()->front());
+		const auto &stock = *base->getStorageItems()->getContents();
+		auto item = std::find_if(stock.begin(), stock.end(), [](const auto &entry) {
+			return entry.first && entry.second > 0 && entry.first->getBuyCost() > 0;
+		});
+		if (item == stock.end() || base->getCrafts()->empty()) return nullptr;
+		std::vector<ReequipStat> shortages;
+		for (auto *craft : *base->getCrafts())
+		{
+			shortages.push_back({item->first->getType(), int(shortages.size()) + 2,
+				craft->getName(game->getLanguage()), item->first->getListOrder()});
+			if (shortages.size() == 2) break;
+		}
+		return new CannotReequipState(shortages, base);
 	}
 	case CalypsoHarnessScenario::F27MissionBriefing:
 	{

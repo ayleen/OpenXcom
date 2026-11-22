@@ -34,9 +34,16 @@ class InventoryState;
 /**
 * Inventory Save window that allows saving of the equipment on a soldier to a global template.
 */
+#ifdef __EMSCRIPTEN__
+class TextList;
+namespace Calypso { class CalypsoStrategicList; }
+#endif
 class InventorySaveState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+#endif
 	InventoryState *_parent;
 	Window *_window;
 	Text *_txtTitle;
@@ -46,6 +53,9 @@ private:
 	std::string _selected;
 	int _previousSelectedRow, _selectedRow;
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dx, int &dy) override;
+#endif
 	/// Creates the Save Inventory state.
 	InventorySaveState(InventoryState *parent);
 	/// Cleans up the Save Inventory state.

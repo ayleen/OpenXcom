@@ -1,0 +1,36 @@
+{
+  "actions": [
+    {
+      "id": "cancel",
+      "label": "Close",
+      "action": "cancel",
+      "tone": "safe"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "mode": "list",
+    "selectionRole": "inventory",
+    "columns": [
+      {
+        "id": "field-0",
+        "label": "Action"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Notes"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "familyId": 26,
+  "id": "f26-inventory-links",
+  "schema": 1,
+  "title": "Inventory actions",
+  "version": "hd.2026-08-29.1",
+  "state": "ExtendedInventoryLinksState"
+}

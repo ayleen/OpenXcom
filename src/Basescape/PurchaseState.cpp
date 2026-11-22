@@ -100,7 +100,7 @@ PurchaseState::PurchaseState(Base *base, CannotReequipState *parent, const std::
 				auto* rule = _game->getMod()->getItem(i.item);
 				if (rule)
 				{
-					_missingItemsMap[rule] = i.qty;
+					_missingItemsMap[rule] += i.qty;
 				}
 			}
 		}

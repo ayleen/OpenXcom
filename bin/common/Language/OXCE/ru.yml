@@ -824,3 +824,6 @@ ru:
   STR_CAL_DEBRIEF_PREVIOUS: "Назад"
   STR_CAL_DEBRIEF_CONTINUE: "Продолжить"
   STR_CAL_DEBRIEF_ATTRIBUTE: "Показатель"
+  STR_CAL_LAYOUT_APPLY: "Применить комплект"
+  STR_CAL_LAYOUT_CLEAR: "Снять переносимое снаряжение"
+  STR_CAL_LAYOUT_EMPTY: "Личный шаблон пуст"
