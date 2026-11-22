@@ -1,0 +1,41 @@
+{
+  "actions": [
+    {
+      "id": "cancel",
+      "label": "Close",
+      "action": "cancel",
+      "tone": "safe"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "mode": "table",
+    "selectionRole": "inventory",
+    "columns": [
+      {
+        "id": "field-0",
+        "label": "Item"
+      },
+      {
+        "id": "field-1",
+        "label": "Quantity"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Equipment",
+          "1"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "familyId": 26,
+  "id": "f26-personal-template",
+  "schema": 1,
+  "title": "Personal equipment",
+  "version": "hd.2026-08-29.1",
+  "state": "InventoryPersonalState"
+}

@@ -31,9 +31,19 @@ class SavedBattleGame;
 /**
  * A screen with links to the OXCE inventory functionality.
  */
+#ifdef __EMSCRIPTEN__
+class TextList;
+namespace Calypso { class CalypsoStrategicList; }
+#endif
 class ExtendedInventoryLinksState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+	TextList *_hdRows = nullptr;
+	std::vector<TextButton*> _routes;
+	void openDestination(Action *action);
+#endif
 	TextButton *_btnOk;
 	TextButton *_btnArmor, *_btnAvatar, *_btnEquipmentSave, *_btnEquipmentLoad, *_btnPersonalSave, *_btnPersonalLoad, *_btnNotes, *_btnUfopedia, *_btnAutoEquip;
 	Window *_window;
@@ -41,10 +51,13 @@ private:
 	InventoryState *_parent;
 	SavedBattleGame* _save;
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dx, int &dy) override;
+#endif
 	/// Creates the ExtendedInventoryLinks state.
 	ExtendedInventoryLinksState(InventoryState* parent, SavedBattleGame* save, bool inBase, bool beforeMission);
 	/// Cleans up the ExtendedInventoryLinks state.
-	~ExtendedInventoryLinksState() = default;
+	~ExtendedInventoryLinksState();
 	/// Handlers for clicking the buttons.
 	void btnArmorClick(Action* action);
 	void btnAvatarClick(Action* action);

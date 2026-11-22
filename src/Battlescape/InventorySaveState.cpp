@@ -17,6 +17,10 @@
 * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "InventorySaveState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#include "../Interface/TextList.h"
+#endif
 #include "InventoryState.h"
 #include "../Engine/Game.h"
 #include "../Engine/Action.h"
@@ -42,7 +46,12 @@ InventorySaveState::InventorySaveState(InventoryState *parent) : _parent(parent)
 	_screen = false;
 
 	// Create objects
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_window = new Window(this, 240, 136, 40, 36 + 1);
+#else
 	_window = new Window(this, 240, 136, 40, 36 + 1, POPUP_BOTH);
+#endif
 	_txtTitle = new Text(230, 16, 45, 44 + 3);
 	_lstLayout = new TextList(208, 80, 48, 60);
 	_btnCancel = new TextButton(70, 16, 201, 148);
@@ -64,7 +73,9 @@ InventorySaveState::InventorySaveState(InventoryState *parent) : _parent(parent)
 
 	// Set up objects
 	_window->setHighContrast(true);
+#ifndef __EMSCRIPTEN__
 	_window->setBackground(_game->getMod()->getSurface("TAC00.SCR"));
+#endif
 
 	_txtTitle->setHighContrast(true);
 	_txtTitle->setAlign(ALIGN_CENTER);
@@ -120,6 +131,12 @@ InventorySaveState::InventorySaveState(InventoryState *parent) : _parent(parent)
 		}
 		_lstLayout->addRow(1, ss.str().c_str());
 	}
+#ifdef __EMSCRIPTEN__
+	_hdList = new Calypso::CalypsoStrategicList(this, nullptr, _game->getMod(), _window, _txtTitle,
+		_lstLayout, _btnCancel, Calypso::CalypsoStrategicList::Content::SaveTemplate, _btnSave, _btnSaveWithArmor, _edtSave);
+	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+#endif
 }
 
 /**
@@ -127,6 +144,9 @@ InventorySaveState::InventorySaveState(InventoryState *parent) : _parent(parent)
 */
 InventorySaveState::~InventorySaveState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
 
 }
 
@@ -201,8 +221,10 @@ void InventorySaveState::lstLayoutPress(Action *action)
 		{
 			_edtSave->setText(_selected);
 		}
+#ifndef __EMSCRIPTEN__
 		_edtSave->setX(_lstLayout->getColumnX(0));
 		_edtSave->setY(_lstLayout->getRowY(_selectedRow));
+#endif
 		_edtSave->setVisible(true);
 		_edtSave->setFocus(true, false);
 		_lstLayout->setScrolling(false);
@@ -236,5 +258,15 @@ void InventorySaveState::saveTemplate(bool includingArmor)
 		_game->popState();
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void InventorySaveState::resize(int &dx, int &dy)
+{
+	if (!_hdList) { State::resize(dx,dy); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(),1.0f,false);
+	_hdList->fitInput();
+}
+#endif
 
 }

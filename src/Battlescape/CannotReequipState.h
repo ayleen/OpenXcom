@@ -34,9 +34,16 @@ class Base;
  * Screen shown when there's not enough equipment
  * to re-equip a craft after a mission.
  */
+#ifdef __EMSCRIPTEN__
+class TextList;
+namespace Calypso { class CalypsoStrategicList; }
+#endif
 class CannotReequipState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+#endif
 	std::vector<ReequipStat> _missingItems;
 	Base *_base;
 
@@ -45,6 +52,9 @@ private:
 	Text *_txtTitle, *_txtItem, *_txtQuantity, *_txtCraft;
 	TextList *_lstItems;
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dx, int &dy) override;
+#endif
 	/// Creates the Cannot Reequip state.
 	CannotReequipState(std::vector<ReequipStat> &missingItems, Base *base);
 	/// Cleans up the Cannot Reequip state.

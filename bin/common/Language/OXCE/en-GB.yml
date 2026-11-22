@@ -840,3 +840,6 @@ en-GB:
   STR_CAL_BATTLE_MESSAGE: "Battle report"
   STR_CAL_BATTLE_CONTEXT: "Battlescape"
   STR_CAL_BATTLE_CONTINUE: "Continue"
+  STR_CAL_LAYOUT_APPLY: "Apply loadout"
+  STR_CAL_LAYOUT_CLEAR: "Clear movable equipment"
+  STR_CAL_LAYOUT_EMPTY: "Personal template is empty"
