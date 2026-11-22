@@ -17,6 +17,11 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "BaseInfoState.h"
+#ifdef __EMSCRIPTEN__
+#include <algorithm>
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Interface/TextList.h"
+#endif
 #include <sstream>
 #include <cmath>
 #include "../Engine/Game.h"
@@ -251,6 +256,25 @@ BaseInfoState::BaseInfoState(Base *base, BasescapeState *state) : _base(base), _
 	_txtLongRange->setText(tr("STR_LONG_RANGE_DETECTION"));
 
 	_barLongRange->setScale(25.0);
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_hdRows = new TextList(280, 100, 0, 0);
+	add(_hdRows, "text", "baseInfo");
+	_hdRows->setColumns(5, 100, 55, 45, 45, 35);
+	_hdRows->setSelectable(true);
+	_previousBase = new TextButton(80, 16, 0, 0);
+	_nextBase = new TextButton(80, 16, 0, 0);
+	add(_previousBase, "button", "baseInfo");
+	add(_nextBase, "button", "baseInfo");
+	_previousBase->setText(tr("STR_CAL_PREVIOUS_BASE"));
+	_nextBase->setText(tr("STR_CAL_NEXT_BASE"));
+	_previousBase->onMouseClick((ActionHandler)&BaseInfoState::changeBase);
+	_nextBase->onMouseClick((ActionHandler)&BaseInfoState::changeBase);
+	_mini->setX(-_mini->getWidth());
+	_edtBase->setText(_base->getName());
+	refreshHdRows();
+	_hdLedger = new Calypso::CalypsoBaseLedger(*this);
+#endif
 }
 
 /**
@@ -258,6 +282,9 @@ BaseInfoState::BaseInfoState(Base *base, BasescapeState *state) : _base(base), _
  */
 BaseInfoState::~BaseInfoState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdLedger;
+#endif
 
 }
 
@@ -423,6 +450,9 @@ void BaseInfoState::init()
 
 	_barLongRange->setMax(longRangeDetection);
 	_barLongRange->setValue(longRangeDetection);
+#ifdef __EMSCRIPTEN__
+	refreshHdRows();
+#endif
 }
 
 /**
@@ -445,7 +475,7 @@ void BaseInfoState::miniClick(Action *)
 	{
 		_mini->setSelectedBase(base);
 		_base = _game->getSavedGame()->getBases()->at(base);
-		_state->setBase(_base);
+		if (_state) _state->setBase(_base);
 		init();
 	}
 }
@@ -469,13 +499,13 @@ void BaseInfoState::handleKeyPress(Action *action)
 			Options::keyBaseSelect8
 		};
 		int key = action->getDetails()->key.keysym.sym;
-		for (size_t i = 0; i < _game->getSavedGame()->getBases()->size(); ++i)
+		for (size_t i = 0; i < _game->getSavedGame()->getBases()->size() && i < 8; ++i)
 		{
 			if (key == baseKeys[i])
 			{
 				_mini->setSelectedBase(i);
 				_base = _game->getSavedGame()->getBases()->at(i);
-				_state->setBase(_base);
+				if (_state) _state->setBase(_base);
 				init();
 				break;
 			}
@@ -518,5 +548,49 @@ void BaseInfoState::btnMonthlyCostsClick(Action *)
 {
 	_game->pushState(new MonthlyCostsState(_base));
 }
+
+#ifdef __EMSCRIPTEN__
+void BaseInfoState::changeBase(Action *action)
+{
+	const auto &bases = *_game->getSavedGame()->getBases();
+	if (bases.empty()) return;
+	auto it = std::find(bases.begin(), bases.end(), _base);
+	if (it == bases.end()) return;
+	const auto index = static_cast<size_t>(it - bases.begin());
+	const auto next = (index + (action->getSender() == _nextBase ? 1 : bases.size() - 1)) % bases.size();
+	_mini->setSelectedBase(next);
+	_base = bases[next];
+	if (_state) _state->setBase(_base);
+	init();
+}
+
+void BaseInfoState::refreshHdRows()
+{
+	_hdRows->clearList();
+	auto add = [&](const Text *label, bool capacity, int current, int total)
+	{
+		const auto excess = capacity && current > total ? std::to_string(current - total) : std::string();
+		_hdRows->addRow(5, label->getText().c_str(),
+			std::string(tr(capacity ? "STR_CAL_BASE_USED" : "STR_CAL_BASE_AVAILABLE")).c_str(),
+			std::to_string(current).c_str(), std::to_string(total).c_str(), excess.c_str());
+	};
+	add(_txtSoldiers, false, _base->getAvailableSoldiers(), _base->getTotalSoldiers());
+	add(_txtEngineers, false, _base->getAvailableEngineers(), _base->getTotalEngineers());
+	add(_txtScientists, false, _base->getAvailableScientists(), _base->getTotalScientists());
+	add(_txtQuarters, true, _base->getUsedQuarters(), _base->getAvailableQuarters());
+	add(_txtStores, true, static_cast<int>(floor(_base->getUsedStores() + 0.05)), _base->getAvailableStores());
+	add(_txtLaboratories, true, _base->getUsedLaboratories(), _base->getAvailableLaboratories());
+	add(_txtWorkshops, true, _base->getUsedWorkshops(), _base->getAvailableWorkshops());
+	if (Options::storageLimitsEnforced)
+		add(_txtContainment, true, _base->getUsedContainment(0), _base->getAvailableContainment(0));
+	add(_txtHangars, true, _base->getUsedHangars(), _base->getAvailableHangars());
+}
+
+void BaseInfoState::resize(int &dX, int &dY)
+{
+	if (_hdLedger) _hdLedger->refresh();
+	else State::resize(dX, dY);
+}
+#endif
 
 }

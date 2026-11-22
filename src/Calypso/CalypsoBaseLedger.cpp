@@ -1,10 +1,14 @@
 #ifdef __EMSCRIPTEN__
-#include "CalypsoInventoryLedger.h"
+#include "CalypsoBaseLedger.h"
 #include "CommandCenter/CommandCenterRenderer.h"
 #include "CalypsoHdOperationsFluid.h"
 #include "CalypsoHdOperationsLayout.h"
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoHdFontSource.h"
+#include "Generated/CalypsoF02BaseInformation.generated.h"
+#include "Generated/CalypsoF02MonthlyCosts.generated.h"
+#include "../Basescape/BaseInfoState.h"
+#include "../Basescape/MonthlyCostsState.h"
 #include "Generated/CalypsoF12Stores.generated.h"
 #include "Generated/CalypsoF12ActiveTransfers.generated.h"
 #include "Generated/CalypsoF12ItemLocations.generated.h"
@@ -66,24 +70,25 @@ struct Button
 	std::string text;
 	CalypsoHdOperationsRectf designRect;
 	bool selected = false;
+	bool toolbar = false;
 };
 
 template<typename Layout, typename Collection, typename Style, typename Typography>
-CalypsoHdOperationsModel ledgerModel(State &state, Text &title, TextList &list, Base *base,
+CalypsoHdOperationsModel ledgerModel(State &state, const std::string &title, TextList &list, Base *base,
 	const Layout &g, const Collection &table, const Style &style, const Typography &typography,
 	const std::vector<Summary> &summary, const std::vector<Column> &columns,
 	const std::vector<Button> &buttons,
-	const char *emptyKey, const char *emptyBodyKey)
+	const char *emptyKey, const char *emptyBodyKey, unsigned familyId)
 {
 	CalypsoHdOperationsModel model;
 	model.archetype = CalypsoHdOperationsArchetype::OperationsWorkspace;
 	model.ownerState = &state;
-	model.familyId = 12;
+	model.familyId = familyId;
 	model.visualShell = "base-operations";
-	model.headerArtId = "logistics-group";
+	model.headerArtId = familyId == 2 ? "base-build" : "logistics-group";
 	model.presentation = "table-context";
-	model.title = CommandCenter::calypsoHdNormalizeTtfDisplayText(title.getText());
-	model.sectionLabel = state.tr("STR_CAL_INVENTORY_SECTION");
+	model.title = CommandCenter::calypsoHdNormalizeTtfDisplayText(title);
+	model.sectionLabel = state.tr(familyId == 2 ? "STR_BASE_INFORMATION" : "STR_CAL_INVENTORY_SECTION");
 	model.baseCaption = state.tr("STR_BASES");
 	if (base) model.baseName = base->getName();
 	model.readiness.contractReady = true;
@@ -168,7 +173,8 @@ CalypsoHdOperationsModel ledgerModel(State &state, Text &title, TextList &list, 
 	}
 	for (const auto &binding : buttons)
 	{
-		place(*binding.owner, frame.resolve(binding.designRect,Vertical::BottomShift));
+		const auto role = binding.toolbar ? Vertical::Fixed : Vertical::BottomShift;
+		place(*binding.owner, frame.resolve(binding.designRect, role));
 		if (!binding.owner->getVisible()) continue;
 		CalypsoHdOperationsAction action;
 		action.id = binding.id;
@@ -176,19 +182,26 @@ CalypsoHdOperationsModel ledgerModel(State &state, Text &title, TextList &list, 
 		action.component = "management-action-group";
 		action.slotRole = "action";
 		action.coordinateSpace = "logical";
-		action.visible = css(binding.designRect,Vertical::BottomShift);
+		action.visible = css(binding.designRect, role);
 		action.hit = action.visible;
 		action.widget = binding.owner;
 		action.state.selected = binding.selected;
 		action.tone = action.id == "done" ? "primary" : "normal";
-		geometry.footerActions.push_back(action.visible);
-		model.footerActions.push_back(std::move(action));
+		if (binding.toolbar)
+		{
+			model.toolbarActions.push_back(std::move(action));
+		}
+		else
+		{
+			geometry.footerActions.push_back(action.visible);
+			model.footerActions.push_back(std::move(action));
+		}
 	}
 	return model;
 }
 }
 
-void CalypsoInventoryLedger::open()
+void CalypsoBaseLedger::open()
 {
 	_renderer.setModelProvider(_collect);
 	CalypsoHdUiOverlay::instance().registerAdapter(&_renderer);
@@ -196,12 +209,12 @@ void CalypsoInventoryLedger::open()
 	calypsoHdOperationsPublishHarnessVisibility();
 }
 
-void CalypsoInventoryLedger::refresh()
+void CalypsoBaseLedger::refresh()
 {
 	_renderer.setModel(_collect());
 }
 
-CalypsoInventoryLedger::CalypsoInventoryLedger(StoresState &s)
+CalypsoBaseLedger::CalypsoBaseLedger(StoresState &s)
 	: _chrome(s), _renderer(&s, {})
 {
 	_collect = [this, &s]()
@@ -210,7 +223,7 @@ CalypsoInventoryLedger::CalypsoInventoryLedger(StoresState &s)
 		const bool wide = wideLayout();
 		const auto *g = Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
 		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
-		auto model = ledgerModel(s, *s._txtTitle, *s._lstStores, s._base, *g, table,
+		auto model = ledgerModel(s, s._txtTitle->getText(), *s._lstStores, s._base, *g, table,
 			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
 			{{"scope", s.tr("STR_CAL_SCOPE"), s._btnGrandTotal->getPressed() ? std::string(s.tr("STR_BASES")) : s._base->getName(), design(g->summary_scope)},
 			 {"items", s.tr("STR_CAL_STORE_TYPES"), std::to_string(s._itemList.size()), design(g->summary_items)}},
@@ -219,7 +232,7 @@ CalypsoInventoryLedger::CalypsoInventoryLedger(StoresState &s)
 			{{"quick-search", s._btnQuickSearch, s._btnQuickSearch->getText().empty() ? std::string(s.tr("STR_QUICK_SEARCH")) : s._btnQuickSearch->getText(), design(g->action_quick_search)},
 			 {"scope", s._btnGrandTotal, s._btnGrandTotal->getText(), design(g->action_scope), s._btnGrandTotal->getPressed()},
 			 {"done", s._btnOk, s._btnOk->getText(), design(g->action_done)}},
-			"STR_CAL_EMPTY_STORES", "STR_CAL_EMPTY_STORES_HINT");
+			"STR_CAL_EMPTY_STORES", "STR_CAL_EMPTY_STORES_HINT", 12);
 		model.profileId = Gen::kProfileId;
 		model.profileVersion = Gen::kProfileVersion;
 		model.provenance = Gen::kProvenanceTemplate;
@@ -230,7 +243,7 @@ CalypsoInventoryLedger::CalypsoInventoryLedger(StoresState &s)
 	open();
 }
 
-CalypsoInventoryLedger::CalypsoInventoryLedger(TransfersState &s)
+CalypsoBaseLedger::CalypsoBaseLedger(TransfersState &s)
 	: _chrome(s), _renderer(&s, {})
 {
 	_collect = [this, &s]()
@@ -239,14 +252,14 @@ CalypsoInventoryLedger::CalypsoInventoryLedger(TransfersState &s)
 		const bool wide = wideLayout();
 		const auto *g = Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
 		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
-		auto model = ledgerModel(s, *s._txtTitle, *s._lstTransfers, s._base, *g, table,
+		auto model = ledgerModel(s, s._txtTitle->getText(), *s._lstTransfers, s._base, *g, table,
 			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
 			{{"base", s.tr("STR_BASE"), s._base->getName(), design(g->summary_base)},
 			 {"inbound", s.tr("STR_CAL_SHIPMENTS"), std::to_string(s._base->getTransfers()->size()), design(g->summary_inbound)},
 			 {"next", s.tr("STR_CAL_NEXT_ARRIVAL_HOURS"), s._nextArrivalHours < 0 ? "–" : std::to_string(s._nextArrivalHours), design(g->summary_next)}},
 			{{s._txtItem->getText()}, {s._txtQuantity->getText()}, {s._txtArrivalTime->getText()}},
 			{{"done", s._btnOk, s._btnOk->getText(), design(g->action_done)}},
-			"STR_CAL_EMPTY_TRANSFERS", "STR_CAL_EMPTY_TRANSFERS_HINT");
+			"STR_CAL_EMPTY_TRANSFERS", "STR_CAL_EMPTY_TRANSFERS_HINT", 12);
 		model.profileId = Gen::kProfileId;
 		model.profileVersion = Gen::kProfileVersion;
 		model.provenance = Gen::kProvenanceTemplate;
@@ -257,7 +270,7 @@ CalypsoInventoryLedger::CalypsoInventoryLedger(TransfersState &s)
 	open();
 }
 
-CalypsoInventoryLedger::CalypsoInventoryLedger(ItemLocationsState &s)
+CalypsoBaseLedger::CalypsoBaseLedger(ItemLocationsState &s)
 	: _chrome(s), _renderer(&s, {})
 {
 	_collect = [this, &s]()
@@ -266,7 +279,7 @@ CalypsoInventoryLedger::CalypsoInventoryLedger(ItemLocationsState &s)
 		const bool wide = wideLayout();
 		const auto *g = Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
 		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
-		auto model = ledgerModel(s, *s._txtTitle, *s._lstLocations, nullptr, *g, table,
+		auto model = ledgerModel(s, s._txtTitle->getText(), *s._lstLocations, nullptr, *g, table,
 			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
 			{{"scope", s.tr("STR_CAL_SCOPE"), s.tr(s._btnScope->getPressed() ? "STR_CAL_ALL_LOCATIONS" : "STR_CAL_STOCK_AND_INBOUND"), design(g->summary_scope)},
 			 {"total", s.tr("STR_CAL_LEDGER_TOTAL"), std::to_string(s._scopeTotal), design(g->summary_total)},
@@ -274,7 +287,65 @@ CalypsoInventoryLedger::CalypsoInventoryLedger(ItemLocationsState &s)
 			{{s._txtBase->getText()}, {s._txtQuantity->getText()}, {std::string(s.tr("STR_CAL_INBOUND"))}},
 			{{"scope", s._btnScope, s._btnScope->getText(), design(g->action_scope), s._btnScope->getPressed()},
 			 {"done", s._btnOk, s._btnOk->getText(), design(g->action_done)}},
-			"STR_CAL_EMPTY_LOCATIONS", "STR_CAL_EMPTY_LOCATIONS_HINT");
+			"STR_CAL_EMPTY_LOCATIONS", "STR_CAL_EMPTY_LOCATIONS_HINT", 12);
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+CalypsoBaseLedger::CalypsoBaseLedger(BaseInfoState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]()
+	{
+		namespace Gen = CalypsoF02BaseInformationGen;
+		const bool wide = wideLayout();
+		const auto *g = Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		auto model = ledgerModel(s, s._edtBase->getText().empty() ? std::string(s.tr("STR_BASE_INFORMATION")) : s._edtBase->getText(), *s._hdRows, s._base, *g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"defense", s._txtDefense->getText(), s._numDefense->getText(), design(g->summary_defense)},
+			 {"short-range", s._txtShortRange->getText(), s._numShortRange->getText(), design(g->summary_short_range)},
+			 {"long-range", s._txtLongRange->getText(), s._numLongRange->getText(), design(g->summary_long_range)}},
+			{{s.tr("STR_CAL_BASE_CATEGORY")}, {s.tr("STR_CAL_BASE_MEASURE")}, {s.tr("STR_QUANTITY_UC")}, {s.tr("STR_TOTAL")}, {s.tr("STR_CAL_BASE_OVER")}},
+			{{"previous-base", s._previousBase, s._previousBase->getText(), design(g->toolbar_previous_base), false, true},
+			 {"next-base", s._nextBase, s._nextBase->getText(), design(g->toolbar_next_base), false, true},
+			 {"transfers", s._btnTransfers, s._btnTransfers->getText(), design(g->toolbar_transfers), false, true},
+			 {"stores", s._btnStores, s._btnStores->getText(), design(g->action_stores)},
+			 {"monthly", s._btnMonthlyCosts, s._btnMonthlyCosts->getText(), design(g->action_monthly)},
+			 {"done", s._btnOk, s._btnOk->getText(), design(g->action_done)}},
+			"STR_BASE_INFORMATION", "STR_BASE_INFORMATION", 2);
+		const auto frame = CalypsoHdOperationsFluidFrame::forReference(g->designWidth, g->designHeight, g->footer.x, g->footer.w);
+		place(*s._edtBase, frame.resolve(design(g->title), Vertical::Fixed));
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+
+CalypsoBaseLedger::CalypsoBaseLedger(MonthlyCostsState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]()
+	{
+		namespace Gen = CalypsoF02MonthlyCostsGen;
+		const bool wide = wideLayout();
+		const auto *g = Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		auto model = ledgerModel(s, s._txtTitle->getText(), *s._hdRows, s._base, *g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"base", s.tr("STR_BASE"), s._base->getName(), design(g->summary_base)}},
+			{{s.tr("STR_CAL_BASE_CATEGORY")}, {s._txtCost->getText()}, {s._txtQuantity->getText()}, {s._txtTotal->getText()}},
+			{{"done", s._btnOk, s._btnOk->getText(), design(g->action_done)}},
+			"STR_MONTHLY_COSTS", "STR_MONTHLY_COSTS", 2);
 		model.profileId = Gen::kProfileId;
 		model.profileVersion = Gen::kProfileVersion;
 		model.provenance = Gen::kProvenanceTemplate;

@@ -126,7 +126,9 @@ enum class CalypsoHarnessScenario
 	F05TransformationReview = 128,
 	F12Stores = 129,
 	F12ActiveTransfers = 130,
-	F12ItemLocations = 131
+	F12ItemLocations = 131,
+	F02BaseInformation = 132,
+	F02MonthlyCosts = 133
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -205,7 +207,9 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F12TransferItems)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F12Stores)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F12ActiveTransfers)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F12ItemLocations);
+		|| id == static_cast<int>(CalypsoHarnessScenario::F12ItemLocations)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F02BaseInformation)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F02MonthlyCosts);
 }
 
 struct CalypsoHarnessSwitchRequest

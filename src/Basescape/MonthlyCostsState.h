@@ -23,6 +23,10 @@ namespace OpenXcom
 {
 
 class Base;
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoBaseLedger; }
+class TextList;
+#endif
 class TextButton;
 class Window;
 class Text;
@@ -35,6 +39,11 @@ class TextList;
 class MonthlyCostsState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
+	TextList *_hdRows = nullptr;
+#endif
 	Base *_base;
 
 	TextButton *_btnOk;
@@ -42,6 +51,9 @@ private:
 	Text *_txtTitle, *_txtCost, *_txtQuantity, *_txtTotal, *_txtRental, *_txtSalaries, *_txtIncome, *_txtMaintenance;
 	TextList *_lstCrafts, *_lstSalaries, *_lstMaintenance, *_lstTotal;
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 	/// Creates the Monthly Costs state.
 	MonthlyCostsState(Base *base);
 	/// Cleans up the Monthly Costs state.

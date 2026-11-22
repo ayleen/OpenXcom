@@ -4,17 +4,21 @@
 #include "CalypsoHdOperationsRenderer.h"
 namespace OpenXcom
 {
+class BaseInfoState;
+class MonthlyCostsState;
 class StoresState;
 class TransfersState;
 class ItemLocationsState;
 namespace Calypso
 {
-class CalypsoInventoryLedger
+class CalypsoBaseLedger
 {
 public:
-	explicit CalypsoInventoryLedger(StoresState &state);
-	explicit CalypsoInventoryLedger(TransfersState &state);
-	explicit CalypsoInventoryLedger(ItemLocationsState &state);
+	explicit CalypsoBaseLedger(BaseInfoState &state);
+	explicit CalypsoBaseLedger(MonthlyCostsState &state);
+	explicit CalypsoBaseLedger(StoresState &state);
+	explicit CalypsoBaseLedger(TransfersState &state);
+	explicit CalypsoBaseLedger(ItemLocationsState &state);
 	void refresh();
 private:
 	CalypsoHdOperationsChrome _chrome;

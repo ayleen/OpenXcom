@@ -75,6 +75,8 @@
 #include "../Basescape/TechTreeViewerState.h"
 #include "../Ufopaedia/ArticleStateCraftWeapon.h"
 #include "../Basescape/BasescapeState.h"
+#include "../Basescape/BaseInfoState.h"
+#include "../Basescape/MonthlyCostsState.h"
 #include "../Basescape/StoresState.h"
 #include "../Basescape/TransfersState.h"
 #include "../Basescape/ItemLocationsState.h"
@@ -1456,6 +1458,17 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		Base* marketBase = new Base(game->getMod());
 		g_harnessSaveLease.fixtureBases.push_back(marketBase);
 		return new CalypsoMarketState(marketBase, false);
+	}
+	case CalypsoHarnessScenario::F02BaseInformation:
+	case CalypsoHarnessScenario::F02MonthlyCosts:
+	{
+		Game *game = getCurrentGame();
+		Base *source = nullptr, *destination = nullptr;
+		ensureTransferFixture(game, source, destination);
+		if (!source || !destination) return nullptr;
+		if (id == CalypsoHarnessScenario::F02MonthlyCosts)
+			return new MonthlyCostsState(source);
+		return new BaseInfoState(source, nullptr);
 	}
 	case CalypsoHarnessScenario::F12Stores:
 	case CalypsoHarnessScenario::F12ActiveTransfers:

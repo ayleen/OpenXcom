@@ -1,0 +1,122 @@
+{
+  "schema": 1,
+  "id": "f02-base-information",
+  "familyId": 2,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "state": "BaseInfoState",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-build"
+  },
+  "labelKeys": {
+    "title": "STR_BASE_INFORMATION",
+    "done": "STR_OK"
+  },
+  "title": "BASE INFORMATION",
+  "actions": [
+    {
+      "id": "stores",
+      "label": "STORES",
+      "labelKey": "STR_STORES",
+      "action": "stores",
+      "tone": "normal"
+    },
+    {
+      "id": "monthly",
+      "label": "MONTHLY COSTS",
+      "labelKey": "STR_MONTHLY_COSTS",
+      "action": "monthly",
+      "tone": "normal"
+    },
+    {
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "action": "done",
+      "tone": "primary"
+    }
+  ],
+  "summary": [
+    {
+      "id": "defense",
+      "label": "DEFENCE",
+      "value": "0"
+    },
+    {
+      "id": "short-range",
+      "label": "SHORT RANGE",
+      "value": "0"
+    },
+    {
+      "id": "long-range",
+      "label": "WIDE BAND",
+      "value": "1"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "base-record",
+    "columns": [
+      {
+        "id": "category",
+        "label": "CATEGORY",
+        "contentRole": "name"
+      },
+      {
+        "id": "measure",
+        "label": "MEASURE",
+        "contentRole": "status"
+      },
+      {
+        "id": "value",
+        "label": "VALUE",
+        "contentRole": "count"
+      },
+      {
+        "id": "limit",
+        "label": "TOTAL",
+        "contentRole": "count"
+      },
+      {
+        "id": "over",
+        "label": "OVER",
+        "contentRole": "count"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Stores",
+          "Used",
+          "699",
+          "515",
+          "184"
+        ]
+      }
+    ]
+  },
+  "toolbar": [
+    {
+      "id": "previous-base",
+      "label": "PREVIOUS",
+      "action": "previous-base",
+      "tone": "normal"
+    },
+    {
+      "id": "next-base",
+      "label": "NEXT",
+      "action": "next-base",
+      "tone": "normal"
+    },
+    {
+      "id": "transfers",
+      "label": "TRANSFERS",
+      "action": "transfers",
+      "tone": "normal"
+    }
+  ],
+  "controls": []
+}

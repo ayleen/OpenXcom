@@ -18,7 +18,7 @@
  */
 #include "ItemLocationsState.h"
 #ifdef __EMSCRIPTEN__
-#include "../Calypso/CalypsoInventoryLedger.h"
+#include "../Calypso/CalypsoBaseLedger.h"
 #endif
 #include "InventoryLocations.h"
 #include "BasescapeState.h"
@@ -107,7 +107,7 @@ ItemLocationsState::ItemLocationsState(const RuleItem *selectedItem, bool allLoc
 	updateList();
 #ifdef __EMSCRIPTEN__
 	_screen = true;
-	_hdLedger = new Calypso::CalypsoInventoryLedger(*this);
+	_hdLedger = new Calypso::CalypsoBaseLedger(*this);
 #endif
 }
 

@@ -1064,6 +1064,8 @@
       "harnessScenarioIds": [
         131
       ]
-    }
+    },
+    {"id": "f02-base-information", "contract": "f02-base-information.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF02BaseInformationGen", "prefix": "CalypsoF02BaseInformation", "output": "CalypsoF02BaseInformation.generated.h"}, "browser": {"global": "CalypsoF02BaseInformation", "output": "f02-base-information.js"}, "rendererOwnership": "base-administration", "harnessScenarioIds": [132]},
+    {"id": "f02-monthly-costs", "contract": "f02-monthly-costs.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF02MonthlyCostsGen", "prefix": "CalypsoF02MonthlyCosts", "output": "CalypsoF02MonthlyCosts.generated.h"}, "browser": {"global": "CalypsoF02MonthlyCosts", "output": "f02-monthly-costs.js"}, "rendererOwnership": "base-administration", "harnessScenarioIds": [133]}
   ]
 }

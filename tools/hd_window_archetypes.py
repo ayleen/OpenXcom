@@ -1637,7 +1637,7 @@ def _validate_tabbed(config, template):
             _strict(visual, {"shell", "headerArt"}, set(), "config.visual")
             if visual["shell"] != "base-operations":
                 raise ArchetypeError("config.visual.shell must be base-operations")
-            if visual["headerArt"] not in {"base-research", "base-manufacture", "logistics-group"}:
+            if visual["headerArt"] not in {"base-research", "base-manufacture", "logistics-group", "base-build"}:
                 raise ArchetypeError("config.visual.headerArt is not an audited department asset")
         expected_mode = "list" if presentation == "list-inspector" else "table"
         if config["collection"]["mode"] != expected_mode:
@@ -3454,6 +3454,8 @@ def _build_tabbed(config, template, source_name, template_name):
             union_bottom = max(
                 _bottom(collection_viewport), _bottom(authored["detailPanel"])
             )
+            if template["generatorKind"] == "operations" and (toolbar_actions or controls):
+                union_y = max(union_y, collection_viewport["y"])
             collection_viewport["x"] = union_x
             collection_viewport["y"] = union_y
             collection_viewport["width"] = union_right - union_x

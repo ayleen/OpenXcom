@@ -24,7 +24,7 @@ namespace OpenXcom
 
 class Base;
 #ifdef __EMSCRIPTEN__
-namespace Calypso { class CalypsoInventoryLedger; }
+namespace Calypso { class CalypsoBaseLedger; }
 #endif
 class TextButton;
 class Window;
@@ -39,8 +39,8 @@ class TransfersState : public State
 {
 private:
 #ifdef __EMSCRIPTEN__
-	friend class Calypso::CalypsoInventoryLedger;
-	Calypso::CalypsoInventoryLedger *_hdLedger = nullptr;
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
 #endif
 	Base *_base;
 	int _nextArrivalHours = -1;

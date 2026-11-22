@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "MonthlyCostsState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Interface/TextList.h"
+#endif
 #include <sstream>
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
@@ -201,6 +205,37 @@ MonthlyCostsState::MonthlyCostsState(Base *base) : _base(base)
 	_lstTotal->setColumns(2, 44, 55);
 	_lstTotal->setDot(true);
 	_lstTotal->addRow(2, tr("STR_TOTAL").c_str(), Unicode::formatFunding(_base->getMonthlyMaintenace()).c_str());
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_hdRows = new TextList(300, 110, 0, 0);
+	add(_hdRows, "list", "costsInfo");
+	_hdRows->setColumns(4, 125, 70, 44, 61);
+	_hdRows->setSelectable(true);
+	auto copyRows = [&](TextList *source)
+	{
+		for (const auto &cells : source->getCellTextsSnapshot())
+		{
+			if (cells.size() == 4)
+				_hdRows->addRow(4, cells[0]->getText().c_str(), cells[1]->getText().c_str(),
+					cells[2]->getText().c_str(), cells[3]->getText().c_str());
+			else if (cells.size() == 2)
+				_hdRows->addRow(4, cells[0]->getText().c_str(), "", "", cells[1]->getText().c_str());
+		}
+	};
+	copyRows(_lstCrafts);
+	copyRows(_lstSalaries);
+	copyRows(_lstMaintenance);
+	auto *save = _game->getSavedGame();
+	auto addTotal = [&](const char *key, int64_t amount)
+	{
+		_hdRows->addRow(4, tr(key).c_str(), "", "", Unicode::formatFunding(amount).c_str());
+	};
+	addTotal("STR_CAL_BASE_MONTHLY_TOTAL", _base->getMonthlyMaintenace());
+	addTotal("STR_CAL_CAMPAIGN_INCOME", save->getCountryFunding());
+	addTotal("STR_CAL_CAMPAIGN_COSTS", save->getBaseMaintenance());
+	addTotal("STR_CAL_CAMPAIGN_BALANCE", save->getCountryFunding() - save->getBaseMaintenance());
+	_hdLedger = new Calypso::CalypsoBaseLedger(*this);
+#endif
 }
 
 /**
@@ -208,6 +243,9 @@ MonthlyCostsState::MonthlyCostsState(Base *base) : _base(base)
  */
 MonthlyCostsState::~MonthlyCostsState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdLedger;
+#endif
 
 }
 
@@ -219,5 +257,13 @@ void MonthlyCostsState::btnOkClick(Action *)
 {
 	_game->popState();
 }
+
+#ifdef __EMSCRIPTEN__
+void MonthlyCostsState::resize(int &dX, int &dY)
+{
+	if (_hdLedger) _hdLedger->refresh();
+	else State::resize(dX, dY);
+}
+#endif
 
 }

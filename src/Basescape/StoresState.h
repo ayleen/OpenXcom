@@ -26,7 +26,7 @@ namespace OpenXcom
 class Base;
 class RuleItem;
 #ifdef __EMSCRIPTEN__
-namespace Calypso { class CalypsoInventoryLedger; }
+namespace Calypso { class CalypsoBaseLedger; }
 #endif
 class TextButton;
 class ToggleTextButton;
@@ -71,8 +71,8 @@ class StoresState : public State
 {
 private:
 #ifdef __EMSCRIPTEN__
-	friend class Calypso::CalypsoInventoryLedger;
-	Calypso::CalypsoInventoryLedger *_hdLedger = nullptr;
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
 #endif
 	Base *_base;
 
