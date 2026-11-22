@@ -21,6 +21,9 @@
 #include "../Mod/RuleCraft.h"
 #include <vector>
 #include <string>
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoInterceptionHud.h"
+#endif
 
 namespace OpenXcom
 {
@@ -46,6 +49,11 @@ class CraftWeaponProjectile;
 class DogfightState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoInterceptionHud;
+	Calypso::CalypsoInterceptionView _hdView;
+	unsigned _displayId;
+#endif
 	GeoscapeState *_state;
 	Timer *_craftDamageAnimTimer;
 	Surface *_window, *_battle, *_range[RuleCraft::WeaponMax], *_damage, *_craftSprite, *_craftShield;
@@ -81,6 +89,9 @@ private:
 	void updateOceanIndicator();
 
 public:
+#ifdef __EMSCRIPTEN__
+	void interceptionAction(int command, int slot);
+#endif
 	/// Creates the Dogfight state.
 	DogfightState(GeoscapeState *state, Craft *craft, Ufo *ufo, bool ufoIsAttacking = false);
 	/// Cleans up the Dogfight state.

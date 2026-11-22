@@ -2,6 +2,7 @@
 #ifdef __EMSCRIPTEN__
 
 #include "CalypsoHdScreenRenderer.h"
+#include "CalypsoInterceptionHud.h"
 
 #include <algorithm>
 #include <cmath>
@@ -1254,6 +1255,16 @@ bool CalypsoHdScreenRenderer::retryableReadiness() const
 }
 
 void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
+{
+    collectChrome(builder);
+    if (_mode == CalypsoHdScreenRenderMode::GeoscapeLiveChrome && _state && getCurrentGame()->getTopState() == _state)
+    {
+        auto *geo = static_cast<GeoscapeState*>(const_cast<void*>(_state));
+        CalypsoInterceptionHud::collect(*geo, builder);
+    }
+}
+
+void CalypsoHdScreenRenderer::collectChrome(CalypsoHdFrameBuilder& builder) const
 {
 	const bool live = _mode == CalypsoHdScreenRenderMode::GeoscapeLiveChrome;
 	const CalypsoHdScreenRenderModel* modelPtr = &_model;

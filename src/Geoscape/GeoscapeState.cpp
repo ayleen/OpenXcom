@@ -30,6 +30,7 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include "../Calypso/CalypsoEconomy.h"
+#include "../Calypso/CalypsoInterceptionHud.h"
 #include "../Calypso/CalypsoEconomyState.h"
 #include "../Calypso/CalypsoTraining.h"
 #endif
@@ -546,11 +547,21 @@ GeoscapeState::~GeoscapeState()
 void GeoscapeState::blit()
 {
 	State::blit();
-	for (auto* dfs : _dogfights)
-	{
-		dfs->blit();
-	}
+#ifndef __EMSCRIPTEN__
+	for (auto* dfs : _dogfights) dfs->blit();
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void GeoscapeState::startHarnessInterception(Craft *craft, Ufo *ufo)
+{
+	_globe->saveZoomDogfight();
+	_globe->zoomMax();
+	_dogfightsToBeStarted.push_back(new DogfightState(this, craft, ufo));
+	startDogfight();
+}
+
+#endif
 
 /**
  * Handle key shortcuts.
@@ -559,6 +570,11 @@ void GeoscapeState::blit()
 void GeoscapeState::handle(Action *action)
 {
 #ifdef __EMSCRIPTEN__
+	if (Calypso::CalypsoInterceptionHud::handle(*this, action))
+	{
+		_minimizedDogfights = minimizedDogfightsCount();
+		return;
+	}
 	// A registered HD drawer is the topmost Escape owner.
 	if (action != nullptr && action->getDetails()->type == SDL_KEYDOWN
 		&& action->getDetails()->key.keysym.sym == Options::keyCancel
@@ -735,10 +751,9 @@ void GeoscapeState::handle(Action *action)
 	}
 	if (!_dogfights.empty())
 	{
-		for (auto* dfs : _dogfights)
-		{
-			dfs->handle(action);
-		}
+#ifndef __EMSCRIPTEN__
+		for (auto* dfs : _dogfights) dfs->handle(action);
+#endif
 		_minimizedDogfights = minimizedDogfightsCount();
 	}
 }
