@@ -40,11 +40,6 @@
     },
     "summary": [
       {
-        "id": "scope",
-        "label": "SCOPE",
-        "value": "Stores + inbound"
-      },
-      {
         "id": "total",
         "label": "TOTAL",
         "value": "3"
@@ -104,11 +99,6 @@
       "workspace-b": "WORKSPACE"
     },
     "summary": [
-      {
-        "id": "scope",
-        "label": "SCOPE",
-        "value": "Stores + inbound"
-      },
       {
         "id": "total",
         "label": "TOTAL",
@@ -191,22 +181,16 @@
         "height": 78
       },
       "summary": {
-        "scope": {
+        "total": {
           "x": 1000,
           "y": 96,
-          "width": 84,
-          "height": 78
-        },
-        "total": {
-          "x": 1085,
-          "y": 96,
-          "width": 84,
+          "width": 127,
           "height": 78
         },
         "inbound": {
-          "x": 1170,
+          "x": 1128,
           "y": 96,
-          "width": 86,
+          "width": 128,
           "height": 78
         }
       },
@@ -760,22 +744,16 @@
           "width": 1144,
           "height": 44
         },
-        "summary.scope": {
+        "summary.total": {
           "x": 1000,
           "y": 96,
-          "width": 84,
-          "height": 78
-        },
-        "summary.total": {
-          "x": 1085,
-          "y": 96,
-          "width": 84,
+          "width": 127,
           "height": 78
         },
         "summary.inbound": {
-          "x": 1170,
+          "x": 1128,
           "y": 96,
-          "width": 86,
+          "width": 128,
           "height": 78
         },
         "tab.workspace-a": {
@@ -868,22 +846,16 @@
         "height": 52
       },
       "summary": {
-        "scope": {
+        "total": {
           "x": 520,
           "y": 48,
-          "width": 70,
-          "height": 52
-        },
-        "total": {
-          "x": 591,
-          "y": 48,
-          "width": 70,
+          "width": 105,
           "height": 52
         },
         "inbound": {
-          "x": 662,
+          "x": 626,
           "y": 48,
-          "width": 70,
+          "width": 106,
           "height": 52
         }
       },
@@ -1172,22 +1144,16 @@
           "width": 680,
           "height": 44
         },
-        "summary.scope": {
+        "summary.total": {
           "x": 520,
           "y": 48,
-          "width": 70,
-          "height": 52
-        },
-        "summary.total": {
-          "x": 591,
-          "y": 48,
-          "width": 70,
+          "width": 105,
           "height": 52
         },
         "summary.inbound": {
-          "x": 662,
+          "x": 626,
           "y": 48,
-          "width": 70,
+          "width": 106,
           "height": 52
         },
         "tab.workspace-a": {
@@ -1657,7 +1623,6 @@
     "toolbarBar",
     "collectionViewport",
     "footer",
-    "summary.scope",
     "summary.total",
     "summary.inbound",
     "tab.workspace-a",

@@ -281,8 +281,7 @@ CalypsoBaseLedger::CalypsoBaseLedger(ItemLocationsState &s)
 		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
 		auto model = ledgerModel(s, s._txtTitle->getText(), *s._lstLocations, nullptr, *g, table,
 			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
-			{{"scope", s.tr("STR_CAL_SCOPE"), s.tr(s._btnScope->getPressed() ? "STR_CAL_ALL_LOCATIONS" : "STR_CAL_STOCK_AND_INBOUND"), design(g->summary_scope)},
-			 {"total", s.tr("STR_CAL_LEDGER_TOTAL"), std::to_string(s._scopeTotal), design(g->summary_total)},
+			{{"total", s.tr("STR_CAL_LEDGER_TOTAL"), std::to_string(s._scopeTotal), design(g->summary_total)},
 			 {"inbound", s.tr("STR_CAL_INBOUND"), std::to_string(s._scopeInbound), design(g->summary_inbound)}},
 			{{s._txtBase->getText()}, {s._txtQuantity->getText()}, {std::string(s.tr("STR_CAL_INBOUND"))}},
 			{{"scope", s._btnScope, s._btnScope->getText(), design(g->action_scope), s._btnScope->getPressed()},
