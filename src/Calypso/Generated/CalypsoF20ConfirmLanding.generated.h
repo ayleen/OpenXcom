@@ -4,50 +4,305 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF20ConfirmLandingGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kFormId = "f20-confirm-landing";
 inline constexpr int kFamilyId = 20;
-inline constexpr const char* kArchetype = "small-confirmation";
-inline constexpr const char* kSourceConfig = "FormConfigs/f20-confirm-landing.json";
+inline constexpr const char* kArchetype = "operations-workspace";
+inline constexpr const char* kNativeState = "ConfirmLandingState";
+inline constexpr const char* kVisualShell = "base-operations";
+inline constexpr const char* kHeaderArt = "logistics-group";
+inline constexpr const char* kSharedChromeId = "base-command-shell";
+inline constexpr const char* kSharedChromeVersion = "hd.2026-09-07.1";
 
-inline constexpr const char* kDensityProfile = "standard";
-inline constexpr int kPresentationScaleNumerator = 1;
-inline constexpr int kPresentationScaleDenominator = 1;
-inline constexpr float kPresentationScale = 1.000000f;
-
-struct CalypsoF20ConfirmLandingGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
-inline constexpr CalypsoF20ConfirmLandingGenButton kButtons[] = {
-    { "cancel", "CANCEL", "safe", "cancel", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
-    { "confirm", "CONFIRM", "primary", "confirm", 0x74FFB0FFu, 0x74FFB0FFu, 0x071013FFu },
-};
-inline constexpr int kButtonCount = 2;
-
-inline constexpr float kCutCornerPx = 14.000000f;
-inline constexpr float kProtocolTextInsetPx = 26.000000f;
-inline constexpr std::uint32_t kPanelFillTop = 0x08191DEBu;
-inline constexpr std::uint32_t kPanelFillBottom = 0x041014E8u;
-inline constexpr std::uint32_t kFrame = 0x74FFB073u;
-inline constexpr std::uint32_t kProtocolText = 0xA9D8C7FFu;
-inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
-inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
-inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
-inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
-
+/// One design-space rectangle (design px).
 struct CalypsoF20ConfirmLandingGenRect { int x; int y; int w; int h; };
-struct CalypsoF20ConfirmLandingGenLayout { int designWidth; int designHeight; CalypsoF20ConfirmLandingGenRect window; CalypsoF20ConfirmLandingGenRect status; CalypsoF20ConfirmLandingGenRect warning; CalypsoF20ConfirmLandingGenRect title; CalypsoF20ConfirmLandingGenRect message; CalypsoF20ConfirmLandingGenRect footer;
+
+/// Generated policy for an operations toolbar chooser.
+struct CalypsoF20ConfirmLandingGenToolbarChooser
+{
+	int optionRowHeight;
+	int optionInsetX;
+	int optionInsetY;
+	int maxOptions;
+	int minPanelWidth;
+	CalypsoF20ConfirmLandingGenRect bounds;
 };
-inline constexpr CalypsoF20ConfirmLandingGenLayout kLayouts[] = {
-    { 1280, 720, { 416, 230, 448, 236 }, { 416, 230, 448, 38 }, { 448, 290, 32, 32 }, { 496, 284, 336, 44 }, { 448, 336, 384, 54 }, { 416, 404, 448, 62 } }, // wide
-    { 740, 360, { 169, 60, 402, 221 }, { 169, 60, 402, 34 }, { 197, 111, 28, 28 }, { 239, 106, 304, 38 }, { 197, 150, 346, 48 }, { 169, 215, 402, 66 } }, // compact
+
+/// The complete f20-confirm-landing.json layout for one class.
+struct CalypsoF20ConfirmLandingGenLayout
+{
+	int designWidth;
+	int designHeight;
+	CalypsoF20ConfirmLandingGenRect window;
+	CalypsoF20ConfirmLandingGenRect screenHeader;
+	CalypsoF20ConfirmLandingGenRect headerArt;
+	CalypsoF20ConfirmLandingGenRect title;
+	CalypsoF20ConfirmLandingGenRect summaryBar;
+	CalypsoF20ConfirmLandingGenRect toolbarBar;
+	CalypsoF20ConfirmLandingGenRect collectionViewport;
+	CalypsoF20ConfirmLandingGenRect footer;
+	CalypsoF20ConfirmLandingGenRect summary_craft;
+	CalypsoF20ConfirmLandingGenRect summary_target;
+	CalypsoF20ConfirmLandingGenRect summary_units;
+	CalypsoF20ConfirmLandingGenRect tab_workspace_a;
+	CalypsoF20ConfirmLandingGenRect tab_workspace_b;
+	CalypsoF20ConfirmLandingGenRect toolbar_brief;
+	CalypsoF20ConfirmLandingGenRect toolbar_roster;
+	CalypsoF20ConfirmLandingGenRect collection_scroll_track;
+	CalypsoF20ConfirmLandingGenRect collection_scroll_thumb;
+	CalypsoF20ConfirmLandingGenRect collection_column_field;
+	CalypsoF20ConfirmLandingGenRect collection_column_value;
+	CalypsoF20ConfirmLandingGenRect collection_row_slot_1;
+	CalypsoF20ConfirmLandingGenRect collection_row_slot_2;
+	CalypsoF20ConfirmLandingGenRect action_home;
+	CalypsoF20ConfirmLandingGenRect action_patrol;
+	CalypsoF20ConfirmLandingGenRect action_begin;
+	CalypsoF20ConfirmLandingGenToolbarChooser toolbarChooser;
 };
-struct CalypsoF20ConfirmLandingGenButtonRect { const char* id; CalypsoF20ConfirmLandingGenRect rect; };
-inline constexpr CalypsoF20ConfirmLandingGenButtonRect kButtonRects[][ 2 ] = {
-    { { "cancel", { 506, 413, 158, 44 } }, { "confirm", { 674, 413, 158, 44 } } }, // wide
-    { { "cancel", { 235, 225, 148, 44 } }, { "confirm", { 395, 225, 148, 44 } } }, // compact
+
+inline constexpr CalypsoF20ConfirmLandingGenLayout kLayouts[] =
+{
+	// wide
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 360, 78 }, { 130, 119, 480, 36 }, { 1000, 96, 256, 78 }, { 112, 190, 816, 44 }, { 112, 234, 1144, 412 }, { 112, 658, 1144, 44 }, { 1000, 96, 84, 78 }, { 1085, 96, 84, 78 }, { 1170, 96, 86, 78 }, { 92, 158, 414, 44 }, { 514, 158, 414, 44 }, { 538, 190, 190, 44 }, { 738, 190, 190, 44 }, { 1238, 270, 18, 308 }, { 1238, 270, 18, 308 }, { 112, 234, 793, 36 }, { 906, 234, 296, 36 }, { 112, 270, 1090, 44 }, { 112, 314, 1090, 44 }, { 112, 658, 158, 44 }, { 280, 658, 158, 44 }, { 1098, 658, 158, 44 }, { 44, 8, 0, 5, 240, { 112, 234, 1144, 412 } } },
+	// compact
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 420, 48, 100, 52 }, { 60, 61, 350, 26 }, { 520, 48, 212, 52 }, { 52, 108, 466, 44 }, { 52, 152, 680, 152 }, { 52, 312, 680, 44 }, { 520, 48, 70, 52 }, { 591, 48, 70, 52 }, { 662, 48, 70, 52 }, { 52, 102, 230, 44 }, { 288, 102, 230, 44 }, { 302, 108, 104, 44 }, { 414, 108, 104, 44 }, { 714, 180, 18, 88 }, { 714, 180, 18, 88 }, { 52, 152, 447, 28 }, { 500, 152, 180, 28 }, { 52, 180, 628, 44 }, { 52, 224, 628, 44 }, { 52, 312, 120, 44 }, { 184, 312, 120, 44 }, { 612, 312, 120, 44 }, { 44, 8, 0, 5, 240, { 52, 52, 680, 260 } } },
 };
 inline constexpr int kLayoutCount = 2;
-inline constexpr int kMotionDurationMs = 200;
-inline constexpr float kMotionScaleFrom = 0.960000f;
+
+inline constexpr const char* kSourceConfig = "FormConfigs/f20-confirm-landing.json";
+inline constexpr const char* kPresentationProfile = "table-context";
+inline constexpr const char* kProvenanceTemplate = "FormTemplates/operations-workspace.json";
+inline constexpr int kProvenanceTemplateVersion = 4;
+inline constexpr const char* kProvenanceGeneratorKind = "operations";
+inline constexpr const char* kProfileId = "operations-ac";
+inline constexpr const char* kProfileVersion = "hd.2026-09-10.1";
+inline constexpr const char* kProfileThemeSource = "CommandCenter/CommandCenterTheme.h";
+inline constexpr const char* kProfileThemeSourceHash = "8c4eb7f074fe2868aac3d0835b324d42f4d57ca727dcea7ab1e16220c19e53b2";
+
+struct CalypsoF20ConfirmLandingGenActionTone
+{
+	const char* id;
+	std::uint32_t fill;
+	std::uint32_t border;
+	std::uint32_t text;
+};
+inline constexpr CalypsoF20ConfirmLandingGenActionTone kActionTones[] = {
+    { "normal", 0x071624FFu, 0x173246FFu, 0xE7F0F3FFu },
+    { "safe", 0x071624FFu, 0x285267FFu, 0xE7F0F3FFu },
+    { "primary", 0x81E0B5FFu, 0x81E0B5FFu, 0x03130DFFu },
+    { "warning", 0xF2C56DFFu, 0xF2C56DFFu, 0x03130DFFu },
+    { "danger", 0x071624FFu, 0xFF6E72FFu, 0xFF6E72FFu },
+};
+inline constexpr int kActionToneCount = 5;
+
+struct CalypsoF20ConfirmLandingGenProfileStyle
+{
+	std::uint32_t background;
+	std::uint32_t panel;
+	std::uint32_t panelRaised;
+	std::uint32_t hover;
+	std::uint32_t selected;
+	std::uint32_t border;
+	std::uint32_t borderStrong;
+	std::uint32_t accent;
+	std::uint32_t text;
+	std::uint32_t secondary;
+	std::uint32_t disabled;
+	std::uint32_t onAccent;
+	std::uint32_t warning;
+	std::uint32_t danger;
+	float cornerRadiusPx;
+	float cutCornerPx;
+};
+inline constexpr CalypsoF20ConfirmLandingGenProfileStyle kProfileStyle = {
+	0x02060EFFu,
+	0x071624FFu,
+	0x0A1C2DFFu,
+	0x0C2232FFu,
+	0x0D2931FFu,
+	0x173246FFu,
+	0x285267FFu,
+	0x81E0B5FFu,
+	0xE7F0F3FFu,
+	0xA8BBC4FFu,
+	0x455966FFu,
+	0x03130DFFu,
+	0xF2C56DFFu,
+	0xFF6E72FFu,
+	12.0f,
+	14.0f,
+};
+
+struct CalypsoF20ConfirmLandingGenTypography
+{
+	int title;
+	int detailTitle;
+	int body;
+	int label;
+	int data;
+	int input;
+	int action;
+};
+inline constexpr CalypsoF20ConfirmLandingGenTypography kTypographyWide = {
+	28, 18, 14, 12, 15, 14, 14
+};
+inline constexpr CalypsoF20ConfirmLandingGenTypography kTypographyCompact = {
+	18, 16, 12, 12, 13, 12, 12
+};
+
+struct CalypsoF20ConfirmLandingGenColumnRole
+{
+	const char* id;
+	int weight;
+	int minWidth;
+	const char* font;
+	const char* align;
+};
+inline constexpr CalypsoF20ConfirmLandingGenColumnRole kColumnRoles[] = {
+    { "category", 3, 72, "body", "left" },
+    { "count", 1, 64, "data", "right" },
+    { "date", 2, 72, "data", "right" },
+    { "money", 2, 72, "data", "right" },
+    { "name", 6, 96, "body", "left" },
+    { "quantity", 2, 64, "data", "right" },
+    { "status", 2, 64, "body", "left" },
+    { "time", 2, 64, "data", "right" },
+    { "type", 1, 64, "data", "right" },
+};
+inline constexpr int kColumnRoleCount = 9;
+
+struct CalypsoF20ConfirmLandingGenCollectionCell
+{
+	const char* id;
+	CalypsoF20ConfirmLandingGenRect rect;
+	const char* contentRole;
+	const char* font;
+	const char* align;
+	int minWidth;
+	int weight;
+};
+struct CalypsoF20ConfirmLandingGenCollectionRowSlot
+{
+	const char* id;
+	CalypsoF20ConfirmLandingGenRect rect;
+	const CalypsoF20ConfirmLandingGenCollectionCell* cells;
+	int cellCount;
+};
+struct CalypsoF20ConfirmLandingGenCollectionMetrics
+{
+	int totalItems;
+	int visibleCapacity;
+	int totalUnits;
+	int visibleUnits;
+	int itemsPerUnit;
+	const char* scrollUnit;
+	bool overflow;
+	int scrollSteps;
+	CalypsoF20ConfirmLandingGenRect track;
+	CalypsoF20ConfirmLandingGenRect thumb;
+	CalypsoF20ConfirmLandingGenRect trackHitTarget;
+	CalypsoF20ConfirmLandingGenRect thumbHitTarget;
+	int thumbTravelPx;
+};
+struct CalypsoF20ConfirmLandingGenCollectionLayout
+{
+	const char* id;
+	const CalypsoF20ConfirmLandingGenCollectionCell* columns;
+	int columnCount;
+	const CalypsoF20ConfirmLandingGenCollectionRowSlot* rowSlots;
+	int rowSlotCount;
+	int count;
+	CalypsoF20ConfirmLandingGenRect rowActionArea;
+	CalypsoF20ConfirmLandingGenCollectionMetrics metrics;
+};
+
+inline constexpr CalypsoF20ConfirmLandingGenCollectionCell kCollectionColumnHeadersWide[] = {
+    { "field", { 112, 234, 793, 36 }, "name", "body", "left", 96, 6 },
+    { "value", { 906, 234, 296, 36 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmLandingGenCollectionCell kCollectionRowSlot1CellsWide[] = {
+    { "field", { 112, 270, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 906, 270, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmLandingGenCollectionCell kCollectionRowSlot2CellsWide[] = {
+    { "field", { 112, 314, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 906, 314, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmLandingGenCollectionCell kCollectionRowSlot3CellsWide[] = {
+    { "field", { 112, 358, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 906, 358, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmLandingGenCollectionCell kCollectionRowSlot4CellsWide[] = {
+    { "field", { 112, 402, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 906, 402, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmLandingGenCollectionCell kCollectionRowSlot5CellsWide[] = {
+    { "field", { 112, 446, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 906, 446, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmLandingGenCollectionCell kCollectionRowSlot6CellsWide[] = {
+    { "field", { 112, 490, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 906, 490, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmLandingGenCollectionCell kCollectionRowSlot7CellsWide[] = {
+    { "field", { 112, 534, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 906, 534, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmLandingGenCollectionRowSlot kCollectionRowSlotsWide[] = {
+    { "row-slot-1", { 112, 270, 1090, 44 }, kCollectionRowSlot1CellsWide, 2 },
+    { "row-slot-2", { 112, 314, 1090, 44 }, kCollectionRowSlot2CellsWide, 2 },
+    { "row-slot-3", { 112, 358, 1090, 44 }, kCollectionRowSlot3CellsWide, 2 },
+    { "row-slot-4", { 112, 402, 1090, 44 }, kCollectionRowSlot4CellsWide, 2 },
+    { "row-slot-5", { 112, 446, 1090, 44 }, kCollectionRowSlot5CellsWide, 2 },
+    { "row-slot-6", { 112, 490, 1090, 44 }, kCollectionRowSlot6CellsWide, 2 },
+    { "row-slot-7", { 112, 534, 1090, 44 }, kCollectionRowSlot7CellsWide, 2 },
+};
+inline constexpr int kCollectionRowSlotWideCount = 7;
+inline constexpr CalypsoF20ConfirmLandingGenCollectionMetrics kCollectionMetricsWide = { 1, 7, 1, 7, 1, "record", false, 0, { 1238, 270, 18, 308 }, { 1238, 270, 18, 308 }, { 1212, 270, 44, 308 }, { 1212, 270, 44, 308 }, 0 };
+
+inline constexpr CalypsoF20ConfirmLandingGenCollectionCell kCollectionColumnHeadersCompact[] = {
+    { "field", { 52, 152, 447, 28 }, "name", "body", "left", 96, 6 },
+    { "value", { 500, 152, 180, 28 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmLandingGenCollectionCell kCollectionRowSlot1CellsCompact[] = {
+    { "field", { 52, 180, 447, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 500, 180, 180, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmLandingGenCollectionCell kCollectionRowSlot2CellsCompact[] = {
+    { "field", { 52, 224, 447, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 500, 224, 180, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmLandingGenCollectionRowSlot kCollectionRowSlotsCompact[] = {
+    { "row-slot-1", { 52, 180, 628, 44 }, kCollectionRowSlot1CellsCompact, 2 },
+    { "row-slot-2", { 52, 224, 628, 44 }, kCollectionRowSlot2CellsCompact, 2 },
+};
+inline constexpr int kCollectionRowSlotCompactCount = 2;
+inline constexpr CalypsoF20ConfirmLandingGenCollectionMetrics kCollectionMetricsCompact = { 1, 2, 1, 2, 1, "record", false, 0, { 714, 180, 18, 88 }, { 714, 180, 18, 88 }, { 688, 180, 44, 88 }, { 688, 180, 44, 88 }, 0 };
+
+inline constexpr CalypsoF20ConfirmLandingGenCollectionLayout kCollectionsWide[1] = {
+    { "collection", kCollectionColumnHeadersWide, 2, kCollectionRowSlotsWide, 7, 1, { 0, 0, 0, 0 }, kCollectionMetricsWide },
+};
+inline constexpr int kCollectionLayoutWideCount = 1;
+inline constexpr CalypsoF20ConfirmLandingGenCollectionLayout kCollectionsCompact[1] = {
+    { "collection", kCollectionColumnHeadersCompact, 2, kCollectionRowSlotsCompact, 2, 1, { 0, 0, 0, 0 }, kCollectionMetricsCompact },
+};
+inline constexpr int kCollectionLayoutCompactCount = 1;
+
+struct CalypsoF20ConfirmLandingGenActionSlot { const char* id; CalypsoF20ConfirmLandingGenRect rect; };
+struct CalypsoF20ConfirmLandingGenStrictActionSlotGroup
+{
+	const char* id;
+	const CalypsoF20ConfirmLandingGenActionSlot* slots;
+	int slotCount;
+};
+inline constexpr CalypsoF20ConfirmLandingGenStrictActionSlotGroup kStrictActionSlotGroupsWide[1] = {
+};
+inline constexpr int kStrictActionSlotGroupWideCount = 0;
+inline constexpr CalypsoF20ConfirmLandingGenStrictActionSlotGroup kStrictActionSlotGroupsCompact[1] = {
+};
+inline constexpr int kStrictActionSlotGroupCompactCount = 0;
+
+/// Layout for a design canvas, or nullptr (the harness never guesses).
 inline const CalypsoF20ConfirmLandingGenLayout* layoutForDesign(int dw, int dh)
 {
 	for (int i = 0; i < kLayoutCount; ++i)
@@ -55,4 +310,9 @@ inline const CalypsoF20ConfirmLandingGenLayout* layoutForDesign(int dw, int dh)
 			return &kLayouts[i];
 	return nullptr;
 }
+
+// Opening motion (capture mode deterministic).
+inline constexpr int kMotionDurationMs = 200;
+inline constexpr float kMotionScaleFrom = 0.960000f;
+inline constexpr bool kMotionDisabledInCapture = true;
 } } }

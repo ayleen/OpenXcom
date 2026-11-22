@@ -358,6 +358,14 @@ void ConfirmLandingState::togglePatrolButton(Action *)
 
 #ifdef __EMSCRIPTEN__
 namespace OpenXcom {
+void ConfirmLandingState::reviewTabClick(Action *action) { _hdAdapter->changePage(action); }
+
+void ConfirmLandingState::reviewPatrolClick(Action *)
+{
+	_craft->setDestination(nullptr);
+	_game->popState();
+}
+
 void ConfirmLandingState::resize(int &dX, int &dY)
 {
 	if (Calypso::CalypsoF20ConfirmLandingUi::resize(*this)) return;
