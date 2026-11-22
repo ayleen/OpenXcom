@@ -23,6 +23,9 @@ namespace OpenXcom
 {
 
 class Base;
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoBaseLedger; }
+#endif
 class Text;
 class TextButton;
 class TextList;
@@ -35,6 +38,12 @@ class Window;
 class GlobalAlienContainmentState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
+	int _hdHeld = 0, _hdCapacity = 0, _hdStudy = 0;
+	void fillBaseOverview();
+#endif
 	TextButton *_btnOk;
 	Window *_window;
 	Text *_txtTitle, *_txtTotalUsed, *_txtTotalInterrogated, *_txtPrisoner, *_txtPrisonerAmount, *_txtPrisonersInterrogated;
@@ -43,6 +52,9 @@ private:
 	std::vector<std::tuple<std::string, Base*, int> > _topics;
 	bool _openedFromBasescape;
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 	/// Creates the GlobalAlienContainmentState.
 	GlobalAlienContainmentState(bool openedFromBasescape);
 	/// Cleans up the GlobalAlienContainmentState.

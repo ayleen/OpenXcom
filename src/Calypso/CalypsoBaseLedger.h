@@ -4,6 +4,9 @@
 #include "CalypsoHdOperationsRenderer.h"
 namespace OpenXcom
 {
+class GlobalAlienContainmentState;
+class ManageAlienContainmentState;
+class ContainmentReviewState;
 class BaseInfoState;
 class MonthlyCostsState;
 class StoresState;
@@ -14,6 +17,9 @@ namespace Calypso
 class CalypsoBaseLedger
 {
 public:
+	explicit CalypsoBaseLedger(ManageAlienContainmentState &state);
+	explicit CalypsoBaseLedger(ContainmentReviewState &state);
+	explicit CalypsoBaseLedger(GlobalAlienContainmentState &state);
 	explicit CalypsoBaseLedger(BaseInfoState &state);
 	explicit CalypsoBaseLedger(MonthlyCostsState &state);
 	explicit CalypsoBaseLedger(StoresState &state);

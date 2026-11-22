@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "GlobalAlienContainmentState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Savegame/Transfer.h"
+#endif
 #include "ManageAlienContainmentState.h"
 #include "TechTreeViewerState.h"
 #include <sstream>
@@ -90,7 +94,11 @@ GlobalAlienContainmentState::GlobalAlienContainmentState(bool openedFromBasescap
 	_txtPrisonersInterrogated->setText(tr("STR_PRISONER_INTERROGATED"));
 
 
+	#ifdef __EMSCRIPTEN__
+	_lstPrisoners->setColumns(5, 105, 40, 48, 48, 40);
+#else
 	_lstPrisoners->setColumns(3, 146, 60, 80);
+#endif
 	_lstPrisoners->setSelectable(true);
 	_lstPrisoners->setBackground(_window);
 	_lstPrisoners->setMargin(2);
@@ -99,6 +107,11 @@ GlobalAlienContainmentState::GlobalAlienContainmentState(bool openedFromBasescap
 	_lstPrisoners->setAlign(ALIGN_CENTER, 2);
 	_lstPrisoners->onMouseClick((ActionHandler)&GlobalAlienContainmentState::onSelectBase, SDL_BUTTON_LEFT);
 	_lstPrisoners->onMouseClick((ActionHandler)&GlobalAlienContainmentState::onOpenTechTreeViewer, SDL_BUTTON_MIDDLE);
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	fillBaseOverview();
+	_hdLedger = new Calypso::CalypsoBaseLedger(*this);
+#endif
 }
 
 /**
@@ -106,6 +119,9 @@ GlobalAlienContainmentState::GlobalAlienContainmentState(bool openedFromBasescap
  */
 GlobalAlienContainmentState::~GlobalAlienContainmentState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdLedger;
+#endif
 }
 
 /**
@@ -115,7 +131,11 @@ GlobalAlienContainmentState::~GlobalAlienContainmentState()
 void GlobalAlienContainmentState::init()
 {
 	State::init();
+#ifdef __EMSCRIPTEN__
+	fillBaseOverview();
+#else
 	fillPrisonerList();
+#endif
 }
 
 /**
@@ -259,7 +279,9 @@ void GlobalAlienContainmentState::btnOkClick(Action*)
  */
 void GlobalAlienContainmentState::onSelectBase(Action*)
 {
-	auto& tuple = _topics[_lstPrisoners->getSelectedRow()];
+	const auto row = _lstPrisoners->getSelectedRow();
+	if (row >= _topics.size()) return;
+	auto& tuple = _topics[row];
 	Base* base = std::get<1>(tuple);
 	int prisonType = std::get<2>(tuple);
 
@@ -285,7 +307,9 @@ void GlobalAlienContainmentState::onSelectBase(Action*)
  */
 void GlobalAlienContainmentState::onOpenTechTreeViewer(Action*)
 {
-	auto& tuple = _topics[_lstPrisoners->getSelectedRow()];
+	const auto row = _lstPrisoners->getSelectedRow();
+	if (row >= _topics.size()) return;
+	auto& tuple = _topics[row];
 	const RuleResearch* selectedTopic = _game->getMod()->getResearch(std::get<0>(tuple));
 
 	if (selectedTopic)
@@ -293,5 +317,72 @@ void GlobalAlienContainmentState::onOpenTechTreeViewer(Action*)
 		_game->pushState(new TechTreeViewerState(selectedTopic, 0));
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void GlobalAlienContainmentState::fillBaseOverview()
+{
+	struct Location
+	{
+		Base *base;
+		int type, held, capacity, study;
+	};
+	std::set<int> types{0};
+	for (const auto &name : _game->getMod()->getBaseFacilitiesList())
+	{
+		const auto *rule = _game->getMod()->getBaseFacility(name);
+		if (rule->getAliens() > 0) types.insert(rule->getPrisonType());
+	}
+	// A mod may remove its facility while a save still carries a specimen.
+	for (const auto &name : _game->getMod()->getItemsList())
+	{
+		const auto *rule = _game->getMod()->getItem(name, true);
+		if (rule->isAlien()) types.insert(rule->getPrisonType());
+	}
+	std::vector<Location> rows;
+	_hdHeld = _hdCapacity = _hdStudy = 0;
+	for (auto *base : *_game->getSavedGame()->getBases())
+	{
+		const auto before = rows.size();
+		for (int type : types)
+		{
+			const int held = base->getUsedContainment(type);
+			const int capacity = base->getAvailableContainment(type);
+			if (!held && !capacity) continue;
+			int study = 0;
+			for (const auto *project : base->getResearch())
+			{
+				const auto *research = project->getRules();
+				const auto *item = research->getNeededItem();
+				if (research->isHoldingNeededItem() && item && item->isAlien() && item->getPrisonType() == type) ++study;
+			}
+			rows.push_back({base, type, held, capacity, study});
+			_hdHeld += held;
+			_hdCapacity += capacity;
+			_hdStudy += study;
+		}
+		if (rows.size() == before) rows.push_back({base, 0, 0, 0, 0});
+	}
+	std::stable_sort(rows.begin(), rows.end(), [](const Location &a, const Location &b)
+	{
+		return a.capacity - a.held < b.capacity - b.held;
+	});
+	_topics.clear();
+	_lstPrisoners->clearList();
+	for (const auto &r : rows)
+	{
+		auto label = r.base->getName(_game->getLanguage());
+		if (types.size() > 1) label += " · " + std::string(trAlt("STR_PRISON_TYPE", r.type));
+		_lstPrisoners->addRow(5, label.c_str(), std::to_string(r.held).c_str(),
+			std::to_string(r.capacity).c_str(), std::to_string(r.capacity - r.held).c_str(), std::to_string(r.study).c_str());
+		_topics.emplace_back("", r.base, r.type);
+	}
+}
+
+void GlobalAlienContainmentState::resize(int &dX, int &dY)
+{
+	if (_hdLedger) _hdLedger->refresh();
+	else State::resize(dX, dY);
+}
+#endif
 
 }

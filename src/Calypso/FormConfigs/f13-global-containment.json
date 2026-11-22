@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "id": "f13-global-containment",
+  "familyId": 13,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-research"
+  },
+  "state": "GlobalAlienContainmentState",
+  "labelKeys": {
+    "title": "STR_PRISONER_OVERVIEW",
+    "done": "STR_BACK"
+  },
+  "title": "CONTAINMENT",
+  "actions": [
+    {
+      "id": "done",
+      "action": "done",
+      "label": "BACK",
+      "labelKey": "STR_BACK",
+      "tone": "primary"
+    }
+  ],
+  "toolbar": [],
+  "summary": [
+    {
+      "id": "held",
+      "label": "HELD",
+      "value": "137"
+    },
+    {
+      "id": "capacity",
+      "label": "CAPACITY",
+      "value": "40"
+    },
+    {
+      "id": "study",
+      "label": "IN STUDY",
+      "value": "0"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "containment-record",
+    "columns": [
+      {
+        "id": "base",
+        "label": "BASE",
+        "contentRole": "name"
+      },
+      {
+        "id": "held",
+        "label": "HELD",
+        "contentRole": "count"
+      },
+      {
+        "id": "capacity",
+        "label": "CAPACITY",
+        "contentRole": "count"
+      },
+      {
+        "id": "balance",
+        "label": "BALANCE",
+        "contentRole": "count"
+      },
+      {
+        "id": "study",
+        "label": "IN STUDY",
+        "contentRole": "count"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Batumi",
+          "98",
+          "10",
+          "-88",
+          "0"
+        ]
+      }
+    ]
+  },
+  "controls": []
+}

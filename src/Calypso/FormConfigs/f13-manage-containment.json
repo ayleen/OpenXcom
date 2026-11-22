@@ -1,0 +1,132 @@
+{
+  "schema": 1,
+  "id": "f13-manage-containment",
+  "familyId": 13,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-research"
+  },
+  "state": "ManageAlienContainmentState",
+  "labelKeys": {
+    "title": "STR_MANAGE_CONTAINMENT",
+    "done": "STR_BACK"
+  },
+  "title": "CONTAINMENT",
+  "actions": [
+    {
+      "id": "review",
+      "action": "review",
+      "label": "REVIEW",
+      "labelKey": "STR_CAL_CONTAINMENT_REVIEW",
+      "tone": "normal"
+    },
+    {
+      "id": "sell",
+      "action": "sell",
+      "label": "SELL",
+      "labelKey": "STR_SELL",
+      "tone": "normal"
+    },
+    {
+      "id": "done",
+      "action": "done",
+      "label": "BACK",
+      "labelKey": "STR_BACK",
+      "tone": "primary"
+    }
+  ],
+  "toolbar": [
+    {
+      "id": "global",
+      "action": "global",
+      "label": "ALL BASES",
+      "labelKey": "STR_BASES",
+      "tone": "normal"
+    },
+    {
+      "id": "decrease",
+      "action": "decrease",
+      "label": "\u2212",
+      "labelKey": "STR_CAL_CONTAINMENT_LESS",
+      "tone": "normal"
+    },
+    {
+      "id": "increase",
+      "action": "increase",
+      "label": "+",
+      "labelKey": "STR_CAL_CONTAINMENT_MORE",
+      "tone": "normal"
+    },
+    {
+      "id": "transfer",
+      "action": "transfer",
+      "label": "TRANSFER",
+      "labelKey": "STR_GO_TO_TRANSFERS",
+      "tone": "normal"
+    }
+  ],
+  "summary": [
+    {
+      "id": "held",
+      "label": "HELD",
+      "value": "98"
+    },
+    {
+      "id": "capacity",
+      "label": "CAPACITY",
+      "value": "10"
+    },
+    {
+      "id": "balance",
+      "label": "FREE",
+      "value": "-88"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "containment-record",
+    "columns": [
+      {
+        "id": "specimen",
+        "label": "SPECIMEN",
+        "contentRole": "name"
+      },
+      {
+        "id": "price",
+        "label": "PRICE",
+        "contentRole": "status"
+      },
+      {
+        "id": "remaining",
+        "label": "HELD",
+        "contentRole": "count"
+      },
+      {
+        "id": "marked",
+        "label": "MARKED",
+        "contentRole": "count"
+      },
+      {
+        "id": "study",
+        "label": "IN STUDY",
+        "contentRole": "count"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Aquatoid",
+          "\u2013",
+          "2",
+          "1",
+          "0"
+        ]
+      }
+    ]
+  },
+  "controls": []
+}

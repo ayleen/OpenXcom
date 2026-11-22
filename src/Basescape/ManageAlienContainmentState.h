@@ -24,7 +24,7 @@
 
 namespace OpenXcom
 {
-namespace Calypso { class CalypsoF13ContainmentUi; }
+namespace Calypso { class CalypsoBaseLedger; }
 
 class TextButton;
 class Window;
@@ -40,7 +40,8 @@ class Base;
 class ManageAlienContainmentState : public TouchState
 {
 #ifdef __EMSCRIPTEN__
-friend class Calypso::CalypsoF13ContainmentUi;
+friend class Calypso::CalypsoBaseLedger;
+friend class ContainmentReviewState;
 #endif
 private:
 	Base *_base;
@@ -112,9 +113,10 @@ public:
 
 #ifdef __EMSCRIPTEN__
 private:
-    bool _hdLayout = false;
-    bool _hdWideLayout = false;
-    Calypso::CalypsoF13ContainmentUi *_hdAdapter = nullptr;
+	Calypso::CalypsoBaseLedger *_hdAdapter = nullptr;
+	TextButton *_hdGlobal, *_hdDecrease, *_hdIncrease;
+	void hdChangeQuantity(Action *action);
+	void hdSelectRow(Action *action);
 public:
     void resize(int &dX, int &dY) override;
 #endif

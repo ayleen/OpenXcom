@@ -32,6 +32,8 @@
 #include "../Menu/AbandonGameState.h"
 #include "../Basescape/BaseView.h"
 #include "../Basescape/ManageAlienContainmentState.h"
+#include "../Basescape/GlobalAlienContainmentState.h"
+#include "../Basescape/ContainmentReviewState.h"
 #include "../Basescape/BuildFacilitiesState.h"
 #include "../Basescape/DismantleFacilityState.h"
 #include "../Basescape/PlaceFacilityState.h"
@@ -1904,9 +1906,29 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new TransferConfirmState(to, items);
 	}
 	case CalypsoHarnessScenario::F13Containment:
+	case CalypsoHarnessScenario::F13ManageContainment:
+	case CalypsoHarnessScenario::F13GlobalContainment:
+	case CalypsoHarnessScenario::F13ContainmentReview:
 	{
-		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), false, false);
-		return fixture.base ? new ManageAlienContainmentState(fixture.base, 0, OPT_GEOSCAPE) : nullptr;
+		auto *game = getCurrentGame();
+		auto fixture = makeOperationsFixture(game, false, false);
+		if (!fixture.base) return nullptr;
+		for (const auto &name : game->getMod()->getItemsList())
+		{
+			const auto *rule = game->getMod()->getItem(name, true);
+			if (rule->isAlien() && rule->getPrisonType() == 0)
+			{
+				fixture.base->getStorageItems()->addItem(rule, 2);
+				break;
+			}
+		}
+		if (id == CalypsoHarnessScenario::F13GlobalContainment)
+			return new GlobalAlienContainmentState(false);
+		auto *state = new ManageAlienContainmentState(fixture.base, 0, OPT_GEOSCAPE);
+		if (id != CalypsoHarnessScenario::F13ContainmentReview) return state;
+		game->pushState(state);
+		state->increaseByValue(1);
+		return new ContainmentReviewState(*state, ContainmentAction::Remove);
 	}
 	case CalypsoHarnessScenario::F24ItemsArriving:
 	{
