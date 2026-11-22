@@ -21,6 +21,9 @@
 #include "BattlescapeState.h"
 #include "Camera.h"
 #include "ExperienceOverviewState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#endif
 #include "Map.h"
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
@@ -43,7 +46,11 @@ namespace OpenXcom
  */
 ExperienceOverviewState::ExperienceOverviewState(BattlescapeState* parent) : _parent(parent)
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+#else
 	_screen = false;
+#endif
 
 	// Create objects
 	_window = new Window(this, 320, 200, 0, 0);
@@ -81,12 +88,17 @@ ExperienceOverviewState::ExperienceOverviewState(BattlescapeState* parent) : _pa
 
 	// Set up objects
 	_window->setHighContrast(true);
+#ifndef __EMSCRIPTEN__
 	_window->setBackground(_game->getMod()->getSurface("TAC00.SCR"));
+#endif
 
 	_btnOk->setHighContrast(true);
 	_btnOk->setText(tr("STR_OK"));
 	_btnOk->onMouseClick((ActionHandler)&ExperienceOverviewState::btnOkClick);
 	_btnOk->onKeyboardPress((ActionHandler)&ExperienceOverviewState::btnOkClick, Options::keyCancel);
+#ifdef __EMSCRIPTEN__
+	_btnOk->onKeyboardPress((ActionHandler)&ExperienceOverviewState::btnOkClick, Options::keyOk);
+#endif
 
 	_txtTitle->setHighContrast(true);
 	_txtTitle->setBig();
@@ -179,7 +191,32 @@ ExperienceOverviewState::ExperienceOverviewState(BattlescapeState* parent) : _pa
 		}
 		row++;
 	}
+#ifdef __EMSCRIPTEN__
+	for (Text *header : {_txtName, _txtBravery, _txtReactions, _txtFiring, _txtThrowing, _txtPsiSkill,
+		_txtPsiStrength, _txtMelee, _txtMana}) header->setVisible(false);
+	_hdList = new Calypso::CalypsoStrategicList(this, nullptr, _game->getMod(), _window, _txtTitle,
+		_lstSoldiers, _btnOk, Calypso::CalypsoStrategicList::Content::ExperienceOverview);
+	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+#endif
 }
+
+ExperienceOverviewState::~ExperienceOverviewState()
+{
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
+}
+
+#ifdef __EMSCRIPTEN__
+void ExperienceOverviewState::resize(int &dx, int &dy)
+{
+	if (!_hdList) { State::resize(dx, dy); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+}
+#endif
 
 /**
  * Returns to the previous screen.
@@ -199,7 +236,8 @@ void ExperienceOverviewState::lstSoldiersClick(Action*)
 	if (_parent->allowButtons())
 	{
 		auto index = _lstSoldiers->getSelectedRow();
-		auto* bu = _soldiers.at(index);
+		if (index >= _soldiers.size()) return;
+		auto* bu = _soldiers[index];
 
 		if (bu->isSelectable(_game->getSavedGame()->getSavedBattle()->getSide(), false, false))
 		{

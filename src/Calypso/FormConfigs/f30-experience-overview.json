@@ -1,0 +1,76 @@
+{
+  "actions": [
+    {
+      "id": "ok",
+      "label": "OK",
+      "action": "ok",
+      "tone": "safe"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "mode": "table",
+    "selectionRole": "unit-experience",
+    "columns": [
+      {
+        "id": "name",
+        "label": "NAME"
+      },
+      {
+        "id": "bravery",
+        "label": "BR"
+      },
+      {
+        "id": "reactions",
+        "label": "RE"
+      },
+      {
+        "id": "firing",
+        "label": "FA"
+      },
+      {
+        "id": "throwing",
+        "label": "TH"
+      },
+      {
+        "id": "psi-skill",
+        "label": "PS"
+      },
+      {
+        "id": "psi-strength",
+        "label": "PT"
+      },
+      {
+        "id": "melee",
+        "label": "ME"
+      },
+      {
+        "id": "mana",
+        "label": "MA"
+      }
+    ],
+    "items": [
+      {
+        "id": "diver",
+        "values": [
+          "Mahmoud Mustafa",
+          "0",
+          "1",
+          "2",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "familyId": 30,
+  "id": "f30-experience-overview",
+  "schema": 1,
+  "title": "EXPERIENCE OVERVIEW",
+  "version": "hd.2026-08-29.1",
+  "state": "ExperienceOverviewState"
+}

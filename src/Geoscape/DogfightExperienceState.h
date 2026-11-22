@@ -22,6 +22,7 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoBaseLedger; }
 class TextButton;
 class Window;
 class Text;
@@ -33,6 +34,11 @@ class TextList;
 class DogfightExperienceState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_ledger = nullptr;
+	void resize(int &dx, int &dy) override;
+#endif
 	TextButton *_btnOk;
 	Window *_window;
 	Text *_txtTitle, *_txtFiringAcc, *_txtReactions, *_txtBravery, *_txtPilots;
@@ -41,7 +47,7 @@ public:
 	/// Creates the DogfightExperienceState.
 	DogfightExperienceState();
 	/// Cleans up the DogfightExperienceState.
-	~DogfightExperienceState() = default;
+	~DogfightExperienceState() override;
 	/// Handler for clicking the OK button.
 	void btnOkClick(Action *action);
 };

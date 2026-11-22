@@ -1118,6 +1118,10 @@ void calypsoCollectScrollableCollection(
 			addPanel(slotRect, model.selectionColor, model.listWidget,
 				COLLECTION_ROLE_ROW_BASE + (std::uint32_t)slot, true);
 		const CalypsoScrollableCollectionRow& data = model.rows[row];
+		const auto labelRole = [&](std::size_t column) -> std::uint32_t {
+			if (model.columnLabels.size() > 8) return 4096u + slot * model.columnLabels.size() + column;
+			return COLLECTION_ROLE_ROW_LABEL_BASE + slot * 8 + column;
+		};
 		// Quantity steppers, if the adapter projected any: the decrement and
 		// increment targets coincide with the native arrow-button hit targets
 		// bound in applyGeneratedLayout, so painted presses land natively.
@@ -1167,8 +1171,7 @@ void calypsoCollectScrollableCollection(
 						data.values[column],
 						data.muted ? model.mutedTextColor : model.textColor,
 						CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle,
-						rowPx, 0, 0.0, COLLECTION_ROLE_ROW_LABEL_BASE
-							+ (std::uint32_t)(slot * 8 + column));
+						rowPx, 0, 0.0, labelRole(column));
 				}
 				continue;
 			}
@@ -1178,8 +1181,7 @@ void calypsoCollectScrollableCollection(
 			addText(textRect, model.listWidget, body, data.values[column],
 				data.muted ? model.mutedTextColor : model.textColor,
 				CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
-				rowPx, 0, 0.0, COLLECTION_ROLE_ROW_LABEL_BASE
-					+ (std::uint32_t)(slot * 8 + column));
+				rowPx, 0, 0.0, labelRole(column));
 		}
 	}
 

@@ -142,6 +142,12 @@ enum class CalypsoHarnessScenario
 	F17OverlappingTargets = 144,
 	F17TargetInfo = 145,
 	F23Graphs = 162,
+	F19PilotExperience = 190,
+	F30TurnDiary = 191,
+	F30Promotions = 192,
+	F30FallenCommendations = 195,
+	F30Commendations = 194,
+	F30ExperienceOverview = 193,
 	F23Funding = 160,
 	F23MonthlyReport = 161
 };
@@ -238,6 +244,12 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F17OverlappingTargets)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F17TargetInfo)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F23Graphs)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F19PilotExperience)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F30TurnDiary)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F30Promotions)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F30FallenCommendations)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F30Commendations)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F30ExperienceOverview)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F23Funding)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F23MonthlyReport);
 }

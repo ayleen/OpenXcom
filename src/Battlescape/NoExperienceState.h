@@ -21,7 +21,7 @@
 
 namespace OpenXcom
 {
-namespace Calypso { class CalypsoF30NoExperienceUi; }
+namespace Calypso { class CalypsoStrategicList; }
 
 class Window;
 class Text;
@@ -33,9 +33,6 @@ class TextList;
  */
 class NoExperienceState : public State
 {
-#ifdef __EMSCRIPTEN__
-friend class Calypso::CalypsoF30NoExperienceUi;
-#endif
 private:
 	Window *_window;
 	Text *_txtTitle;
@@ -51,9 +48,7 @@ public:
 
 #ifdef __EMSCRIPTEN__
 private:
-    bool _hdLayout = false;
-    bool _hdWideLayout = false;
-    Calypso::CalypsoF30NoExperienceUi *_hdAdapter = nullptr;
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
 public:
     void resize(int &dX, int &dY) override;
 #endif

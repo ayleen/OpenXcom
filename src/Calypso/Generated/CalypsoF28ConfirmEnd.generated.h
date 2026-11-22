@@ -4,11 +4,15 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF28ConfirmEndGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kFormId = "f28-confirm-end";
 inline constexpr int kFamilyId = 28;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f28-confirm-end.json";
+inline constexpr const char* kProtocol = "CALYPSO COMMAND · MISSION COMPLETION TA-28-E";
+inline constexpr const char* kTitle = "MISSION COMPLETE";
+inline constexpr const char* kMessage[] = { "0 of us are still fatally wounded.", "End Mission?" };
+inline constexpr int kMessageCount = 2;
 
 inline constexpr const char* kDensityProfile = "standard";
 inline constexpr int kPresentationScaleNumerator = 1;
@@ -18,7 +22,7 @@ inline constexpr float kPresentationScale = 1.000000f;
 struct CalypsoF28ConfirmEndGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
 inline constexpr CalypsoF28ConfirmEndGenButton kButtons[] = {
     { "cancel", "CANCEL", "safe", "cancel", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
-    { "confirm", "END TURN", "primary", "confirm", 0x74FFB0FFu, 0x74FFB0FFu, 0x071013FFu },
+    { "confirm", "OK", "primary", "confirm", 0x74FFB0FFu, 0x74FFB0FFu, 0x071013FFu },
 };
 inline constexpr int kButtonCount = 2;
 
@@ -32,18 +36,22 @@ inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
 inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
 inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
 inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
+inline constexpr std::uint32_t kDestructiveFill = 0xF25F5CFFu;
+inline constexpr std::uint32_t kDestructiveText = 0x071013FFu;
+inline constexpr std::uint32_t kSafeBorder = 0x74FFB0CCu;
+inline constexpr std::uint32_t kSafeFill = 0x051417B8u;
 
 struct CalypsoF28ConfirmEndGenRect { int x; int y; int w; int h; };
 struct CalypsoF28ConfirmEndGenLayout { int designWidth; int designHeight; CalypsoF28ConfirmEndGenRect window; CalypsoF28ConfirmEndGenRect status; CalypsoF28ConfirmEndGenRect warning; CalypsoF28ConfirmEndGenRect title; CalypsoF28ConfirmEndGenRect message; CalypsoF28ConfirmEndGenRect footer;
 };
 inline constexpr CalypsoF28ConfirmEndGenLayout kLayouts[] = {
-    { 1280, 720, { 445, 230, 390, 236 }, { 445, 230, 390, 38 }, { 477, 290, 32, 32 }, { 525, 284, 278, 44 }, { 477, 336, 326, 54 }, { 445, 404, 390, 62 } }, // wide
-    { 740, 360, { 188, 60, 364, 221 }, { 188, 60, 364, 34 }, { 216, 111, 28, 28 }, { 258, 106, 266, 38 }, { 216, 150, 308, 48 }, { 188, 215, 364, 66 } }, // compact
+    { 1280, 720, { 416, 230, 448, 236 }, { 416, 230, 448, 38 }, { 448, 290, 32, 32 }, { 496, 284, 336, 44 }, { 448, 336, 384, 54 }, { 416, 404, 448, 62 } }, // wide
+    { 740, 360, { 169, 60, 402, 221 }, { 169, 60, 402, 34 }, { 197, 111, 28, 28 }, { 239, 106, 304, 38 }, { 197, 150, 346, 48 }, { 169, 215, 402, 66 } }, // compact
 };
 struct CalypsoF28ConfirmEndGenButtonRect { const char* id; CalypsoF28ConfirmEndGenRect rect; };
 inline constexpr CalypsoF28ConfirmEndGenButtonRect kButtonRects[][ 2 ] = {
-    { { "cancel", { 477, 413, 158, 44 } }, { "confirm", { 645, 413, 158, 44 } } }, // wide
-    { { "cancel", { 216, 225, 148, 44 } }, { "confirm", { 376, 225, 148, 44 } } }, // compact
+    { { "cancel", { 506, 413, 158, 44 } }, { "confirm", { 674, 413, 158, 44 } } }, // wide
+    { { "cancel", { 235, 225, 148, 44 } }, { "confirm", { 395, 225, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

@@ -8,6 +8,7 @@ class GlobalAlienContainmentState;
 class ManageAlienContainmentState;
 class ContainmentReviewState;
 class BaseInfoState;
+class DogfightExperienceState;
 class FundingState;
 class MonthlyReportState;
 class CalypsoEconomyState;
@@ -39,6 +40,7 @@ public:
 	explicit CalypsoBaseLedger(MultipleTargetsState &state);
 	explicit CalypsoBaseLedger(TransfersState &state);
 	explicit CalypsoBaseLedger(ItemLocationsState &state);
+	explicit CalypsoBaseLedger(DogfightExperienceState &state);
 	explicit CalypsoBaseLedger(FundingState &state);
 	explicit CalypsoBaseLedger(MonthlyReportState &state);
 	void refresh();

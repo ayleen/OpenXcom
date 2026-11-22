@@ -4,46 +4,124 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF30NoExperienceGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kFormId = "f30-no-experience";
 inline constexpr int kFamilyId = 30;
-inline constexpr const char* kArchetype = "small-confirmation";
+inline constexpr const char* kArchetype = "scrollable-collection";
 inline constexpr const char* kSourceConfig = "FormConfigs/f30-no-experience.json";
 
-inline constexpr const char* kDensityProfile = "brief-acknowledgement";
-inline constexpr int kPresentationScaleNumerator = 2;
-inline constexpr int kPresentationScaleDenominator = 3;
-inline constexpr float kPresentationScale = 0.666667f;
+inline constexpr const char* kTitle = "NO EXPERIENCE YET";
 
 struct CalypsoF30NoExperienceGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
 inline constexpr CalypsoF30NoExperienceGenButton kButtons[] = {
-    { "ok", "OK", "safe", "ok", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
+    { "cancel", "CANCEL", "safe", "cancel", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
 };
 inline constexpr int kButtonCount = 1;
 
+struct CalypsoF30NoExperienceGenColumn { const char* id; const char* label; };
+inline constexpr CalypsoF30NoExperienceGenColumn kColumns[] = {
+    { "name", "NAME" },
+};
+inline constexpr int kColumnCount = 1;
+
+struct CalypsoF30NoExperienceGenSummaryField { const char* id; const char* label; const char* value; };
+inline constexpr int kSummaryCount = 0;
+inline constexpr const char* kCollectionHeading = "";
+inline constexpr int kHasCollectionHeading = 0;
+inline constexpr const char* kHeaderArtAssetId = "";
+inline constexpr const char* kHeaderArtVfsPath = "";
+inline constexpr int kHasHeaderArt = 0;
+inline constexpr int kHasWorkspace = 0;
+inline constexpr const char* kWorkspaceId = "";
+inline constexpr const char* kWorkspaceInitialTab = "";
+struct CalypsoF30NoExperienceGenWorkspaceTab { const char* id; const char* label; const char* action; };
+inline constexpr int kWorkspaceTabCount = 0;
+
+inline constexpr float kPresentationScale = 1.000000f;
 inline constexpr float kCutCornerPx = 14.000000f;
-inline constexpr float kProtocolTextInsetPx = 26.000000f;
+struct CalypsoF30NoExperienceGenRect { int x; int y; int w; int h; };
 inline constexpr std::uint32_t kPanelFillTop = 0x08191DEBu;
 inline constexpr std::uint32_t kPanelFillBottom = 0x041014E8u;
 inline constexpr std::uint32_t kFrame = 0x74FFB073u;
-inline constexpr std::uint32_t kProtocolText = 0xA9D8C7FFu;
 inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
-inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
-inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
-inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
-
-struct CalypsoF30NoExperienceGenRect { int x; int y; int w; int h; };
-struct CalypsoF30NoExperienceGenLayout { int designWidth; int designHeight; CalypsoF30NoExperienceGenRect window; CalypsoF30NoExperienceGenRect status; CalypsoF30NoExperienceGenRect warning; CalypsoF30NoExperienceGenRect title; CalypsoF30NoExperienceGenRect message; CalypsoF30NoExperienceGenRect footer;
+inline constexpr std::uint32_t kText = 0xE8FFF5FFu;
+inline constexpr std::uint32_t kMutedText = 0xA9D8C7FFu;
+inline constexpr std::uint32_t kSelection = 0x74FFB033u;
+inline constexpr std::uint32_t kScrollTrack = 0x061B1CD6u;
+inline constexpr std::uint32_t kScrollThumb = 0x74FFB099u;
+inline constexpr std::uint32_t kHeaderArtScrim = 0x04090DCCu;
+inline constexpr int kHeaderArtOpacityPct = 85;
+struct CalypsoF30NoExperienceGenButtonRect { const char* id; CalypsoF30NoExperienceGenRect rect; };
+struct CalypsoF30NoExperienceGenControlRect { const char* id; CalypsoF30NoExperienceGenRect rect; };
+struct CalypsoF30NoExperienceGenWorkspaceTabRect { const char* id; CalypsoF30NoExperienceGenRect rect; };
+struct CalypsoF30NoExperienceGenRowStepper { const char* rowSlotId; const char* behaviorOwner; CalypsoF30NoExperienceGenRect decrement; CalypsoF30NoExperienceGenRect increment; };
+struct CalypsoF30NoExperienceGenSummaryRect { CalypsoF30NoExperienceGenRect field; CalypsoF30NoExperienceGenRect label; CalypsoF30NoExperienceGenRect value; };
+struct CalypsoF30NoExperienceGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int headerHeight; int scrollBarWidth; int minThumbHeight; int columnCount; int summaryCount; int hasHeaderArt; CalypsoF30NoExperienceGenRect window; CalypsoF30NoExperienceGenRect title; CalypsoF30NoExperienceGenRect summaryBar; CalypsoF30NoExperienceGenRect headerArt; CalypsoF30NoExperienceGenRect controlBar; CalypsoF30NoExperienceGenRect collectionHeading; CalypsoF30NoExperienceGenRect viewport; CalypsoF30NoExperienceGenRect footer; CalypsoF30NoExperienceGenRect workspaceHeader; CalypsoF30NoExperienceGenRect workspaceNavigationRail; CalypsoF30NoExperienceGenRect workspaceTabBar; CalypsoF30NoExperienceGenRect workspaceContent;
 };
 inline constexpr CalypsoF30NoExperienceGenLayout kLayouts[] = {
-    { 1280, 720, { 484, 269, 312, 158 }, { 484, 269, 312, 25 }, { 505, 309, 22, 21 }, { 537, 305, 238, 29 }, { 505, 338, 270, 40 }, { 484, 379, 312, 48 } }, // wide
-    { 740, 360, { 230, 97, 280, 147 }, { 230, 97, 280, 23 }, { 249, 131, 18, 19 }, { 277, 128, 214, 25 }, { 249, 153, 242, 40 }, { 230, 196, 280, 48 } }, // compact
+    { 1280, 720, 44, 8, 36, 18, 44, 1, 0, 0, { 100, 50, 1080, 620 }, { 132, 74, 500, 44 }, { 648, 74, 500, 44 }, { 100, 50, 1080, 68 }, { 132, 124, 1016, 44 }, { 0, 0, 0, 0 }, { 132, 178, 1016, 406 }, { 100, 600, 1080, 70 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 } }, // wide
+    { 740, 360, 44, 2, 32, 18, 44, 1, 0, 0, { 20, 8, 700, 344 }, { 44, 24, 328, 44 }, { 384, 24, 312, 44 }, { 20, 8, 700, 60 }, { 44, 72, 652, 44 }, { 0, 0, 0, 0 }, { 44, 122, 652, 160 }, { 20, 294, 700, 58 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 } }, // compact
 };
-struct CalypsoF30NoExperienceGenButtonRect { const char* id; CalypsoF30NoExperienceGenRect rect; };
-inline constexpr CalypsoF30NoExperienceGenButtonRect kButtonRects[][ 1 ] = {
-    { { "ok", { 669, 388, 106, 29 } } }, // wide
-    { { "ok", { 393, 205, 98, 29 } } }, // compact
+inline constexpr int kWorkspaceTabRectWideCount = 0;
+inline constexpr CalypsoF30NoExperienceGenRect kRowSlotsWide[] = {
+    { 132, 214, 962, 44 }, // row-slot-1
+    { 132, 258, 962, 44 }, // row-slot-2
+    { 132, 302, 962, 44 }, // row-slot-3
+    { 132, 346, 962, 44 }, // row-slot-4
+    { 132, 390, 962, 44 }, // row-slot-5
+    { 132, 434, 962, 44 }, // row-slot-6
+    { 132, 478, 962, 44 }, // row-slot-7
+    { 132, 522, 962, 44 }, // row-slot-8
 };
+inline constexpr int kRowSlotWideCount = 8;
+inline constexpr CalypsoF30NoExperienceGenRect kRowCellsWide[] = {
+    { 132, 214, 962, 44 }, // name
+    { 132, 258, 962, 44 }, // name
+    { 132, 302, 962, 44 }, // name
+    { 132, 346, 962, 44 }, // name
+    { 132, 390, 962, 44 }, // name
+    { 132, 434, 962, 44 }, // name
+    { 132, 478, 962, 44 }, // name
+    { 132, 522, 962, 44 }, // name
+};
+inline constexpr int kRowCellWideCount = 8;
+inline constexpr CalypsoF30NoExperienceGenRect kRowHitWide = { 132, 214, 962, 352 };
+inline constexpr int kRowStepperWideCount = 0;
+inline constexpr CalypsoF30NoExperienceGenRect kColumnHeadersWide[] = {
+    { 132, 178, 962, 36 }, // name
+};
+inline constexpr int kColumnHeaderWideCount = 1;
+inline constexpr int kTileSlotWideCount = 0;
+inline constexpr CalypsoF30NoExperienceGenButtonRect kButtonRectsWide[] = {
+    { "cancel", { 990, 613, 158, 44 } },
+};
+inline constexpr int kButtonRectWideCount = 1;
+inline constexpr int kControlRectWideCount = 0;
+inline constexpr int kSummaryWideCount = 0;
+inline constexpr int kWorkspaceTabRectCompactCount = 0;
+inline constexpr CalypsoF30NoExperienceGenRect kRowSlotsCompact[] = {
+    { 44, 154, 600, 44 }, // row-slot-1
+    { 44, 198, 600, 44 }, // row-slot-2
+};
+inline constexpr int kRowSlotCompactCount = 2;
+inline constexpr CalypsoF30NoExperienceGenRect kRowCellsCompact[] = {
+    { 44, 154, 600, 44 }, // name
+    { 44, 198, 600, 44 }, // name
+};
+inline constexpr int kRowCellCompactCount = 2;
+inline constexpr CalypsoF30NoExperienceGenRect kRowHitCompact = { 44, 154, 600, 88 };
+inline constexpr int kRowStepperCompactCount = 0;
+inline constexpr CalypsoF30NoExperienceGenRect kColumnHeadersCompact[] = {
+    { 44, 122, 600, 32 }, // name
+};
+inline constexpr int kColumnHeaderCompactCount = 1;
+inline constexpr int kTileSlotCompactCount = 0;
+inline constexpr CalypsoF30NoExperienceGenButtonRect kButtonRectsCompact[] = {
+    { "cancel", { 548, 301, 148, 44 } },
+};
+inline constexpr int kButtonRectCompactCount = 1;
+inline constexpr int kControlRectCompactCount = 0;
+inline constexpr int kSummaryCompactCount = 0;
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;
 inline constexpr float kMotionScaleFrom = 0.960000f;
@@ -53,5 +131,32 @@ inline const CalypsoF30NoExperienceGenLayout* layoutForDesign(int dw, int dh)
 		if (kLayouts[i].designWidth == dw && kLayouts[i].designHeight == dh)
 			return &kLayouts[i];
 	return nullptr;
+}
+template<class Model, class Bind>
+inline bool bindTable(bool wide, Model &m, Bind bind)
+{
+	const auto *layout = layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
+	if (!layout) return false;
+	bind(*layout, wide ? kRowSlotsWide : kRowSlotsCompact,
+		wide ? kRowCellsWide : kRowCellsCompact, wide ? kColumnHeadersWide : kColumnHeadersCompact,
+		kColumns, kColumnCount, kButtons, wide ? kButtonRectsWide : kButtonRectsCompact, kButtonCount);
+	m.familyId = kFamilyId;
+	m.hasHeading = kHasCollectionHeading;
+	m.headingText = kCollectionHeading;
+	m.cutCornerPx = kCutCornerPx;
+	m.panelFillTop = kPanelFillTop;
+	m.panelFillBottom = kPanelFillBottom;
+	m.frameColor = kFrame;
+	m.dividerColor = kDivider;
+	m.footerDotColor = kDivider;
+	m.textColor = kText;
+	m.mutedTextColor = kMutedText;
+	m.selectionColor = kSelection;
+	m.scrollTrackColor = kScrollTrack;
+	m.scrollThumbColor = kScrollThumb;
+	m.motionDurationMs = kMotionDurationMs;
+	m.motionScaleFrom = kMotionScaleFrom;
+	m.visualScale = kPresentationScale;
+	return true;
 }
 } } }

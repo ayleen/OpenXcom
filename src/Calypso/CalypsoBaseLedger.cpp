@@ -37,6 +37,8 @@
 #include "../Basescape/ItemLocationsState.h"
 #include "../Engine/Game.h"
 #include "../Geoscape/FundingState.h"
+#include "../Geoscape/DogfightExperienceState.h"
+#include "Generated/CalypsoF19PilotExperience.generated.h"
 #include "../Geoscape/MonthlyReportState.h"
 #include "Generated/CalypsoF23MonthlyReport.generated.h"
 #include "../Savegame/GameTime.h"
@@ -694,6 +696,32 @@ CalypsoBaseLedger::CalypsoBaseLedger(TechTreeSelectState &s)
 	};
 	open();
 }
+CalypsoBaseLedger::CalypsoBaseLedger(DogfightExperienceState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]() {
+		namespace Gen = CalypsoF19PilotExperienceGen;
+		const bool wide = wideLayout();
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		auto model = ledgerModel(s, s._txtTitle->getText(), *s._lstPilots, nullptr, g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"pilots", s.tr("STR_PILOTS"), std::to_string(s._lstPilots->getCellTextsSnapshot().size()), design(g.summary_pilots)}},
+			{{s._txtPilots->getText()}, {s._txtFiringAcc->getText()}, {s._txtReactions->getText()}, {s._txtBravery->getText()}},
+			{{"done", s._btnOk, s._btnOk->getText(), design(g.action_done)}},
+			"STR_DAILY_PILOT_EXPERIENCE", "STR_NONE", 19);
+		model.sectionLabel = s.tr("STR_DAILY_PILOT_EXPERIENCE");
+		model.headerArtId = Gen::kHeaderArt;
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+
 CalypsoBaseLedger::CalypsoBaseLedger(FundingState &s)
 	: _chrome(s), _renderer(&s, {})
 {

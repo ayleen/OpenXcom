@@ -13,7 +13,7 @@
   },
   "limits": {
     "maxItems": 64,
-    "maxColumns": 8,
+    "maxColumns": 9,
     "maxCellCharacters": 48,
     "maxControls": 6,
     "maxControlOptions": 32,

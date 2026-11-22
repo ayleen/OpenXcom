@@ -795,7 +795,7 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
         columns = collection.get("columns") or []
         if collection["mode"] != "grid":
             minimum = 2 if collection["mode"] == "table" else 1
-            if not minimum <= len(columns) <= 8:
+            if not minimum <= len(columns) <= 9:
                 fail(rel + ": scrollable-collection columns are outside the template limit")
         actions = form.get("actions") or []
         if not 1 <= len(actions) <= 3:
@@ -2040,6 +2040,34 @@ def emit_scrollable_collection_h(doc, rel, ns, prefix):
     out.append("			return &kLayouts[i];")
     out.append("	return nullptr;")
     out.append("}")
+    if columns and {"wide", "compact"} <= set(generated_layouts):
+        out.extend("""template<class Model, class Bind>
+inline bool bindTable(bool wide, Model &m, Bind bind)
+{
+	const auto *layout = layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
+	if (!layout) return false;
+	bind(*layout, wide ? kRowSlotsWide : kRowSlotsCompact,
+		wide ? kRowCellsWide : kRowCellsCompact, wide ? kColumnHeadersWide : kColumnHeadersCompact,
+		kColumns, kColumnCount, kButtons, wide ? kButtonRectsWide : kButtonRectsCompact, kButtonCount);
+	m.familyId = kFamilyId;
+	m.hasHeading = kHasCollectionHeading;
+	m.headingText = kCollectionHeading;
+	m.cutCornerPx = kCutCornerPx;
+	m.panelFillTop = kPanelFillTop;
+	m.panelFillBottom = kPanelFillBottom;
+	m.frameColor = kFrame;
+	m.dividerColor = kDivider;
+	m.footerDotColor = kDivider;
+	m.textColor = kText;
+	m.mutedTextColor = kMutedText;
+	m.selectionColor = kSelection;
+	m.scrollTrackColor = kScrollTrack;
+	m.scrollThumbColor = kScrollThumb;
+	m.motionDurationMs = kMotionDurationMs;
+	m.motionScaleFrom = kMotionScaleFrom;
+	m.visualScale = kPresentationScale;
+	return true;
+}""".splitlines())
     out.append("} } }")
     return NL.join(out) + NL
 

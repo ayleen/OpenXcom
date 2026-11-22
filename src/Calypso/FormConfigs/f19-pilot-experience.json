@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "id": "f19-pilot-experience",
+  "familyId": 19,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "logistics-group"
+  },
+  "state": "DogfightExperienceState",
+  "labelKeys": {
+    "title": "STR_DAILY_PILOT_EXPERIENCE",
+    "done": "STR_OK"
+  },
+  "title": "DAILY PILOT EXPERIENCE",
+  "actions": [
+    {
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "tone": "primary",
+      "action": "done"
+    }
+  ],
+  "summary": [
+    {
+      "id": "pilots",
+      "label": "PILOTS",
+      "value": "1"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "pilot",
+    "columns": [
+      {
+        "id": "pilot",
+        "label": "PILOT",
+        "contentRole": "name"
+      },
+      {
+        "id": "firing",
+        "label": "FIRING ACCURACY",
+        "contentRole": "quantity"
+      },
+      {
+        "id": "reactions",
+        "label": "REACTIONS",
+        "contentRole": "quantity"
+      },
+      {
+        "id": "bravery",
+        "label": "BRAVERY",
+        "contentRole": "quantity"
+      }
+    ],
+    "items": [
+      {
+        "id": "pilot",
+        "values": [
+          "Pilot",
+          "+1",
+          "+2",
+          "+1"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": []
+}

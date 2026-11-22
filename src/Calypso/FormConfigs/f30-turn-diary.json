@@ -1,0 +1,36 @@
+{
+  "actions": [
+    {
+      "action": "cancel",
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "mode": "list",
+    "selectionRole": "entry",
+    "columns": [
+      {
+        "id": "entry",
+        "label": "EVENT"
+      }
+    ],
+    "items": [
+      {
+        "id": "new-turn",
+        "values": [
+          "New turn"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "familyId": 30,
+  "id": "f30-turn-diary",
+  "schema": 1,
+  "title": "HIT LOG",
+  "version": "hd.2026-08-29.1",
+  "state": "TurnDiaryState"
+}
