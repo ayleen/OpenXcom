@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "MiniMapState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTacticalSensor.h"
+#endif
 #include "../Engine/Game.h"
 #include "../Engine/Screen.h"
 #include "../Interface/BattlescapeButton.h"
@@ -42,6 +45,14 @@ namespace OpenXcom
  */
 MiniMapState::MiniMapState (Camera * camera, SavedBattleGame * battleGame)
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	battleGame->setPaletteByDepth(this);
+	_miniMapView = new MiniMapView(221,148,0,0,_game,camera,battleGame);
+	add(_miniMapView);
+	_sensor = new Calypso::CalypsoTacticalSensor(*this,_miniMapView,nullptr,camera,*battleGame,
+		(ActionHandler)&MiniMapState::sensorClick,tr("STR_MINIMAP"));
+#else
 	if (Options::maximizeInfoScreens)
 	{
 		Options::baseXResolution = Screen::ORIGINAL_WIDTH;
@@ -75,27 +86,7 @@ MiniMapState::MiniMapState (Camera * camera, SavedBattleGame * battleGame)
 		_bg->drawRect(46, 14, 223, 151, Palette::blockOffset(15)+15);
 	}
 
-#ifdef __EMSCRIPTEN__
-	// Calypso: scale the minimap to fill the logical buffer. Snapshot the painted
-	// 320×200 SCANBORD background, scale every widget (the MiniMapView repaints to
-	// fill its larger surface — more map context, same 4px cells), give the level
-	// label HD TTF, then bilinear-stretch the background back into the scaled _bg.
-	// (The trailing _miniMapView->draw() below repaints the view at its new size.)
-	{
-		SDL_Surface* s = _bg->getSurface();
-		if (s && s->format->BitsPerPixel == 32)
-		{
-			_bgNative = SDL_ConvertSurface(s, s->format, 0);
-		}
-	}
-	enableUiScaling(320, 200, 0.5f);   // QA tuning: MiniMap too big — scale to half
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	if (_bgNative)
-	{
-		TTFUtil::blitStretch(_bgNative, _bg);
-		_bg->setRedraw(false);
-	}
-#endif
+
 
 	_btnLvlUp->onMouseClick((ActionHandler)&MiniMapState::btnLevelUpClick);
 	_btnLvlDwn->onMouseClick((ActionHandler)&MiniMapState::btnLevelDownClick);
@@ -105,10 +96,12 @@ MiniMapState::MiniMapState (Camera * camera, SavedBattleGame * battleGame)
 	_txtLevel->setBig();
 	_txtLevel->setHighContrast(true);
 	_txtLevel->setText(tr("STR_LEVEL_SHORT").arg(camera->getViewLevel()));
+
+	_miniMapView->draw();
+#endif
 	_timerAnimate = new Timer(125);
 	_timerAnimate->onTimer((StateHandler)&MiniMapState::animate);
 	_timerAnimate->start();
-	_miniMapView->draw();
 }
 
 /**
@@ -118,10 +111,7 @@ MiniMapState::~MiniMapState()
 {
 	delete _timerAnimate;
 #ifdef __EMSCRIPTEN__
-	if (_bgNative)
-	{
-		SDL_FreeSurface(_bgNative);
-	}
+	delete _sensor;
 #endif
 }
 
@@ -132,13 +122,7 @@ MiniMapState::~MiniMapState()
 void MiniMapState::resize(int &dX, int &dY)
 {
 #ifdef __EMSCRIPTEN__
-	applyUiScaling();
-	if (_bgNative)
-	{
-		TTFUtil::blitStretch(_bgNative, _bg);
-		_bg->setRedraw(false);
-	}
-	_miniMapView->draw();
+	if (_sensor) _sensor->layout();
 #else
 	State::resize(dX, dY);
 #endif
@@ -170,11 +154,13 @@ void MiniMapState::handle(Action *action)
  */
 void MiniMapState::btnOkClick(Action *)
 {
+#ifndef __EMSCRIPTEN__
 	if (Options::maximizeInfoScreens)
 	{
 		Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, true);
 		_game->getScreen()->resetDisplay(false);
 	}
+#endif
 	_game->popState();
 }
 
@@ -184,7 +170,12 @@ void MiniMapState::btnOkClick(Action *)
  */
 void MiniMapState::btnLevelUpClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	_miniMapView->up();
+	_sensor->refresh();
+#else
 	_txtLevel->setText(tr("STR_LEVEL_SHORT").arg(_miniMapView->up()));
+#endif
 }
 
 /**
@@ -193,7 +184,12 @@ void MiniMapState::btnLevelUpClick(Action *)
  */
 void MiniMapState::btnLevelDownClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	_miniMapView->down();
+	_sensor->refresh();
+#else
 	_txtLevel->setText(tr("STR_LEVEL_SHORT").arg(_miniMapView->down()));
+#endif
 }
 
 /**
@@ -202,6 +198,9 @@ void MiniMapState::btnLevelDownClick(Action *)
 void MiniMapState::animate()
 {
 	_miniMapView->animate();
+#ifdef __EMSCRIPTEN__
+	_sensor->refresh();
+#endif
 }
 
 /**

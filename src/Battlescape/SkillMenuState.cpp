@@ -45,6 +45,9 @@ namespace OpenXcom
  */
 SkillMenuState::SkillMenuState(BattleAction *action, int x, int y) : ActionMenuState(action)
 {
+#ifdef __EMSCRIPTEN__
+	_hdSkills = true;
+#endif
 	// Attention: back up the current _action members
 	BattleActionType currentActionType = _action->type;
 	BattleItem* currentWeapon = _action->weapon;
@@ -147,6 +150,11 @@ void SkillMenuState::addItem(const RuleSkill* skill, int *id, SDLKey key)
 
 	_actionMenu[*id]->setAction(ba, tr(skill->getType()), s1, s2, cost.Time);
 	_actionMenu[*id]->setSkill(skill);
+#ifdef __EMSCRIPTEN__
+	if (cost.Time > 0 && cost.Mana > 0)
+		s2 += " / " + std::string(tr("STR_MANA_SHORT").arg(cost.Mana));
+	_hdChoices.push_back({tr(skill->getType()), s1, s2, key});
+#endif
 	_actionMenu[*id]->setVisible(true);
 
 	if (key != SDLK_UNKNOWN)

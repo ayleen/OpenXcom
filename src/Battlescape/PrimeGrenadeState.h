@@ -34,9 +34,20 @@ struct BattleAction;
  * Window that allows the player
  * to set the timer of an explosive.
  */
+#ifdef __EMSCRIPTEN__
+class TextList;
+namespace Calypso { class CalypsoStrategicList; }
+#endif
 class PrimeGrenadeState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	TextList *_hdTimers = nullptr;
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+	void openHdTimer();
+	void chooseTimer(Action *action);
+	void cancelTimer(Action *action);
+#endif
 	BattleAction *_action;
 	bool _inInventoryView;
 	BattleItem *_grenadeInInventory;

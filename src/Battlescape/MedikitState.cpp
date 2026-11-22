@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "MedikitState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#endif
 #include "MedikitView.h"
 #include "../Engine/InteractiveSurface.h"
 #include "../Engine/Game.h"
@@ -128,7 +131,6 @@ MedikitState::MedikitState (BattleUnit *targetUnit, BattleAction *action, TileEn
 		_game->getScreen()->resetDisplay(false);
 	}
 
-	_item = action->weapon;
 	_bg = new Surface(320, 200);
 
 	// Set palette
@@ -152,9 +154,9 @@ MedikitState::MedikitState (BattleUnit *targetUnit, BattleAction *action, TileEn
 	add(_bg);
 	add(_medikitView, "body", "medikit", _bg);
 	add(_endButton, "buttonEnd", "medikit", _bg);
-	add(new MedikitTitle (37, tr(_item->getRules()->getPainKillerActionName())), "textPK", "medikit", _bg);
-	add(new MedikitTitle (73, tr(_item->getRules()->getStimulantActionName())), "textStim", "medikit", _bg);
-	add(new MedikitTitle (109, tr(_item->getRules()->getHealActionName())), "textHeal", "medikit", _bg);
+	add(new MedikitTitle (37, tr(_action->weapon->getRules()->getPainKillerActionName())), "textPK", "medikit", _bg);
+	add(new MedikitTitle (73, tr(_action->weapon->getRules()->getStimulantActionName())), "textStim", "medikit", _bg);
+	add(new MedikitTitle (109, tr(_action->weapon->getRules()->getHealActionName())), "textHeal", "medikit", _bg);
 	add(_healButton, "buttonHeal", "medikit", _bg);
 	add(_stimulantButton, "buttonStim", "medikit", _bg);
 	add(_pkButton, "buttonPK", "medikit", _bg);
@@ -166,10 +168,11 @@ MedikitState::MedikitState (BattleUnit *targetUnit, BattleAction *action, TileEn
 
 	centerAllSurfaces();
 
+#ifndef __EMSCRIPTEN__
 	Surface *backgroundSprite = 0;
-	if (!_item->getRules()->getMediKitCustomBackground().empty())
+	if (!_action->weapon->getRules()->getMediKitCustomBackground().empty())
 	{
-		backgroundSprite = _game->getMod()->getSurface(_item->getRules()->getMediKitCustomBackground(), false);
+		backgroundSprite = _game->getMod()->getSurface(_action->weapon->getRules()->getMediKitCustomBackground(), false);
 	}
 	if (!backgroundSprite)
 	{
@@ -178,25 +181,6 @@ MedikitState::MedikitState (BattleUnit *targetUnit, BattleAction *action, TileEn
 
 	backgroundSprite->blitNShade(_bg, 0, 0);
 
-#ifdef __EMSCRIPTEN__
-	// Calypso: scale this fullscreen info screen to fill the logical buffer.
-	// Snapshot the painted 320×200 background, scale every widget (the MedikitView
-	// composites the body native then scale-blits), give the labels HD TTF, then
-	// bilinear-stretch the background back into the scaled _bg.
-	{
-		SDL_Surface* s = _bg->getSurface();
-		if (s && s->format->BitsPerPixel == 32)
-		{
-			_bgNative = SDL_ConvertSurface(s, s->format, 0);
-		}
-	}
-	enableUiScaling(320, 200, 0.5f);   // QA tuning: Medikit too big — scale to half
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	if (_bgNative)
-	{
-		TTFUtil::blitStretch(_bgNative, _bg);
-		_bg->setRedraw(false);
-	}
 #endif
 
 	_pkText->setBig();
@@ -212,6 +196,9 @@ MedikitState::MedikitState (BattleUnit *targetUnit, BattleAction *action, TileEn
 	_stimulantButton->onKeyboardPress((ActionHandler)&MedikitState::onStimulantClick, SDLK_2);
 	_pkButton->onMouseClick((ActionHandler)&MedikitState::onPainKillerClick);
 	_pkButton->onKeyboardPress((ActionHandler)&MedikitState::onPainKillerClick, SDLK_1);
+#ifdef __EMSCRIPTEN__
+	openHdSheet();
+#endif
 	update();
 }
 
@@ -221,10 +208,7 @@ MedikitState::MedikitState (BattleUnit *targetUnit, BattleAction *action, TileEn
 MedikitState::~MedikitState()
 {
 #ifdef __EMSCRIPTEN__
-	if (_bgNative)
-	{
-		SDL_FreeSurface(_bgNative);
-	}
+	delete _hdList;
 #endif
 }
 
@@ -235,12 +219,10 @@ MedikitState::~MedikitState()
 void MedikitState::resize(int &dX, int &dY)
 {
 #ifdef __EMSCRIPTEN__
-	applyUiScaling();
-	if (_bgNative)
-	{
-		TTFUtil::blitStretch(_bgNative, _bg);
-		_bg->setRedraw(false);
-	}
+	if (!_hdList) { State::resize(dX, dY); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
 #else
 	State::resize(dX, dY);
 #endif
@@ -253,6 +235,7 @@ void MedikitState::resize(int &dX, int &dY)
 void MedikitState::handle(Action *action)
 {
 	State::handle(action);
+	if (!_game->isState(this)) return;
 	if (action->getDetails()->type == SDL_MOUSEBUTTONDOWN && _game->isRightClick(action))
 	{
 		onEndClick(0);
@@ -280,7 +263,7 @@ void MedikitState::onEndClick(Action *)
  */
 void MedikitState::onHealClick(Action *)
 {
-	if (_item->getHealQuantity() == 0)
+	if (_action->weapon->getHealQuantity() == 0)
 	{
 		return;
 	}
@@ -308,7 +291,7 @@ void MedikitState::onHealClick(Action *)
  */
 void MedikitState::onStimulantClick(Action *)
 {
-	if (_item->getStimulantQuantity() == 0)
+	if (_action->weapon->getStimulantQuantity() == 0)
 	{
 		return;
 	}
@@ -334,7 +317,7 @@ void MedikitState::onStimulantClick(Action *)
  */
 void MedikitState::onPainKillerClick(Action *)
 {
-	if (_item->getPainKillerQuantity() == 0)
+	if (_action->weapon->getPainKillerQuantity() == 0)
 	{
 		return;
 	}
@@ -359,9 +342,12 @@ void MedikitState::onPainKillerClick(Action *)
  */
 void MedikitState::update()
 {
-	_pkText->setText(toString(_item->getPainKillerQuantity()));
-	_stimulantTxt->setText(toString(_item->getStimulantQuantity()));
-	_healTxt->setText(toString(_item->getHealQuantity()));
+	_pkText->setText(toString(_action->weapon->getPainKillerQuantity()));
+	_stimulantTxt->setText(toString(_action->weapon->getStimulantQuantity()));
+	_healTxt->setText(toString(_action->weapon->getHealQuantity()));
+#ifdef __EMSCRIPTEN__
+	updateHdSheet();
+#endif
 	_medikitView->invalidate();
 }
 

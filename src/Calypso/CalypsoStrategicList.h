@@ -10,13 +10,14 @@ namespace Calypso
 class CalypsoStrategicList final : public CalypsoHdFamilyAdapter
 {
 public:
-	enum class Content { Shortages, SaveTemplate, PersonalTemplate, LoadTemplate, InventoryLinks, TurnTransition, TacticalLinks, Destinations, Tracks, MissionBriefing, TargetBriefing, ExperienceRoster, TurnDiary, Promotions, FallenCommendations, Commendations, ExperienceOverview };
+	enum class Content { Shortages, SaveTemplate, PersonalTemplate, LoadTemplate, InventoryLinks, TurnTransition, TacticalLinks, Destinations, Tracks, Medikit, UnitInfo, Timer, Actions, Skills, MissionBriefing, TargetBriefing, ExperienceRoster, TurnDiary, Promotions, FallenCommendations, Commendations, ExperienceOverview };
 	CalypsoStrategicList(State *owner, const State *underlay, Mod *mod, Window *window,
 		Text *title, TextList *list, TextButton *cancel, Content content, TextButton *keep = nullptr,
 		TextButton *extra = nullptr, TextEdit *editor = nullptr);
 	~CalypsoStrategicList() override;
 	void layout();
 	void fitInput();
+	int columnAt(int logicalX) const;
 	void setArticleRows(const std::vector<std::string> &ids) { _articleIds = &ids; }
 	int firstColumnWidth() const { return _design.rowCells.front().front().w; }
 	int bodyFontSize() const;

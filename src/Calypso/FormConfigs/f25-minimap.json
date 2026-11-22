@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "id": "f25-minimap",
+  "familyId": 25,
+  "version": "hd.2026-08-29.1",
+  "archetype": "tabbed-management",
+  "title": "Minimap",
+  "actions": [
+    {
+      "id": "lower",
+      "label": "Level \u2212",
+      "action": "lower",
+      "tone": "normal"
+    },
+    {
+      "id": "higher",
+      "label": "Level +",
+      "action": "higher",
+      "tone": "normal"
+    },
+    {
+      "id": "done",
+      "label": "Close",
+      "action": "done",
+      "tone": "safe"
+    }
+  ],
+  "tabs": [
+    {
+      "id": "left",
+      "label": "Left"
+    },
+    {
+      "id": "up",
+      "label": "Up"
+    },
+    {
+      "id": "down",
+      "label": "Down"
+    },
+    {
+      "id": "right",
+      "label": "Right"
+    }
+  ],
+  "selectedTab": "up",
+  "summary": [
+    {
+      "id": "status",
+      "label": "Readout",
+      "value": "Level 1"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "inspect",
+    "columns": [
+      {
+        "id": "display",
+        "label": "Readout"
+      },
+      {
+        "id": "area",
+        "label": "Area"
+      }
+    ],
+    "items": [
+      {
+        "id": "readout",
+        "values": [
+          "Minimap",
+          "Current level"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [
+    {
+      "id": "center",
+      "label": "Recenter",
+      "action": "center",
+      "tone": "normal"
+    }
+  ]
+}

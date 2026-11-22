@@ -177,6 +177,16 @@
 #include "../Battlescape/NextTurnState.h"
 #include "../Battlescape/BriefingState.h"
 #include "../Battlescape/BriefingLightState.h"
+#include "../Battlescape/ActionMenuState.h"
+#include "../Battlescape/PrimeGrenadeState.h"
+#include "../Battlescape/UnitInfoState.h"
+#include "../Battlescape/MedikitState.h"
+#include "../Battlescape/MiniMapState.h"
+#include "../Battlescape/Map.h"
+#include "../Battlescape/ScannerState.h"
+#include "../Battlescape/SkillMenuState.h"
+#include "../Savegame/BattleUnit.h"
+#include "../Savegame/BattleItem.h"
 #include "../Battlescape/ExperienceOverviewState.h"
 #include "../Battlescape/PromotionsState.h"
 #include "../Battlescape/CommendationLateState.h"
@@ -1820,6 +1830,13 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	case CalypsoHarnessScenario::F28TacticalNotice:
 	case CalypsoHarnessScenario::F28TacticalAlert:
 	case CalypsoHarnessScenario::F30NoExperience:
+	case CalypsoHarnessScenario::F25Actions:
+	case CalypsoHarnessScenario::F25Timer:
+	case CalypsoHarnessScenario::F25UnitInfo:
+	case CalypsoHarnessScenario::F25Medikit:
+	case CalypsoHarnessScenario::F25Minimap:
+	case CalypsoHarnessScenario::F25Scanner:
+	case CalypsoHarnessScenario::F25Skills:
 	case CalypsoHarnessScenario::F30TurnDiary:
 	case CalypsoHarnessScenario::F30ExperienceOverview:
 	{
@@ -1833,6 +1850,55 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		if (id == CalypsoHarnessScenario::F28TacticalLinks) return new ExtendedBattlescapeLinksState(state, battle);
 		if (id == CalypsoHarnessScenario::F28TacticalNotice) return new InfoboxState(game->getLanguage()->getString("STR_THIS_FEATURE_IS_DISABLED_4"));
 		if (id == CalypsoHarnessScenario::F28TacticalAlert) return new InfoboxOKState(game->getLanguage()->getString("STR_MISSION_OVER"));
+		if (id == CalypsoHarnessScenario::F25Minimap)
+			return new MiniMapState(state->getMap()->getCamera(),battle);
+		if (id == CalypsoHarnessScenario::F25Scanner)
+		{
+			if (!battle->getSelectedUnit()) return nullptr;
+			auto *action = state->getBattleGame()->getCurrentAction();
+			action->actor = battle->getSelectedUnit();
+			return new ScannerState(action);
+		}
+		if (id == CalypsoHarnessScenario::F25Medikit)
+		{
+			auto *unit = battle->getSelectedUnit();
+			if (!unit || !unit->getTile()) return nullptr;
+			for (const auto &name : game->getMod()->getItemsList())
+			{
+				auto *rule = game->getMod()->getItem(name);
+				if (rule->getBattleType() != BT_MEDIKIT || rule->getMediKitType() != BMT_NORMAL) continue;
+				auto *kit = battle->createItemForTile(rule, unit->getTile());
+				if (!kit) return nullptr;
+				auto *action = state->getBattleGame()->getCurrentAction();
+				action->actor = unit;
+				action->weapon = kit;
+				action->type = BA_USE;
+				action->updateTU();
+				return new MedikitState(unit, action, battle->getTileEngine());
+			}
+			return nullptr;
+		}
+		if (id == CalypsoHarnessScenario::F25UnitInfo)
+			return battle->getSelectedUnit() ? new UnitInfoState(battle->getSelectedUnit(), state, false, false) : nullptr;
+		if (id == CalypsoHarnessScenario::F25Timer)
+		{
+			for (auto *item : *battle->getItems())
+				if (item && item->getRules()->getFuseTimerType() == BFT_SET)
+					return new PrimeGrenadeState(nullptr, true, item);
+			return nullptr;
+		}
+		if (id == CalypsoHarnessScenario::F25Actions || id == CalypsoHarnessScenario::F25Skills)
+		{
+			auto *unit = battle->getSelectedUnit();
+			if (!unit) return nullptr;
+			auto *action = state->getBattleGame()->getCurrentAction();
+			action->actor = unit;
+			if (id == CalypsoHarnessScenario::F25Skills)
+				return unit->getGeoscapeSoldier() ? new SkillMenuState(action, 0, 0) : nullptr;
+			action->weapon = unit->getMainHandWeapon();
+			if (!action->weapon && !unit->getInventory()->empty()) action->weapon = unit->getInventory()->front();
+			return action->weapon ? new ActionMenuState(action, 0, 0, state->getBattleGame()) : nullptr;
+		}
 		if (id == CalypsoHarnessScenario::F30TurnDiary) return new TurnDiaryState(battle->getHitLog());
 		if (id == CalypsoHarnessScenario::F30ExperienceOverview) return new ExperienceOverviewState(state);
 		return new NoExperienceState();

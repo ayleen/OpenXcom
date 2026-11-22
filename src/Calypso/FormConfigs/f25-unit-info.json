@@ -1,0 +1,58 @@
+{
+  "actions": [
+    {
+      "action": "previous",
+      "id": "extra",
+      "label": "Previous",
+      "tone": "safe"
+    },
+    {
+      "action": "next",
+      "id": "keep",
+      "label": "Next",
+      "tone": "primary"
+    },
+    {
+      "action": "close",
+      "id": "cancel",
+      "label": "Close",
+      "tone": "safe"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "mode": "table",
+    "selectionRole": "read-only",
+    "columns": [
+      {
+        "id": "stat",
+        "label": "Statistic"
+      },
+      {
+        "id": "current",
+        "label": "Current"
+      },
+      {
+        "id": "base",
+        "label": "Base"
+      }
+    ],
+    "items": [
+      {
+        "id": "time-units",
+        "values": [
+          "Time units",
+          "42",
+          "60"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "familyId": 25,
+  "id": "f25-unit-info",
+  "schema": 1,
+  "title": "Unit information",
+  "version": "hd.2026-08-29.1",
+  "state": "UnitInfoState"
+}

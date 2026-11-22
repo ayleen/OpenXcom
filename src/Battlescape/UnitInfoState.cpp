@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "UnitInfoState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#endif
 #include <sstream>
 #include "../Savegame/BattleUnit.h"
 #include "../Savegame/SavedGame.h"
@@ -273,27 +276,8 @@ UnitInfoState::UnitInfoState(BattleUnit *unit, BattlescapeState *parent, bool fr
 	centerAllSurfaces();
 
 	// Set up objects
+#ifndef __EMSCRIPTEN__
 	_game->getMod()->getSurface("UNIBORD.PCK")->blitNShade(_bg, 0, 0);
-
-#ifdef __EMSCRIPTEN__
-	// Calypso: scale this fullscreen info screen to fill the logical buffer.
-	// Snapshot the freshly-painted 320×200 background, scale every widget, then
-	// bilinear-stretch the snapshot back into the (now larger) _bg, and give the
-	// stat labels/numbers/name HD TTF text.
-	{
-		SDL_Surface* s = _bg->getSurface();
-		if (s && s->format->BitsPerPixel == 32)
-		{
-			_bgNative = SDL_ConvertSurface(s, s->format, 0);
-		}
-	}
-	enableUiScaling(320, 200, 0.75f);   // QA tuning: halved from 1.5 (was too big)
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	if (_bgNative)
-	{
-		TTFUtil::blitStretch(_bgNative, _bg);
-		_bg->setRedraw(false);
-	}
 #endif
 
 	_exit->onMouseClick((ActionHandler)&UnitInfoState::exitClick);
@@ -493,6 +477,9 @@ UnitInfoState::UnitInfoState(BattleUnit *unit, BattlescapeState *parent, bool fr
 		_btnNext->onMouseClick((ActionHandler)&UnitInfoState::btnNextClick);
 		_btnNext->onKeyboardPress((ActionHandler)&UnitInfoState::btnNextClick, Options::keyBattleNextUnit);
 	}
+#ifdef __EMSCRIPTEN__
+	openHdSheet();
+#endif
 
 }
 
@@ -502,10 +489,7 @@ UnitInfoState::UnitInfoState(BattleUnit *unit, BattlescapeState *parent, bool fr
 UnitInfoState::~UnitInfoState()
 {
 #ifdef __EMSCRIPTEN__
-	if (_bgNative)
-	{
-		SDL_FreeSurface(_bgNative);
-	}
+	delete _hdList;
 #endif
 }
 
@@ -517,12 +501,10 @@ UnitInfoState::~UnitInfoState()
 void UnitInfoState::resize(int &dX, int &dY)
 {
 #ifdef __EMSCRIPTEN__
-	applyUiScaling();
-	if (_bgNative)
-	{
-		TTFUtil::blitStretch(_bgNative, _bg);
-		_bg->setRedraw(false);
-	}
+	if (!_hdList) { State::resize(dX, dY); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
 #else
 	State::resize(dX, dY);
 #endif
@@ -606,7 +588,8 @@ void UnitInfoState::init()
 	_barReactions->setValue(_unit->getBaseStats()->reactions);
 
 	// more info: http://ufopaedia.org/index.php?title=Accuracy_formula#Stat_Screen_Accuracy
-	int healthModifier = 75 + ((25 * _unit->getHealth()) / _unit->getBaseStats()->health);
+	const int baseHealth = _unit->getBaseStats()->health;
+	const int healthModifier = 75 + (baseHealth > 0 ? 25 * _unit->getHealth() / baseHealth : 0);
 
 	ss.str("");
 	ss << (int)((_unit->getBaseStats()->firing * healthModifier) / 100);
@@ -727,6 +710,9 @@ void UnitInfoState::init()
 	_numUnderArmor->setText(ss.str());
 	_barUnderArmor->setMax(_unit->getMaxArmor(SIDE_UNDER));
 	_barUnderArmor->setValue(_unit->getArmor(SIDE_UNDER));
+#ifdef __EMSCRIPTEN__
+	updateHdSheet();
+#endif
 }
 
 
@@ -737,6 +723,7 @@ void UnitInfoState::init()
 void UnitInfoState::handle(Action *action)
 {
 	State::handle(action);
+	if (!_game->isState(this)) return;
 	if (action->getDetails()->type == SDL_MOUSEBUTTONDOWN)
 	{
 		if (_game->isRightClick(action))

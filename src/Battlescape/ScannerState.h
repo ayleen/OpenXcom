@@ -21,6 +21,9 @@
 
 namespace OpenXcom
 {
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoTacticalSensor; }
+#endif
 
 class Surface;
 class Timer;
@@ -35,7 +38,8 @@ class ScannerState : public State
 	InteractiveSurface *_bg;
 	Surface *_scan;
 #ifdef __EMSCRIPTEN__
-	SDL_Surface *_bgNative = nullptr, *_scanNative = nullptr;  ///< Calypso: 320×200 bg snapshots, bilinear-stretched into the scaled surfaces
+	Calypso::CalypsoTacticalSensor *_sensor = nullptr;
+	void sensorClick(Action *action);
 #endif
 	ScannerView *_scannerView;
 	BattleAction *_action;

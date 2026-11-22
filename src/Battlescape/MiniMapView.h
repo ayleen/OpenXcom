@@ -59,8 +59,8 @@ class MiniMapView : public InteractiveSurface
 	void mouseIn(Action *action, State *state) override;
 	/// Calypso: renders the minimap into a target surface at a given size (so a
 	/// scaled view can render native then scale-blit, keeping cell size scaled).
-	void renderMinimap(Surface* dst, int viewW, int viewH);
 public:
+	void renderMinimap(Surface* dst, int viewW, int viewH);
 	/// Creates the MiniMapView.
 	MiniMapView(int w, int h, int x, int y, Game * game, Camera * camera, SavedBattleGame * battleGame);
 	/// Draws the minimap.

@@ -33,17 +33,24 @@ struct BattleAction;
 /**
  * The Medikit User Interface. Medikit is an item for healing a soldier.
  */
+#ifdef __EMSCRIPTEN__
+class TextList;
+namespace Calypso { class CalypsoStrategicList; }
+#endif
 class MedikitState : public State
 {
 	Surface *_bg;
 #ifdef __EMSCRIPTEN__
-	SDL_Surface *_bgNative = nullptr;  ///< Calypso: 320×200 bg snapshot, bilinear-stretched into the scaled _bg
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+	TextList *_hdRows = nullptr;
+	void openHdSheet();
+	void updateHdSheet();
+	void selectHdRow(Action *action);
 #endif
 	MedikitView *_medikitView;
 	Text *_pkText, *_stimulantTxt,  *_healTxt, *_partTxt, *_woundTxt;
 	InteractiveSurface *_endButton, *_stimulantButton, *_pkButton, *_healButton;
 	BattleUnit *_targetUnit;
-	BattleItem *_item;
 	BattleAction *_action;
 	TileEngine *_tileEngine;
 	/// Handler for the end button.

@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "id": "f25-scanner",
+  "familyId": 25,
+  "version": "hd.2026-08-29.1",
+  "archetype": "tabbed-management",
+  "title": "Motion scanner",
+  "actions": [
+    {
+      "id": "done",
+      "label": "Close",
+      "action": "done",
+      "tone": "safe"
+    }
+  ],
+  "tabs": [
+    {
+      "id": "readout",
+      "label": "Motion scanner"
+    },
+    {
+      "id": "legend",
+      "label": "Legend"
+    }
+  ],
+  "selectedTab": "readout",
+  "summary": [
+    {
+      "id": "status",
+      "label": "Readout",
+      "value": "19 \u00d7 19"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "inspect",
+    "columns": [
+      {
+        "id": "display",
+        "label": "Readout"
+      },
+      {
+        "id": "area",
+        "label": "Area"
+      }
+    ],
+    "items": [
+      {
+        "id": "readout",
+        "values": [
+          "Motion scanner",
+          "19 \u00d7 19"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": []
+}
