@@ -163,6 +163,8 @@
 #include "../Battlescape/ConfirmEndMissionState.h"
 #include "../Battlescape/NoExperienceState.h"
 #include "../Battlescape/TurnDiaryState.h"
+#include "../Battlescape/AliensCrashState.h"
+#include "../Battlescape/DebriefingState.h"
 #include "../Battlescape/InfoboxOKState.h"
 #include "../Battlescape/InfoboxState.h"
 #include "../Battlescape/ExtendedBattlescapeLinksState.h"
@@ -292,11 +294,11 @@ bool prepareOperationsSave(Game *game, bool withGlobe = false)
 }
 
 // The preview owns the campaign and its mission. Never attach a form to a player's battle.
-BattlescapeState *prepareTacticalPreview(Game *game)
+SavedBattleGame *prepareTacticalBattleData(Game *game)
 {
 	if (!prepareOperationsSave(game, true)) return nullptr;
 	auto *save = game->getSavedGame();
-	if (save->getSavedBattle()) return save->getSavedBattle()->getBattleState();
+	if (save->getSavedBattle()) return save->getSavedBattle();
 	if (save->getBases()->empty()) return nullptr;
 	auto &fleet = *save->getBases()->front()->getCrafts();
 	const auto transport = std::find_if(fleet.begin(), fleet.end(), [](Craft *craft) {
@@ -311,6 +313,14 @@ BattlescapeState *prepareTacticalPreview(Game *game)
 	generator.setCraft(*transport);
 	generator.setAlienRace("STR_AQUATOID");
 	generator.run();
+	return battle;
+}
+
+BattlescapeState *prepareTacticalPreview(Game *game)
+{
+	auto *battle = prepareTacticalBattleData(game);
+	if (!battle) return nullptr;
+	if (battle->getBattleState()) return battle->getBattleState();
 	auto *state = new BattlescapeState();
 	battle->setBattleState(state);
 	game->pushState(state);
@@ -1738,6 +1748,14 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 			if (ammo && !ammo->empty()) return new ResearchRequiredState(item);
 		}
 		return nullptr;
+	}
+	case CalypsoHarnessScenario::F29AutomaticRecovery:
+	case CalypsoHarnessScenario::F29Debriefing:
+	{
+		Game *game = getCurrentGame();
+		if (!prepareTacticalBattleData(game)) return nullptr;
+		if (id == CalypsoHarnessScenario::F29AutomaticRecovery) return new AliensCrashState();
+		return new DebriefingState();
 	}
 	case CalypsoHarnessScenario::F27MissionBriefing:
 	{

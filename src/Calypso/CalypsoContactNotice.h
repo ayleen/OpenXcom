@@ -5,7 +5,7 @@ namespace OpenXcom {
 class State;
 class Window;
 namespace Calypso {
-enum class ContactNoticeType { TrackingLost, TacticalAlert, TacticalNotice, BaseDiscovered };
+enum class ContactNoticeType { TrackingLost, AutomaticRecovery, TacticalAlert, TacticalNotice, BaseDiscovered };
 
 class CalypsoContactNotice final : public CalypsoHdFamilyAdapter
 {

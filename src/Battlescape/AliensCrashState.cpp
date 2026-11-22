@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "AliensCrashState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoContactNotice.h"
+#include "../Calypso/CalypsoHdHarnessHostState.h"
+#endif
 #include "DebriefingState.h"
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
@@ -50,7 +54,9 @@ AliensCrashState::AliensCrashState()
 
 	// Set up objects
 	_window->setHighContrast(true);
+#ifndef __EMSCRIPTEN__
 	_window->setBackground(_game->getMod()->getSurface("TAC00.SCR"));
+#endif
 
 	_btnOk->setHighContrast(true);
 	_btnOk->setText(tr("STR_OK"));
@@ -64,6 +70,11 @@ AliensCrashState::AliensCrashState()
 	_txtTitle->setVerticalAlign(ALIGN_MIDDLE);
 	_txtTitle->setBig();
 	_txtTitle->setWordWrap(true);
+#ifdef __EMSCRIPTEN__
+	_hdNotice = new Calypso::CalypsoContactNotice(Calypso::ContactNoticeType::AutomaticRecovery, this, nullptr,
+		_game->getMod(), _window, _txtTitle, _btnOk, tr("STR_CAL_DEBRIEF_AUTOMATIC"));
+	enableUiScaling(_hdNotice->designWidth(), _hdNotice->designHeight(), 1.0f, false);
+#endif
 }
 
 /**
@@ -71,7 +82,18 @@ AliensCrashState::AliensCrashState()
  */
 AliensCrashState::~AliensCrashState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdNotice;
+#endif
 }
+#ifdef __EMSCRIPTEN__
+void AliensCrashState::resize(int &dx, int &dy)
+{
+	if (!_hdNotice) { State::resize(dx,dy); return; }
+	_hdNotice->layout();
+	recaptureUiScaling(_hdNotice->designWidth(), _hdNotice->designHeight(), 1.0f, false);
+}
+#endif
 
 /**
  * Returns to the previous screen.
@@ -80,7 +102,13 @@ AliensCrashState::~AliensCrashState()
 void AliensCrashState::btnOkClick(Action *)
 {
 	_game->popState();
-	_game->pushState(new DebriefingState);
+	auto *outcome = new DebriefingState;
+#ifdef __EMSCRIPTEN__
+	auto &session = Calypso::calypsoHarnessSession();
+	if (session.activeTarget == this)
+		Calypso::calypsoHarnessNavigationDestination(session, outcome);
+#endif
+	_game->pushState(outcome);
 }
 
 }
