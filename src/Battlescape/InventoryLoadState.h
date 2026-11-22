@@ -43,6 +43,7 @@ private:
 	TextButton *_hdApply = nullptr;
 	int _pendingSlot = -1;
 	void applySlot(Action *action);
+	void previewSlot(int index);
 #endif
 	void loadLayout(int index);
 	InventoryState *_parent;

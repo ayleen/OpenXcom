@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "id": "f26-inspection",
+  "familyId": 26,
+  "version": "hd.2026-08-29.1",
+  "archetype": "tabbed-management",
+  "title": "Unit inspection",
+  "actions": [
+    {
+      "id": "done",
+      "label": "Close",
+      "action": "done",
+      "tone": "safe"
+    }
+  ],
+  "tabs": [
+    {
+      "id": "gear",
+      "label": "Equipment"
+    },
+    {
+      "id": "info",
+      "label": "Details"
+    }
+  ],
+  "selectedTab": "gear",
+  "summary": [
+    {
+      "id": "unit",
+      "label": "Unit",
+      "value": "Seaman"
+    },
+    {
+      "id": "status",
+      "label": "Status",
+      "value": "Ready"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "inspect",
+    "columns": [
+      {
+        "id": "field",
+        "label": "Field"
+      },
+      {
+        "id": "value",
+        "label": "Value"
+      }
+    ],
+    "items": [
+      {
+        "id": "hands",
+        "values": [
+          "Hands",
+          "Equipment"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [
+    {
+      "id": "left",
+      "label": "Left hand",
+      "action": "left",
+      "tone": "normal"
+    },
+    {
+      "id": "right",
+      "label": "Right hand",
+      "action": "right",
+      "tone": "normal"
+    },
+    {
+      "id": "armor",
+      "label": "Armor",
+      "action": "armor",
+      "tone": "normal"
+    }
+  ]
+}

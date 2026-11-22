@@ -147,11 +147,12 @@ void InventoryLoadState::lstLayoutClick(Action *)
 {
 	auto index = _lstLayout->getSelectedRow();
 #ifdef __EMSCRIPTEN__
-	if (index >= size_t(Options::oxceMaxEquipmentLayoutTemplates)) return;
+	if (_pendingSlot >= 0 || index >= size_t(Options::oxceMaxEquipmentLayoutTemplates)) return;
 	_pendingSlot = int(index);
 	const bool empty = _game->getSavedGame()->getGlobalEquipmentLayout(_pendingSlot)->empty();
 	_hdApply->setText(tr(empty ? "STR_CAL_LAYOUT_CLEAR" : "STR_CAL_LAYOUT_APPLY"));
 	_hdApply->setVisible(true);
+	previewSlot(_pendingSlot);
 	int dx = 0, dy = 0;
 	resize(dx, dy);
 #else

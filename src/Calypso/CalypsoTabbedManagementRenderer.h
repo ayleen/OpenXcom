@@ -196,6 +196,7 @@ struct CalypsoTabbedModel
 
 	CalypsoHdImageDescriptor plotImage;
 	CalypsoLogicalRect plotRect{};
+	std::vector<CalypsoLogicalRect> plotCells;
 	std::vector<CalypsoTabbedSummaryField> plotLabels;
 	CalypsoTabbedDetail detail;
 	std::vector<CalypsoTabbedAction> actions;

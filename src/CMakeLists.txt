@@ -745,6 +745,7 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoHdOperationsChrome.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF09ResearchUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF14GlobalOperationsUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoTacticalEquipment.cpp Calypso/CalypsoEquipmentPreview.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF15TechTreeUi.cpp Calypso/CalypsoStrategicList.cpp
   Calypso/CalypsoTechTopicSelector.cpp)
   list(APPEND openxcom_src Calypso/CalypsoHdScreenHarness.cpp)

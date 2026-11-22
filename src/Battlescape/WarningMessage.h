@@ -55,6 +55,10 @@ private:
 	void drawGPUPass(Screen* screen);
 #endif
 public:
+#ifdef __EMSCRIPTEN__
+	std::string hdText() const;
+#endif
+
 	/// Creates a new warning message with the specified size and position.
 	WarningMessage(int width, int height, int x = 0, int y = 0);
 	/// Cleans up the warning message.
