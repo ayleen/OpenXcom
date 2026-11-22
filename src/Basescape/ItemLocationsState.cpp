@@ -82,7 +82,9 @@ ItemLocationsState::ItemLocationsState(const RuleItem *selectedItem, bool allLoc
 	centerAllSurfaces();
 
 	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "itemLocations");
+#endif
 
 	_txtTitle->setAlign(ALIGN_CENTER);
 	_txtTitle->setText(tr("STR_TOPIC").arg(tr(selectedItem->getType())));
