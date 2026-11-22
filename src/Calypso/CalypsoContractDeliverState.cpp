@@ -47,7 +47,7 @@ namespace OpenXcom
  */
 CalypsoContractDeliverState::CalypsoContractDeliverState(int contractId) : _contractId(contractId)
 {
-	_screen = false;
+	_screen = true;
 	_window   = new Window(this, 240, 160, 40, 20, POPUP_BOTH);
 	_txtTitle = new Text(220, 17, 50, 30);
 	_txtInfo  = new Text(220, 9, 50, 48);

@@ -45,7 +45,7 @@ namespace OpenXcom
  */
 CalypsoEconomyState::CalypsoEconomyState() : _tabGroupHack(nullptr), _tab(0)
 {
-	_screen = false;
+	_screen = true;
 
 	// Create objects
 	_window       = new Window(this, 320, 200, 0, 0, POPUP_BOTH);
