@@ -1,4 +1,16 @@
 en-US:
+  STR_CAL_FLEET_MAP: "Geoscape"
+  STR_CAL_FLEET_TARGET: "Target"
+  STR_CAL_FLEET_FUEL: "Fuel"
+  STR_CAL_WING_ASSEMBLY: "Wing assembly"
+  STR_CAL_WING_SELECTED: "Wing"
+  STR_CAL_SET_COURSE: "Set course"
+  STR_CAL_TOGGLE_WING: "Add to wing"
+  STR_CAL_REMOVE_ESCORT: "Remove from wing"
+  STR_CAL_BERTHS: "Submarines"
+  STR_CAL_FLEET_NO_CRAFT: "No submarines at this base"
+  STR_CAL_FLEET_PICK: "Select a submarine"
+  STR_CAL_FLEET_CENTER: "Center"
   STR_CAL_FLEET_WARNING: "Craft warning"
 #=================== Basescape ===================
 #BasescapeState.cpp

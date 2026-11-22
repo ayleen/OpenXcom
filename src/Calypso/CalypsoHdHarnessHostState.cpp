@@ -80,6 +80,7 @@
 #include "../Basescape/TransferConfirmState.h"
 #include "../Geoscape/CraftErrorState.h"
 #include "../Geoscape/LowFuelState.h"
+#include "../Geoscape/InterceptState.h"
 #include "../Geoscape/CraftPatrolState.h"
 #include "../Savegame/Waypoint.h"
 #include "../Geoscape/CraftNotEnoughPilotsState.h"
@@ -1478,6 +1479,15 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new CraftErrorState(nullptr, "Dismiss soldier confirmation.");
 	case CalypsoHarnessScenario::F18CraftError:
 		return new CraftErrorState(nullptr, "Craft cannot complete the assigned operation.");
+	case CalypsoHarnessScenario::F18InterceptFleet:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		return new InterceptState(globe->getGlobe(), false);
+	}
 	case CalypsoHarnessScenario::F18PatrolArrival:
 	case CalypsoHarnessScenario::F18LowFuel:
 	case CalypsoHarnessScenario::F18NotEnoughPilots:

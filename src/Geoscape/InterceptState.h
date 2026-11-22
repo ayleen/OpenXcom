@@ -23,6 +23,9 @@
 namespace OpenXcom
 {
 
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoHdOperationsRenderer; struct CalypsoHdOperationsModel; }
+#endif
 class TextButton;
 class Window;
 class Text;
@@ -48,6 +51,18 @@ private:
 	Target *_target;
 	std::vector<Craft*> _crafts;
 	std::vector<Craft*> _selCrafts;
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoHdOperationsRenderer *_fleetView = nullptr;
+	TextButton *_wing, *_course, *_info, *_reference;
+	size_t _picked = static_cast<size_t>(-1);
+	Calypso::CalypsoHdOperationsModel fleetModel();
+	void pickShip(Action *);
+	void toggleEscort(Action *);
+	void setCourse(Action *);
+	void openShip(Action *);
+	void openReference(Action *);
+	bool canDispatch(const Craft *craft) const;
+#endif
 public:
 	/// Creates the Intercept state.
 	InterceptState(Globe *globe, bool useCustomSound, Base *base = 0, Target *target = 0);
@@ -65,7 +80,7 @@ public:
 	void lstCraftsMiddleClick(Action *action);
 #ifdef __EMSCRIPTEN__
 	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+	void resize(int &dX, int &dY) override;
 #endif
 };
 

@@ -1637,7 +1637,7 @@ def _validate_tabbed(config, template):
             _strict(visual, {"shell", "headerArt"}, set(), "config.visual")
             if visual["shell"] != "base-operations":
                 raise ArchetypeError("config.visual.shell must be base-operations")
-            if visual["headerArt"] not in {"base-research", "base-manufacture"}:
+            if visual["headerArt"] not in {"base-research", "base-manufacture", "base-crafts"}:
                 raise ArchetypeError("config.visual.headerArt is not an audited department asset")
         expected_mode = "list" if presentation == "list-inspector" else "table"
         if config["collection"]["mode"] != expected_mode:
