@@ -1,5 +1,6 @@
 #ifdef __EMSCRIPTEN__
 #include "CalypsoF36MarketUi.h"
+#include "CalypsoFittedTableRows.h"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -386,6 +387,8 @@ void CalypsoF36MarketUi::configure(CalypsoMarketState& state)
 		CalypsoHdUiOverlay::instance().failHdRoute("F36 market generated layout is missing");
 	state.enableUiScaling(generated->designWidth, generated->designHeight, 1.0f,
 		/*subtractVanillaCenter=*/false);
+	calypsoFitTableHitRows(*state._lstCounterparties, generated->viewport.w,
+		generated->visibleRows, generated->scrollBarWidth, generated->minThumbHeight);
 	auto* adapter = new CalypsoF36MarketUi(&state);
 	state._hdAdapter = adapter;
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter);
@@ -403,6 +406,8 @@ bool CalypsoF36MarketUi::resize(CalypsoMarketState& state)
 	if (!generated) return false;
 	state.recaptureUiScaling(generated->designWidth, generated->designHeight, 1.0f,
 		/*subtractVanillaCenter=*/false);
+	calypsoFitTableHitRows(*state._lstCounterparties, generated->viewport.w,
+		generated->visibleRows, generated->scrollBarWidth, generated->minThumbHeight);
 	return true;
 }
 
