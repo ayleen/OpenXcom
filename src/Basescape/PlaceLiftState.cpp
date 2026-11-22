@@ -46,25 +46,25 @@ namespace OpenXcom
 
 namespace
 {
-void setLiftBaseTexture(Base *base, Globe *globe)
+void setLiftBaseTexture(Game *game, Base *base, Globe *globe)
 {
 	if (globe && base)
 	{
 		int texture, shade;
 		globe->getPolygonTextureAndShade(base->getLongitude(), base->getLatitude(), &texture, &shade);
-		auto* globeTexture = getCurrentGame()->getMod()->getGlobe()->getTexture(texture);
+		auto* globeTexture = game->getMod()->getGlobe()->getTexture(texture);
 		base->setGlobeTexture(globeTexture);
 	}
 }
 
-std::vector<RuleBaseFacility *> eligibleLifts(Base *base)
+std::vector<RuleBaseFacility *> eligibleLifts(Game *game, Base *base)
 {
 	std::vector<RuleBaseFacility *> lifts;
-	for (auto& facilityType : getCurrentGame()->getMod()->getBaseFacilitiesList())
+	for (auto& facilityType : game->getMod()->getBaseFacilitiesList())
 	{
-		auto* facilityRule = getCurrentGame()->getMod()->getBaseFacility(facilityType);
+		auto* facilityRule = game->getMod()->getBaseFacility(facilityType);
 		if ((facilityRule->isLift() && !facilityRule->isUpgradeOnly())
-			&& facilityRule->isAllowedForBaseType(base->isFakeUnderwater()) && getCurrentGame()->getSavedGame()->isResearched(facilityRule->getRequirements()))
+			&& facilityRule->isAllowedForBaseType(base->isFakeUnderwater()) && game->getSavedGame()->isResearched(facilityRule->getRequirements()))
 		{
 			lifts.push_back(facilityRule);
 		}
@@ -76,8 +76,8 @@ std::vector<RuleBaseFacility *> eligibleLifts(Base *base)
 State *PlaceLiftState::create(Base *base, Globe *globe, bool first)
 {
 #ifdef __EMSCRIPTEN__
-	setLiftBaseTexture(base, globe);
-	auto lifts = eligibleLifts(base);
+	setLiftBaseTexture(_game, base, globe);
+	auto lifts = eligibleLifts(_game, base);
 	if (lifts.empty())
 		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Calypso: no eligible access lift for this base");
 	return new CalypsoAccessLift(base, globe, first, std::move(lifts));
@@ -116,7 +116,7 @@ PlaceLiftState::PlaceLiftState(Base *base, Globe *globe, bool first) : _base(bas
 	// Set up objects
 	setWindowBackground(_window, "selectFacility");
 
-	setLiftBaseTexture(_base, _globe);
+	setLiftBaseTexture(_game, _base, _globe);
 
 	auto* itf = _game->getMod()->getInterface("basescape")->getElementOptional("trafficLights");
 	if (itf)
@@ -127,7 +127,7 @@ PlaceLiftState::PlaceLiftState(Base *base, Globe *globe, bool first) : _base(bas
 	_view->setBase(_base);
 
 	_lift = nullptr;
-	_accessLifts = eligibleLifts(_base);
+	_accessLifts = eligibleLifts(_game, _base);
 	if (!_accessLifts.empty() && (_first || _accessLifts.size() == 1))
 	{
 		_lift = _accessLifts.front();
