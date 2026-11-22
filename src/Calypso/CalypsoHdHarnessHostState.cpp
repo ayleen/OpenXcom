@@ -206,7 +206,7 @@ void restoreHarnessCursor(Game* game)
 	}
 	g_harnessCursorCaptured = false;
 }
-bool prepareOperationsSave(Game *game)
+bool prepareOperationsSave(Game *game, bool withGlobe = false)
 {
 	if (!game || !game->getMod()) return false;
 	// Fixture routes may only mutate a save owned by this harness.  Reusing a
@@ -220,7 +220,8 @@ bool prepareOperationsSave(Game *game)
 			return false;
 		else
 		{
-			g_harnessSaveLease.fixture = new SavedGame();
+			// A playable globe needs the mod's countries, regions and alien strategy.
+			g_harnessSaveLease.fixture = withGlobe ? game->getMod()->newSave(DIFF_BEGINNER) : new SavedGame();
 			game->setSavedGame(g_harnessSaveLease.fixture);
 		}
 		g_harnessSaveLease.active = true;
@@ -1548,8 +1549,8 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	case CalypsoHarnessScenario::F17OverlappingTargets:
 	{
 		auto *game = getCurrentGame();
-		auto fixture = makeOperationsFixture(game, false, false);
-		if (!fixture.base) return nullptr;
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		auto *home = game->getSavedGame()->getBases()->front();
 		auto *waypoint = new Waypoint();
 		waypoint->setId(17);
 		game->getSavedGame()->getWaypoints()->push_back(waypoint);
@@ -1557,18 +1558,21 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		game->pushState(globe);
 		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
 		if (id == CalypsoHarnessScenario::F17TargetInfo) return new TargetInfoState(waypoint, globe->getGlobe());
-		return new MultipleTargetsState({fixture.base, waypoint}, {}, globe, false);
+		return new MultipleTargetsState({home, waypoint}, {}, globe, false);
 	}
 	case CalypsoHarnessScenario::F17ContactTracker:
 	case CalypsoHarnessScenario::F17AlienBase:
 	{
 		Game *game = getCurrentGame();
-		if (!makeOperationsFixture(game, false, false).base) return nullptr;
+		if (!prepareOperationsSave(game, true)) return nullptr;
 		for (const auto &deploymentId : game->getMod()->getDeploymentsList())
 		{
 			auto *deployment = game->getMod()->getDeployment(deploymentId);
 			if (!deployment || !deployment->isAlienBase()) continue;
 			auto *base = new AlienBase(deployment, 0);
+			base->setId(17);
+			base->setLongitude(0.73);
+			base->setLatitude(0.72);
 			base->setDiscovered(true);
 			game->getSavedGame()->getAlienBases()->push_back(base);
 			auto *globe = new GeoscapeState();

@@ -126,7 +126,7 @@ TargetInfoState::TargetInfoState(Target *target, Globe *globe) : _target(target)
 	else if (b != 0)
 	{
 		AlienRace *race = _game->getMod()->getAlienRace(b->getAlienRace());
-		_deploymentRule = _game->getMod()->getDeployment(race->getBaseCustomMission());
+		if (race) _deploymentRule = _game->getMod()->getDeployment(race->getBaseCustomMission());
 		if (!_deploymentRule) _deploymentRule = _game->getMod()->getDeployment(b->getDeployment()->getType());
 	}
 
