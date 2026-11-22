@@ -127,7 +127,9 @@ FundingState::FundingState()
 	_txtChange->setText(tr("STR_CHANGE"));
 
 	_lstCountries->setColumns(3, 108, 100, 52);
+#ifndef __EMSCRIPTEN__
 	_lstCountries->setDot(true);
+#endif
 
 	_sortName->setX(_sortName->getX() + _txtCountry->getTextWidth() + 4);
 	_sortName->onMouseClick((ActionHandler)&FundingState::sortNameClick);
