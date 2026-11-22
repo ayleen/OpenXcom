@@ -22,6 +22,7 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoBaseLedger; }
 class TextButton;
 class Window;
 class Text;
@@ -58,6 +59,10 @@ struct FundingCountry
 class FundingState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_ledger = nullptr;
+#endif
 	TextButton *_btnOk;
 	Window *_window;
 	Text *_txtTitle, *_txtCountry, *_txtFunding, *_txtChange;
@@ -88,7 +93,7 @@ public:
 	void sortChangeClick(Action* action);
 #ifdef __EMSCRIPTEN__
 	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+	void resize(int &dX, int &dY) override;
 #endif
 };
 

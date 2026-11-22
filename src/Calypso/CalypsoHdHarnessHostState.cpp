@@ -109,6 +109,7 @@
 #include "../Mod/AlienDeployment.h"
 #include "../Geoscape/UfoDetectedState.h"
 #include "../Geoscape/GeoscapeState.h"
+#include "../Geoscape/FundingState.h"
 #include "../Geoscape/ExtendedGeoscapeLinksState.h"
 #include "../Geoscape/SelectMusicTrackState.h"
 #include "../Geoscape/Globe.h"
@@ -1561,6 +1562,9 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new CraftErrorState(nullptr, "Confirm end of mission?");
 	case CalypsoHarnessScenario::F17UfoLost:
 		return new UfoLostState("Contact 17");
+	case CalypsoHarnessScenario::F23Funding:
+		if (!prepareOperationsSave(getCurrentGame(), true)) return nullptr;
+		return new FundingState();
 	case CalypsoHarnessScenario::F17TargetInfo:
 	case CalypsoHarnessScenario::F17OverlappingTargets:
 	{

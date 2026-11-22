@@ -36,6 +36,9 @@
 #include "../Basescape/TransfersState.h"
 #include "../Basescape/ItemLocationsState.h"
 #include "../Engine/Game.h"
+#include "../Geoscape/FundingState.h"
+#include "../Savegame/GameTime.h"
+#include "Generated/CalypsoF23Funding.generated.h"
 #include "../Interface/ArrowButton.h"
 #include "../Interface/Text.h"
 #include "../Interface/TextEdit.h"
@@ -680,6 +683,38 @@ CalypsoBaseLedger::CalypsoBaseLedger(TechTreeSelectState &s)
 			for (auto &cell : row.cells) cell.state.selected = row.state.selected;
 			if (row.state.selected) collection.selectedIndex = i;
 		}
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+CalypsoBaseLedger::CalypsoBaseLedger(FundingState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]() {
+		namespace Gen = CalypsoF23FundingGen;
+		const bool wide = wideLayout();
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		auto *save = getCurrentGame()->getSavedGame();
+		auto label = [&](Text *heading, FundingCountrySort asc, FundingCountrySort desc) {
+			return heading->getText() + (s._fundingCountryOrder == asc ? " ↑" : s._fundingCountryOrder == desc ? " ↓" : "");
+		};
+		auto model = ledgerModel(s, s._txtTitle->getText(), *s._lstCountries, nullptr, g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"total", s.tr("STR_TOTAL_UC"), Unicode::formatFunding(save->getCountryFunding()), design(g.summary_total)},
+			 {"month", s.tr("STR_CAL_REPORT_MONTH"), s.tr(save->getTime()->getMonthString()), design(g.summary_month)}},
+			{{label(s._txtCountry, FC_NAME_ASC, FC_NAME_DESC), s._sortName},
+			 {label(s._txtFunding, FC_FUNDING_ASC, FC_FUNDING_DESC), s._sortFunding},
+			 {label(s._txtChange, FC_CHANGE_ASC, FC_CHANGE_DESC), s._sortChange}},
+			{{"done", s._btnOk, s._btnOk->getText(), design(g.action_done)}},
+			"STR_INTERNATIONAL_RELATIONS", "STR_FUNDING", 23);
+		model.sectionLabel = s.tr("STR_FUNDING");
+		model.headerArtId = Gen::kHeaderArt;
 		model.profileId = Gen::kProfileId;
 		model.profileVersion = Gen::kProfileVersion;
 		model.provenance = Gen::kProvenanceTemplate;
