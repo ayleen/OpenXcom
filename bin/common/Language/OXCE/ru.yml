@@ -723,3 +723,5 @@ ru:
   STR_CAL_INTERCEPT_HULL: "Корпус"
   STR_CAL_INTERCEPT_SHIELD: "Щит"
   STR_CAL_INTERCEPT_CONFIRM: "Подтвердить самоуничтожение"
+  STR_CAL_INTERCEPT_WEAPON_ON: "Вкл."
+  STR_CAL_INTERCEPT_WEAPON_OFF: "Выкл."

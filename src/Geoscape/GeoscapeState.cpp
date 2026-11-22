@@ -30,7 +30,7 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include "../Calypso/CalypsoEconomy.h"
-#include "../Calypso/CalypsoHdUiOverlay.h"
+#include "../Calypso/CalypsoInterceptionHud.h"
 #include "../Calypso/CalypsoEconomyState.h"
 #include "../Calypso/CalypsoTraining.h"
 #endif
@@ -547,36 +547,7 @@ GeoscapeState::~GeoscapeState()
 void GeoscapeState::blit()
 {
 	State::blit();
-#ifdef __EMSCRIPTEN__
-	if (!_game->isState(this)) return;
-	if (_dogfights.empty())
-	{
-		EM_ASM({ if (globalThis.CalypsoInterception) CalypsoInterception.close(); });
-		return;
-	}
-	if (!EM_ASM_INT({ return !!globalThis.CalypsoInterception; }))
-		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Interception display is unavailable");
-	if (EM_ASM_INT({return !CalypsoInterception.isOpen();}))
-	{
-		static const char *const keys[] = {"STR_INTERCEPT", "STR_STANDOFF", "STR_CAUTIOUS_ATTACK",
-			"STR_STANDARD_ATTACK", "STR_AGGRESSIVE_ATTACK", "STR_DISENGAGING", "STR_CAL_INTERCEPT_ALL",
-			"STR_CAL_INTERCEPT_INSPECT", "STR_CAL_INTERCEPT_BACK", "STR_CAL_INTERCEPT_MINIMIZE", "STR_CAL_INTERCEPT_DESTRUCT",
-			"STR_CAL_INTERCEPT_CANCEL_DESTRUCT", "STR_CAL_INTERCEPT_HULL", "STR_CAL_INTERCEPT_SHIELD", "STR_CAL_INTERCEPT_CONFIRM"};
-		std::vector<std::string> labels;
-		for (auto key : keys) labels.push_back(tr(key));
-		std::vector<const char*> addresses;
-		for (const auto &label : labels) addresses.push_back(label.c_str());
-		EM_ASM({
-			const get = i => UTF8ToString(HEAPU32[($0 >> 2) + i]);
-			CalypsoInterception.begin({title:get(0), modes:[1,2,3,4,5].map(get), all:get(6), inspect:get(7),
-				back:get(8), minimize:get(9), destruct:get(10), cancelDestruct:get(11), hull:get(12), shield:get(13), confirm:get(14)});
-		}, addresses.data());
-	}
-	EM_ASM({CalypsoInterception.startFrame();});
-	for (auto *fight : _dogfights) fight->presentInterception();
-	if (!EM_ASM_INT({try { CalypsoInterception.finish(); return 1; } catch(e) { console.error(e); CalypsoInterception.close(); return 0; }}))
-		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Could not draw the interception display");
-#else
+#ifndef __EMSCRIPTEN__
 	for (auto* dfs : _dogfights) dfs->blit();
 #endif
 }
@@ -590,23 +561,6 @@ void GeoscapeState::startHarnessInterception(Craft *craft, Ufo *ufo)
 	startDogfight();
 }
 
-void GeoscapeState::dispatchInterception(unsigned id, int command, int slot)
-{
-	for (auto *fight : _dogfights)
-	{
-		if (fight->displayId() != id) continue;
-		fight->interceptionAction(command, slot);
-		_minimizedDogfights = minimizedDogfightsCount();
-		break;
-	}
-}
-
-extern "C" EMSCRIPTEN_KEEPALIVE void calypso_interception_action(unsigned id, int command, int slot)
-{
-	Game *game = getCurrentGame();
-	auto *geo = game ? dynamic_cast<GeoscapeState*>(game->getTopState()) : nullptr;
-	if (geo) geo->dispatchInterception(id, command, slot);
-}
 #endif
 
 /**
@@ -616,6 +570,11 @@ extern "C" EMSCRIPTEN_KEEPALIVE void calypso_interception_action(unsigned id, in
 void GeoscapeState::handle(Action *action)
 {
 #ifdef __EMSCRIPTEN__
+	if (Calypso::CalypsoInterceptionHud::handle(*this, action))
+	{
+		_minimizedDogfights = minimizedDogfightsCount();
+		return;
+	}
 	// A registered HD drawer is the topmost Escape owner.
 	if (action != nullptr && action->getDetails()->type == SDL_KEYDOWN
 		&& action->getDetails()->key.keysym.sym == Options::keyCancel

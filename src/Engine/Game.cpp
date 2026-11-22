@@ -714,7 +714,6 @@ void Game::pushState(State *state)
 	}
 	_states.push_back(state);
 #ifdef __EMSCRIPTEN__
-	EM_ASM({ if (globalThis.CalypsoInterception) CalypsoInterception.close(); });
 	trackEmscriptenViewportState(state);
 #endif
 	_init = false;
@@ -728,9 +727,6 @@ void Game::pushState(State *state)
  */
 void Game::popState()
 {
-#ifdef __EMSCRIPTEN__
-	EM_ASM({ if (globalThis.CalypsoInterception) CalypsoInterception.close(); });
-#endif
 	_deleted.push_back(_states.back());
 	_states.pop_back();
 	_init = false;
