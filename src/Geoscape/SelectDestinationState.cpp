@@ -17,6 +17,12 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "SelectDestinationState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoFleetMapUi.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#include "../Engine/Unicode.h"
+#include "../fmath.h"
+#endif
 #include <cmath>
 #include "../Engine/Game.h"
 #include "../Engine/Screen.h"
@@ -50,7 +56,11 @@ SelectDestinationState::SelectDestinationState(std::vector<Craft*> crafts, Globe
 {
 	int dx = _game->getScreen()->getDX();
 	int dy = _game->getScreen()->getDY();
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+#else
 	_screen = false;
+#endif
 
 	// Create objects
 	_btnRotateLeft = new InteractiveSurface(12, 10, 259 + dx * 2, 176 + dy);
@@ -167,6 +177,17 @@ SelectDestinationState::SelectDestinationState(std::vector<Craft*> crafts, Globe
 		}
 	}
 
+#ifdef __EMSCRIPTEN__
+	_lead = new Text(1, 1); _fuel = new Text(1, 1); _range = new Text(1, 1);
+	for (auto *field : {_lead, _fuel, _range}) add(field, "genericText", "geoscape");
+	const Craft *lead = _crafts.front();
+	_lead->setText(lead->getName(_game->getLanguage()) + "  ·  " + std::string(tr("STR_CAL_WING_SELECTED")) + " " + std::to_string(_crafts.size()));
+	_fuel->setText(tr("STR_FUEL").arg(Unicode::formatPercentage(lead->getFuelPercentage())));
+	_range->setText(std::string(tr("STR_RANGE")) + "  " + Unicode::formatNumber(XcomDistance(lead->getBaseRange())));
+	_mapUi = new Calypso::CalypsoFleetMapUi(this);
+	_mapUi->layout();
+	Calypso::CalypsoHdUiOverlay::instance().registerAdapter(_mapUi);
+#endif
 	if (_crafts.front()->getStatus() != "STR_OUT")
 	{
 		_globe->setCraftRange(_crafts.front()->getLongitude(), _crafts.front()->getLatitude(), _crafts.front()->getBaseRange());
@@ -179,6 +200,9 @@ SelectDestinationState::SelectDestinationState(std::vector<Craft*> crafts, Globe
  */
 SelectDestinationState::~SelectDestinationState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _mapUi;
+#endif
 	_globe->setCraftRange(0.0, 0.0, 0.0);
 }
 
@@ -207,8 +231,29 @@ void SelectDestinationState::think()
 void SelectDestinationState::handle(Action *action)
 {
 	State::handle(action);
+#ifdef __EMSCRIPTEN__
+	if (_game->getTopState() != this) return;
+	_globe->onMouseClick((ActionHandler)&SelectDestinationState::globeClick);
+#endif
 	_globe->handle(action, this);
 }
+
+#ifdef __EMSCRIPTEN__
+void SelectDestinationState::blit()
+{
+	_globe->presentHdWorld();
+}
+
+bool SelectDestinationState::insideCommand(double x, double y) const
+{
+	for (const auto *surface : _surfaces)
+	{
+		if (surface->getVisible() && x >= surface->getX() && x < surface->getX() + surface->getWidth()
+			&& y >= surface->getY() && y < surface->getY() + surface->getHeight()) return true;
+	}
+	return false;
+}
+#endif
 
 /**
  * Processes any left-clicks for picking a target,
@@ -222,7 +267,11 @@ void SelectDestinationState::globeClick(Action *action)
 	_globe->cartToPolar(mouseX, mouseY, &lon, &lat);
 
 	// Ignore window clicks
+#ifdef __EMSCRIPTEN__
+	if (insideCommand(mouseX, mouseY) || !std::isfinite(lon) || !std::isfinite(lat))
+#else
 	if (mouseY < 28)
+#endif
 	{
 		return;
 	}
@@ -374,6 +423,9 @@ void SelectDestinationState::btnCydoniaClick(Action *)
  */
 void SelectDestinationState::resize(int &dX, int &dY)
 {
+#ifdef __EMSCRIPTEN__
+	if (_mapUi) { _mapUi->layout(); return; }
+#endif
 	for (auto* surface : _surfaces)
 	{
 		surface->setX(surface->getX() + dX / 2);

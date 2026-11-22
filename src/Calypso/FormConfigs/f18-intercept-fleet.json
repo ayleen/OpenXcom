@@ -1,0 +1,140 @@
+{
+  "schema": 1,
+  "id": "f18-intercept-fleet",
+  "familyId": 18,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-crafts"
+  },
+  "state": "InterceptState",
+  "labelKeys": {
+    "title": "STR_CAL_WING_ASSEMBLY",
+    "collectionHeading": "STR_CRAFT",
+    "collectionMeta": "STR_CAL_WING_SELECTED"
+  },
+  "title": "WING ASSEMBLY",
+  "actions": [
+    {
+      "id": "base",
+      "label": "GO TO BASE",
+      "labelKey": "STR_GO_TO_BASE",
+      "tone": "safe",
+      "action": "base"
+    },
+    {
+      "id": "cancel",
+      "label": "CANCEL",
+      "labelKey": "STR_CANCEL_UC",
+      "tone": "safe",
+      "action": "cancel"
+    },
+    {
+      "id": "course",
+      "label": "SET COURSE",
+      "labelKey": "STR_CAL_SET_COURSE",
+      "tone": "primary",
+      "action": "course"
+    }
+  ],
+  "summary": [
+    {
+      "id": "fleet",
+      "label": "SUBMARINES",
+      "value": "3"
+    },
+    {
+      "id": "selected",
+      "label": "WING",
+      "value": "1 / 4"
+    },
+    {
+      "id": "target",
+      "label": "TARGET",
+      "value": "Waypoint 1"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "craft",
+    "heading": "BERTHS",
+    "columns": [
+      {
+        "id": "craft",
+        "label": "SUBMARINE",
+        "contentRole": "name"
+      },
+      {
+        "id": "status",
+        "label": "STATUS",
+        "contentRole": "status"
+      },
+      {
+        "id": "base",
+        "label": "BASE",
+        "contentRole": "name"
+      },
+      {
+        "id": "loadout",
+        "label": "EQUIPMENT",
+        "contentRole": "count"
+      }
+    ],
+    "items": [
+      {
+        "id": "barracuda",
+        "values": [
+          "Barracuda-1",
+          "Ready",
+          "Batumi",
+          "2/2"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [],
+  "detail": {
+    "id": "ship",
+    "label": "SELECTED SUBMARINE",
+    "title": "Barracuda-1",
+    "subtitle": "Ready",
+    "metrics": [
+      {
+        "id": "fuel",
+        "label": "FUEL",
+        "value": "100%"
+      },
+      {
+        "id": "damage",
+        "label": "DAMAGE",
+        "value": "0%"
+      }
+    ],
+    "actions": [
+      {
+        "id": "wing",
+        "label": "TOGGLE WING",
+        "labelKey": "STR_CAL_TOGGLE_WING",
+        "tone": "safe",
+        "action": "wing"
+      },
+      {
+        "id": "info",
+        "label": "DETAILS",
+        "labelKey": "STR_INFO",
+        "tone": "safe",
+        "action": "info"
+      },
+      {
+        "id": "reference",
+        "label": "REFERENCE",
+        "labelKey": "STR_UFOPAEDIA_UC",
+        "tone": "safe",
+        "action": "reference"
+      }
+    ]
+  }
+}

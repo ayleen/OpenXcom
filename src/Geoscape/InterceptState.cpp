@@ -17,6 +17,11 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "InterceptState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoHdOperationsRenderer.h"
+#include "../Calypso/CalypsoHdOperationsChrome.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
 #include <sstream>
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
@@ -57,7 +62,13 @@ InterceptState::InterceptState(Globe *globe, bool useCustomSound, Base *base, Ta
 	const int WIDTH_STATUS = 94;
 	const int WIDTH_BASE = 74;
 	const int WIDTH_WEAPONS = 48;
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	const auto animation = POPUP_NONE;
+#else
 	_screen = false;
+	const auto animation = POPUP_HORIZONTAL;
+#endif
 
 	if (useCustomSound)
 	{
@@ -76,7 +87,7 @@ InterceptState::InterceptState(Globe *globe, bool useCustomSound, Base *base, Ta
 	// Create objects
 	if (Options::oxceInterceptGuiMaintenanceTime > 0)
 	{
-		_window = new Window(this, 320, 140 + extraHeight, 0, 30 - offset, POPUP_HORIZONTAL);
+		_window = new Window(this, 320, 140 + extraHeight, 0, 30 - offset, animation);
 		_btnCancel = new TextButton(_base ? 142 : 288, 16, 16, 146 + offset);
 		_btnGotoBase = new TextButton(142, 16, 162, 146 + offset);
 		_txtTitle = new Text(300, 17, 10, 46 - offset);
@@ -92,7 +103,7 @@ InterceptState::InterceptState(Globe *globe, bool useCustomSound, Base *base, Ta
 	}
 	else
 	{
-		_window = new Window(this, 320, 140 + extraHeight, 0, 30 - offset, POPUP_HORIZONTAL);
+		_window = new Window(this, 320, 140 + extraHeight, 0, 30 - offset, animation);
 		_btnCancel = new TextButton(_base ? 142 : 288, 16, 16, 146 + offset);
 		_btnGotoBase = new TextButton(142, 16, 162, 146 + offset);
 		_txtTitle = new Text(300, 17, 10, 46 - offset);
@@ -117,14 +128,12 @@ InterceptState::InterceptState(Globe *globe, bool useCustomSound, Base *base, Ta
 	add(_lstCrafts, "list", "intercept");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
+
 
 	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "intercept");
+#endif
 
 	_btnCancel->setText(tr("STR_CANCEL"));
 	_btnCancel->onMouseClick((ActionHandler)&InterceptState::btnCancelClick);
@@ -170,7 +179,12 @@ InterceptState::InterceptState(Globe *globe, bool useCustomSound, Base *base, Ta
 	{
 		_lstCrafts->setMargin(6);
 	}
+#ifdef __EMSCRIPTEN__
+	_lstCrafts->onMouseClick((ActionHandler)&InterceptState::pickShip);
+	_lstCrafts->onKeyboardPress((ActionHandler)&InterceptState::pickShip, SDLK_SPACE);
+#else
 	_lstCrafts->onMouseClick((ActionHandler)&InterceptState::lstCraftsLeftClick);
+#endif
 	_lstCrafts->onMouseClick((ActionHandler)&InterceptState::lstCraftsRightClick, SDL_BUTTON_RIGHT);
 	_lstCrafts->onMouseClick((ActionHandler)&InterceptState::lstCraftsMiddleClick, SDL_BUTTON_MIDDLE);
 
@@ -397,6 +411,25 @@ InterceptState::InterceptState(Globe *globe, bool useCustomSound, Base *base, Ta
 			row++;
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	_wing = new TextButton(1, 1);
+	_course = new TextButton(1, 1);
+	_info = new TextButton(1, 1);
+	_reference = new TextButton(1, 1);
+	for (auto *button : {_wing, _course, _info, _reference}) add(button, "button", "intercept");
+	_wing->onMouseClick((ActionHandler)&InterceptState::toggleEscort);
+	_course->onMouseClick((ActionHandler)&InterceptState::setCourse);
+	_course->onKeyboardPress((ActionHandler)&InterceptState::setCourse, Options::keyOk);
+	_info->onMouseClick((ActionHandler)&InterceptState::openShip);
+	_reference->onMouseClick((ActionHandler)&InterceptState::openReference);
+	_course->setText(tr("STR_CAL_SET_COURSE"));
+	_reference->setText(tr("STR_UFOPAEDIA_UC"));
+	_fleetView = new Calypso::CalypsoHdOperationsRenderer(this, fleetModel());
+	_fleetView->setModelProvider([this] { return fleetModel(); });
+	Calypso::CalypsoHdUiOverlay::instance().registerAdapter(_fleetView);
+	Calypso::calypsoHdOperationsPublishHarnessVisibility();
+#endif
+
 }
 
 /**
@@ -404,7 +437,9 @@ InterceptState::InterceptState(Globe *globe, bool useCustomSound, Base *base, Ta
  */
 InterceptState::~InterceptState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _fleetView;
+#endif
 }
 
 /**
@@ -446,6 +481,9 @@ void InterceptState::lstCraftsLeftClick(Action *)
 	Craft* c = _crafts[row];
 
 	// add and remove crafts to the wing to be created
+	#ifdef __EMSCRIPTEN__
+	if (!canDispatch(c)) return;
+#else
 	if (_game->isShiftPressed())
 	{
 		// add craft to the list when it is not included yet
@@ -466,6 +504,7 @@ void InterceptState::lstCraftsLeftClick(Action *)
 	}
 	// add last craft to the wing (may already be part of the wing) and launch
 	else
+#endif
 	{
 		if (allowStart(c))
  		{
@@ -496,6 +535,7 @@ void InterceptState::lstCraftsLeftClick(Action *)
  */
 void InterceptState::lstCraftsRightClick(Action *)
 {
+	if (_lstCrafts->getSelectedRow() >= _crafts.size()) return;
 	Craft* c = _crafts[_lstCrafts->getSelectedRow()];
 	if (c->getStatus() == "STR_OUT")
 	{
@@ -531,6 +571,7 @@ void InterceptState::lstCraftsRightClick(Action *)
 */
 void InterceptState::lstCraftsMiddleClick(Action *)
 {
+	if (_lstCrafts->getSelectedRow() >= _crafts.size()) return;
 	Craft* c = _crafts[_lstCrafts->getSelectedRow()];
 	if (c)
 	{
@@ -538,5 +579,54 @@ void InterceptState::lstCraftsMiddleClick(Action *)
 		Ufopaedia::openArticle(_game, articleId);
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+bool InterceptState::canDispatch(const Craft *craft) const
+{
+	if (!craft || craft->getLowFuel() || craft->getMissionComplete()) return false;
+	const auto &status = craft->getStatus();
+	if (status != "STR_READY" && status != "STR_OUT" && !Options::craftLaunchAlways) return false;
+	return !_target || craft->getDistance(_target) + craft->getBase()->getDistance(_target) <= craft->getBaseRange() * 2.0;
+}
+
+void InterceptState::pickShip(Action *)
+{
+	_picked = _lstCrafts->getSelectedRow();
+	if (_game->isShiftPressed()) toggleEscort(nullptr);
+}
+
+void InterceptState::toggleEscort(Action *)
+{
+	if (_picked >= _crafts.size()) return;
+	auto *craft = _crafts[_picked];
+	auto it = std::find(_selCrafts.begin(), _selCrafts.end(), craft);
+	if (it != _selCrafts.end()) _selCrafts.erase(it);
+	else if (_selCrafts.size() < 3 && canDispatch(craft)) _selCrafts.push_back(craft);
+}
+
+void InterceptState::setCourse(Action *action)
+{
+	if (_picked >= _crafts.size() || !canDispatch(_crafts[_picked])) return;
+	_lstCrafts->setSelectedRow(_picked);
+	lstCraftsLeftClick(action);
+}
+void InterceptState::openShip(Action *action)
+{
+	if (_picked >= _crafts.size()) return;
+	_lstCrafts->setSelectedRow(_picked);
+	lstCraftsRightClick(action);
+}
+void InterceptState::openReference(Action *action)
+{
+	if (_picked >= _crafts.size()) return;
+	_lstCrafts->setSelectedRow(_picked);
+	lstCraftsMiddleClick(action);
+}
+void InterceptState::resize(int &dX, int &dY)
+{
+	if (_fleetView) _fleetView->setModel(fleetModel());
+	else State::resize(dX, dY);
+}
+#endif
 
 }

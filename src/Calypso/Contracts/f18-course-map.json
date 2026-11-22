@@ -1,0 +1,250 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "visualProfile": "command-card-v1",
+  "copy": {
+    "title": "Select destination",
+    "lead": "Barracuda-1 · Wing 2",
+    "fuel": "Fuel 100%",
+    "reach": "Range 1,200",
+    "left": "←",
+    "right": "→",
+    "up": "↑",
+    "down": "↓",
+    "zoomIn": "+",
+    "zoomOut": "−",
+    "final": "Final destination",
+    "cancel": "Cancel"
+  },
+  "parts": [
+    "window",
+    "banner",
+    "title",
+    "lead",
+    "fuel",
+    "reach",
+    "left",
+    "right",
+    "up",
+    "down",
+    "zoomIn",
+    "zoomOut",
+    "final",
+    "cancel"
+  ],
+  "actions": [
+    "left",
+    "right",
+    "up",
+    "down",
+    "zoomIn",
+    "zoomOut",
+    "final",
+    "cancel"
+  ],
+  "engineTextScale": {
+    "title": 0.78,
+    "data": 0.9,
+    "body": 0.92,
+    "input": 0.9,
+    "action": 0.9
+  },
+  "spacingRules": [
+    {
+      "id": "canvas-cancel",
+      "kind": "inset",
+      "container": "window",
+      "child": "cancel",
+      "edges": [
+        "right",
+        "bottom"
+      ],
+      "wide": 28,
+      "compact": 8
+    }
+  ],
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      },
+      "banner": {
+        "x": 28,
+        "y": 28,
+        "width": 1224,
+        "height": 74
+      },
+      "title": {
+        "x": 42,
+        "y": 32,
+        "width": 610,
+        "height": 37
+      },
+      "lead": {
+        "x": 42,
+        "y": 65,
+        "width": 610,
+        "height": 34
+      },
+      "fuel": {
+        "x": 640,
+        "y": 34,
+        "width": 310,
+        "height": 62
+      },
+      "reach": {
+        "x": 952,
+        "y": 34,
+        "width": 292,
+        "height": 62
+      },
+      "cancel": {
+        "x": 1104,
+        "y": 648,
+        "width": 148,
+        "height": 44
+      },
+      "final": {
+        "x": 928,
+        "y": 648,
+        "width": 168,
+        "height": 44
+      },
+      "left": {
+        "x": 28,
+        "y": 648,
+        "width": 44,
+        "height": 44
+      },
+      "up": {
+        "x": 78,
+        "y": 648,
+        "width": 44,
+        "height": 44
+      },
+      "down": {
+        "x": 128,
+        "y": 648,
+        "width": 44,
+        "height": 44
+      },
+      "right": {
+        "x": 178,
+        "y": 648,
+        "width": 44,
+        "height": 44
+      },
+      "zoomOut": {
+        "x": 228,
+        "y": 648,
+        "width": 44,
+        "height": 44
+      },
+      "zoomIn": {
+        "x": 278,
+        "y": 648,
+        "width": 44,
+        "height": 44
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 740,
+        "height": 360
+      },
+      "banner": {
+        "x": 8,
+        "y": 8,
+        "width": 724,
+        "height": 56
+      },
+      "title": {
+        "x": 22,
+        "y": 12,
+        "width": 340,
+        "height": 28
+      },
+      "lead": {
+        "x": 22,
+        "y": 36,
+        "width": 340,
+        "height": 25
+      },
+      "fuel": {
+        "x": 370,
+        "y": 14,
+        "width": 175,
+        "height": 44
+      },
+      "reach": {
+        "x": 547,
+        "y": 14,
+        "width": 177,
+        "height": 44
+      },
+      "cancel": {
+        "x": 584,
+        "y": 308,
+        "width": 148,
+        "height": 44
+      },
+      "final": {
+        "x": 408,
+        "y": 308,
+        "width": 168,
+        "height": 44
+      },
+      "left": {
+        "x": 8,
+        "y": 308,
+        "width": 44,
+        "height": 44
+      },
+      "up": {
+        "x": 58,
+        "y": 308,
+        "width": 44,
+        "height": 44
+      },
+      "down": {
+        "x": 108,
+        "y": 308,
+        "width": 44,
+        "height": 44
+      },
+      "right": {
+        "x": 158,
+        "y": 308,
+        "width": 44,
+        "height": 44
+      },
+      "zoomOut": {
+        "x": 208,
+        "y": 308,
+        "width": 44,
+        "height": 44
+      },
+      "zoomIn": {
+        "x": 258,
+        "y": 308,
+        "width": 44,
+        "height": 44
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

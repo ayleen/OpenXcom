@@ -22,6 +22,9 @@
 namespace OpenXcom
 {
 
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoFleetMapUi; }
+#endif
 class Craft;
 class Globe;
 class InteractiveSurface;
@@ -43,7 +46,16 @@ private:
 	Window *_window;
 	Text *_txtTitle;
 	TextButton *_btnCancel, *_btnCydonia;
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoFleetMapUi;
+	Calypso::CalypsoFleetMapUi *_mapUi = nullptr;
+	Text *_lead = nullptr, *_fuel = nullptr, *_range = nullptr;
+	bool insideCommand(double x, double y) const;
+#endif
 public:
+#ifdef __EMSCRIPTEN__
+	void blit() override;
+#endif
 	/// Creates the Select Destination state.
 	SelectDestinationState(std::vector<Craft*> crafts, Globe *globe);
 	/// Cleans up the Select Destination state.

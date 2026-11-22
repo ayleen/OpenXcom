@@ -165,7 +165,12 @@ enum class CalypsoHarnessScenario
 	F30Commendations = 194,
 	F30ExperienceOverview = 193,
 	F23Funding = 160,
-	F23MonthlyReport = 161
+	F23MonthlyReport = 161,
+	F18PatrolArrival = 146,
+	F18InterceptFleet = 147,
+	F18CourseConfirm = 148,
+	F18CourseMap = 149,
+	F18CraftNavigation = 150
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -181,6 +186,11 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F03Dismantle)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F04SackSoldier)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F18CraftError)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F18CraftNavigation)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F18CourseMap)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F18CourseConfirm)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F18InterceptFleet)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F18PatrolArrival)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F18LowFuel)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F18NotEnoughPilots)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F19DogfightError)

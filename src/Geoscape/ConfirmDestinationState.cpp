@@ -19,6 +19,11 @@
 #include "CraftErrorState.h"
 #include "CraftNotEnoughPilotsState.h"
 #include "ConfirmDestinationState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoHdOperationsRenderer.h"
+#include "../Calypso/CalypsoHdOperationsChrome.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
 #include "../fmath.h"
 #include "../Engine/Game.h"
 #include "../Menu/ErrorMessageState.h"
@@ -59,7 +64,11 @@ namespace OpenXcom
 ConfirmDestinationState::ConfirmDestinationState(std::vector<Craft*> crafts, Target *target) : _crafts(std::move(crafts)), _target(target)
 {
 	Waypoint *w = dynamic_cast<Waypoint*>(_target);
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+#else
 	_screen = false;
+#endif
 
 	Base *base = dynamic_cast<Base*>(_target);
 	bool transferAvailable = false; // no transfer allowed for wings
@@ -93,11 +102,6 @@ ConfirmDestinationState::ConfirmDestinationState(std::vector<Craft*> crafts, Tar
 	add(_txtETA, "text", "confirmDestination");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
 
 	// Set up objects
 	setWindowBackground(_window, "confirmDestination");
@@ -171,13 +175,29 @@ ConfirmDestinationState::ConfirmDestinationState(std::vector<Craft*> crafts, Tar
 			_txtETA->setText(tr("STR_ETA").arg(ssStatus.str()));
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	_btnOk->setText(tr("STR_CAL_CONFIRM_COURSE"));
+	_btnTransfer->setText(tr("STR_CAL_BASE_TRANSFER"));
+	_console = new Calypso::CalypsoHdOperationsRenderer(this, preflightModel());
+	_console->setModelProvider([this] { return preflightModel(); });
+	Calypso::CalypsoHdUiOverlay::instance().registerAdapter(_console);
+	Calypso::calypsoHdOperationsPublishHarnessVisibility();
+#endif
 }
 
-/**
- *
- */
+#ifdef __EMSCRIPTEN__
+void ConfirmDestinationState::resize(int &dx, int &dy)
+{
+	if (_console) _console->setModel(preflightModel());
+	else State::resize(dx, dy);
+}
+#endif
+
 ConfirmDestinationState::~ConfirmDestinationState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _console;
+#endif
 
 }
 
@@ -211,7 +231,7 @@ std::string ConfirmDestinationState::checkStartingCondition()
 	else if (b != 0)
 	{
 		AlienRace *race = _game->getMod()->getAlienRace(b->getAlienRace());
-		ruleDeploy = _game->getMod()->getDeployment(race->getBaseCustomMission());
+		if (race) ruleDeploy = _game->getMod()->getDeployment(race->getBaseCustomMission());
 		if (!ruleDeploy) ruleDeploy = _game->getMod()->getDeployment(b->getDeployment()->getType());
 	}
 	else

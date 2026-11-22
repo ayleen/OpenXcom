@@ -1,0 +1,385 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "visualProfile": "command-card-v1",
+  "copy": {
+    "title": "Barracuda-1",
+    "status": "Returning to base",
+    "base": "Base · Batumi",
+    "speed": "Speed · 1,960",
+    "maximum": "Maximum speed · 2,100",
+    "altitude": "Depth · Very low",
+    "fuel": "Fuel · 88%",
+    "damage": "Damage · 0%",
+    "shield": "Shield · 100%",
+    "crew": "Aquanauts · 0",
+    "vehicles": "SWS · 0",
+    "eta": "ETA · 1 h",
+    "distance": "Range to target · 145",
+    "slot1": "Sonic oscillator",
+    "slot2": "Torpedo launcher",
+    "slot3": "—",
+    "slot4": "—",
+    "home": "Return to base",
+    "target": "Select new target",
+    "patrol": "Patrol",
+    "cancel": "Close"
+  },
+  "parts": [
+    "window",
+    "banner",
+    "details",
+    "title",
+    "status",
+    "base",
+    "speed",
+    "maximum",
+    "altitude",
+    "fuel",
+    "damage",
+    "shield",
+    "crew",
+    "vehicles",
+    "eta",
+    "distance",
+    "slot1",
+    "slot2",
+    "slot3",
+    "slot4",
+    "home",
+    "target",
+    "patrol",
+    "cancel"
+  ],
+  "actions": [
+    "home",
+    "target",
+    "patrol",
+    "cancel"
+  ],
+  "engineTextScale": {
+    "title": 0.78,
+    "data": 0.9,
+    "body": 0.92,
+    "input": 0.9,
+    "action": 0.9
+  },
+  "spacingRules": [
+    {
+      "id": "canvas-cancel",
+      "kind": "inset",
+      "container": "window",
+      "child": "cancel",
+      "edges": [
+        "right",
+        "bottom"
+      ],
+      "wide": 28,
+      "compact": 8
+    }
+  ],
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      },
+      "banner": {
+        "x": 28,
+        "y": 28,
+        "width": 1224,
+        "height": 105
+      },
+      "details": {
+        "x": 874,
+        "y": 141,
+        "width": 378,
+        "height": 308
+      },
+      "title": {
+        "x": 42,
+        "y": 31,
+        "width": 598,
+        "height": 51
+      },
+      "status": {
+        "x": 640,
+        "y": 31,
+        "width": 598,
+        "height": 51
+      },
+      "speed": {
+        "x": 42,
+        "y": 80,
+        "width": 295,
+        "height": 50
+      },
+      "altitude": {
+        "x": 341,
+        "y": 80,
+        "width": 295,
+        "height": 50
+      },
+      "fuel": {
+        "x": 640,
+        "y": 80,
+        "width": 295,
+        "height": 50
+      },
+      "distance": {
+        "x": 939,
+        "y": 80,
+        "width": 295,
+        "height": 50
+      },
+      "base": {
+        "x": 888,
+        "y": 155,
+        "width": 350,
+        "height": 28
+      },
+      "maximum": {
+        "x": 888,
+        "y": 183,
+        "width": 350,
+        "height": 28
+      },
+      "damage": {
+        "x": 888,
+        "y": 211,
+        "width": 350,
+        "height": 28
+      },
+      "shield": {
+        "x": 888,
+        "y": 239,
+        "width": 350,
+        "height": 28
+      },
+      "eta": {
+        "x": 888,
+        "y": 267,
+        "width": 350,
+        "height": 28
+      },
+      "crew": {
+        "x": 888,
+        "y": 295,
+        "width": 175,
+        "height": 28
+      },
+      "vehicles": {
+        "x": 1063,
+        "y": 295,
+        "width": 175,
+        "height": 28
+      },
+      "slot1": {
+        "x": 888,
+        "y": 323,
+        "width": 350,
+        "height": 28
+      },
+      "slot2": {
+        "x": 888,
+        "y": 351,
+        "width": 350,
+        "height": 28
+      },
+      "slot3": {
+        "x": 888,
+        "y": 379,
+        "width": 350,
+        "height": 28
+      },
+      "slot4": {
+        "x": 888,
+        "y": 407,
+        "width": 350,
+        "height": 28
+      },
+      "home": {
+        "x": 28,
+        "y": 648,
+        "width": 300,
+        "height": 44
+      },
+      "target": {
+        "x": 336,
+        "y": 648,
+        "width": 300,
+        "height": 44
+      },
+      "patrol": {
+        "x": 644,
+        "y": 648,
+        "width": 300,
+        "height": 44
+      },
+      "cancel": {
+        "x": 952,
+        "y": 648,
+        "width": 300,
+        "height": 44
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 740,
+        "height": 360
+      },
+      "banner": {
+        "x": 8,
+        "y": 8,
+        "width": 724,
+        "height": 70
+      },
+      "details": {
+        "x": 488,
+        "y": 86,
+        "width": 244,
+        "height": 196
+      },
+      "title": {
+        "x": 16,
+        "y": 11,
+        "width": 354,
+        "height": 34
+      },
+      "status": {
+        "x": 370,
+        "y": 11,
+        "width": 354,
+        "height": 34
+      },
+      "speed": {
+        "x": 16,
+        "y": 43,
+        "width": 173,
+        "height": 33
+      },
+      "altitude": {
+        "x": 193,
+        "y": 43,
+        "width": 173,
+        "height": 33
+      },
+      "fuel": {
+        "x": 370,
+        "y": 43,
+        "width": 173,
+        "height": 33
+      },
+      "distance": {
+        "x": 547,
+        "y": 43,
+        "width": 173,
+        "height": 33
+      },
+      "base": {
+        "x": 496,
+        "y": 94,
+        "width": 228,
+        "height": 18
+      },
+      "maximum": {
+        "x": 496,
+        "y": 112,
+        "width": 228,
+        "height": 18
+      },
+      "damage": {
+        "x": 496,
+        "y": 130,
+        "width": 228,
+        "height": 18
+      },
+      "shield": {
+        "x": 496,
+        "y": 148,
+        "width": 228,
+        "height": 18
+      },
+      "eta": {
+        "x": 496,
+        "y": 166,
+        "width": 228,
+        "height": 18
+      },
+      "crew": {
+        "x": 496,
+        "y": 184,
+        "width": 114,
+        "height": 18
+      },
+      "vehicles": {
+        "x": 610,
+        "y": 184,
+        "width": 114,
+        "height": 18
+      },
+      "slot1": {
+        "x": 496,
+        "y": 202,
+        "width": 228,
+        "height": 18
+      },
+      "slot2": {
+        "x": 496,
+        "y": 220,
+        "width": 228,
+        "height": 18
+      },
+      "slot3": {
+        "x": 496,
+        "y": 238,
+        "width": 228,
+        "height": 18
+      },
+      "slot4": {
+        "x": 496,
+        "y": 256,
+        "width": 228,
+        "height": 18
+      },
+      "home": {
+        "x": 8,
+        "y": 308,
+        "width": 175,
+        "height": 44
+      },
+      "target": {
+        "x": 191,
+        "y": 308,
+        "width": 175,
+        "height": 44
+      },
+      "patrol": {
+        "x": 374,
+        "y": 308,
+        "width": 175,
+        "height": 44
+      },
+      "cancel": {
+        "x": 557,
+        "y": 308,
+        "width": 175,
+        "height": 44
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

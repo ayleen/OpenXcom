@@ -43,7 +43,13 @@ CraftNotEnoughPilotsState::CraftNotEnoughPilotsState(Craft *craft) : _craft(craf
 	_screen = false;
 
 	// Create objects
-	_window = new Window(this, 256, 160, 32, 20, POPUP_BOTH);
+	_window = new Window(this, 256, 160, 32, 20,
+#ifdef __EMSCRIPTEN__
+		POPUP_NONE
+#else
+		POPUP_BOTH
+#endif
+	);
 	_btnOk = new TextButton(108, 18, 48, 150);
 	_btnAssignPilots = new TextButton(108, 18, 164, 150);
 	_txtMessage = new Text(246, 96, 37, 42);
@@ -57,12 +63,12 @@ CraftNotEnoughPilotsState::CraftNotEnoughPilotsState(Craft *craft) : _craft(craf
 	add(_txtMessage, "text1", "craftPilotError");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF18NotEnoughPilotsUi::configure(*this);
-#endif
+
 
 	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "craftPilotError");
+#endif
 
 	_btnOk->setText(tr("STR_OK"));
 	_btnOk->onMouseClick((ActionHandler)&CraftNotEnoughPilotsState::btnOkClick);
@@ -81,6 +87,9 @@ CraftNotEnoughPilotsState::CraftNotEnoughPilotsState(Craft *craft) : _craft(craf
 	_txtMessage->setBig();
 	_txtMessage->setWordWrap(true);
 	_txtMessage->setText(tr("STR_NOT_ENOUGH_PILOTS").arg(_craft->getRules()->getPilots()));
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF18NotEnoughPilotsUi::configure(*this);
+#endif
 }
 
 /**

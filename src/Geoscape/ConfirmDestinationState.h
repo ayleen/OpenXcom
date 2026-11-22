@@ -22,6 +22,9 @@
 namespace OpenXcom
 {
 
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoHdOperationsRenderer; struct CalypsoHdOperationsModel; }
+#endif
 class Window;
 class Text;
 class TextButton;
@@ -43,6 +46,10 @@ private:
 	Text *_txtETA;
 	TextButton *_btnOk, *_btnTransfer, *_btnCancel;
 	ToggleTextButton *_btnFollowWingLeader;
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoHdOperationsRenderer *_console = nullptr;
+	Calypso::CalypsoHdOperationsModel preflightModel();
+#endif
 	// Checks the starting condition
 	std::string checkStartingCondition();
 public:
@@ -57,8 +64,8 @@ public:
 	/// Handler for clicking the Cancel button.
 	void btnCancelClick(Action *action);
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+	/// Reposition the pre-flight console and its input owners.
+	void resize(int &dX, int &dY) override;
 #endif
 };
 

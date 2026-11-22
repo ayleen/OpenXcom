@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "GeoscapeCraftState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoFleetMapUi.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
 #include <sstream>
 #include "../fmath.h"
 #include "../Engine/Game.h"
@@ -51,7 +55,13 @@ namespace OpenXcom
  */
 GeoscapeCraftState::GeoscapeCraftState(Craft *craft, Globe *globe, Waypoint *waypoint, bool useCustomSound) : _craft(craft), _globe(globe), _waypoint(waypoint)
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	const auto popup = POPUP_NONE;
+#else
 	_screen = false;
+	const auto popup = POPUP_BOTH;
+#endif
 
 	_weaponNum = _craft->getRules()->getWeapons();
 	if (_weaponNum > RuleCraft::WeaponMax)
@@ -70,7 +80,7 @@ GeoscapeCraftState::GeoscapeCraftState(Craft *craft, Globe *globe, Waypoint *way
 	}
 
 	// Create objects
-	_window = new Window(this, 240, 192, 4, 4, POPUP_BOTH);
+	_window = new Window(this, 240, 192, 4, 4, popup);
 	_txtTitle = new Text(210, 17, 32, offset_upper + 20);
 	_txtStatus = new Text(210, 17, 32, offset_upper + 36);
 	_txtBase = new Text(210, 9, 32, offset_upper + 52);
@@ -123,14 +133,12 @@ GeoscapeCraftState::GeoscapeCraftState(Craft *craft, Globe *globe, Waypoint *way
 	add(_txtHWP, "text3", "geoCraft");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
+
 
 	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "geoCraft");
+#endif
 
 	_btnBase->setText(tr("STR_RETURN_TO_BASE"));
 	_btnBase->onMouseClick((ActionHandler)&GeoscapeCraftState::btnBaseClick);
@@ -311,13 +319,41 @@ GeoscapeCraftState::GeoscapeCraftState(Craft *craft, Globe *globe, Waypoint *way
 		_txtSoldier->setVisible(false);
 	if (_craft->getRules()->getMaxVehiclesAndLargeSoldiersLimit() == 0)
 		_txtHWP->setVisible(false);
+#ifdef __EMSCRIPTEN__
+	_targetRange = new Text(1, 1);
+	_details = new Surface(1, 1);
+	add(_targetRange, "text3", "geoCraft");
+	add(_details);
+	const Target *destination = _waypoint ? static_cast<Target*>(_waypoint) : _craft->getDestination();
+	if (destination)
+		_targetRange->setText(std::string(tr("STR_CAL_TARGET_RANGE")) + "  " + Unicode::formatNumber(XcomDistance(_craft->getDistance(destination))));
+	_navigation = new Calypso::CalypsoFleetNavigationUi(this);
+	_navigation->layout();
+	Calypso::CalypsoHdUiOverlay::instance().registerAdapter(_navigation);
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void GeoscapeCraftState::blit()
+{
+	_globe->presentHdWorld();
+}
+
+void GeoscapeCraftState::resize(int &dx, int &dy)
+{
+	if (_navigation) _navigation->layout();
+	else State::resize(dx, dy);
+}
+#endif
 
 /**
  *
  */
 GeoscapeCraftState::~GeoscapeCraftState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _navigation;
+#endif
 
 }
 

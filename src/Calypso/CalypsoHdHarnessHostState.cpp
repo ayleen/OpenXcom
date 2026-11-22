@@ -91,6 +91,12 @@
 #include "../Basescape/TransferConfirmState.h"
 #include "../Geoscape/CraftErrorState.h"
 #include "../Geoscape/LowFuelState.h"
+#include "../Geoscape/ConfirmDestinationState.h"
+#include "../Geoscape/SelectDestinationState.h"
+#include "../Geoscape/GeoscapeCraftState.h"
+#include "../Geoscape/InterceptState.h"
+#include "../Geoscape/CraftPatrolState.h"
+#include "../Savegame/Waypoint.h"
 #include "../Geoscape/CraftNotEnoughPilotsState.h"
 #include "../Geoscape/DogfightErrorState.h"
 #include "../Geoscape/ConfirmLandingState.h"
@@ -1602,10 +1608,63 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new CraftErrorState(nullptr, "Dismiss soldier confirmation.");
 	case CalypsoHarnessScenario::F18CraftError:
 		return new CraftErrorState(nullptr, "Craft cannot complete the assigned operation.");
+	case CalypsoHarnessScenario::F18InterceptFleet:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		return new InterceptState(globe->getGlobe(), false);
+	}
+	case CalypsoHarnessScenario::F18CraftNavigation:
+	case CalypsoHarnessScenario::F18CourseMap:
+	case CalypsoHarnessScenario::F18CourseConfirm:
+	case CalypsoHarnessScenario::F18PatrolArrival:
 	case CalypsoHarnessScenario::F18LowFuel:
-		return new CraftErrorState(nullptr, "Craft is low on fuel and returning to base.");
 	case CalypsoHarnessScenario::F18NotEnoughPilots:
-		return new CraftErrorState(nullptr, "Not enough pilots for this craft.");
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		const bool fuel = id == CalypsoHarnessScenario::F18LowFuel;
+		for (Base *base : *game->getSavedGame()->getBases())
+		{
+			for (Craft *craft : *base->getCrafts())
+			{
+				if (id == CalypsoHarnessScenario::F18NotEnoughPilots && craft->getRules()->getPilots() <= 0) continue;
+				auto *globe = new GeoscapeState();
+				game->pushState(globe);
+				calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+				if (id == CalypsoHarnessScenario::F18CraftNavigation)
+				{
+					craft->setDestination(base);
+					craft->setStatus("STR_OUT");
+					return new GeoscapeCraftState(craft, globe->getGlobe(), nullptr, false);
+				}
+				if (id == CalypsoHarnessScenario::F18CourseMap)
+					return new SelectDestinationState({craft}, globe->getGlobe());
+				if (id == CalypsoHarnessScenario::F18CourseConfirm)
+				{
+					game->pushState(new SelectDestinationState({craft}, globe->getGlobe()));
+					return new ConfirmDestinationState({craft}, base);
+				}
+				if (id == CalypsoHarnessScenario::F18PatrolArrival)
+				{
+					auto *waypoint = new Waypoint();
+					waypoint->setId(18);
+					game->getSavedGame()->getWaypoints()->push_back(waypoint);
+					craft->setDestination(waypoint);
+					return new CraftPatrolState(craft, globe->getGlobe());
+				}
+				if (!fuel) return new CraftNotEnoughPilotsState(craft);
+				craft->setFuel(1);
+				craft->setLowFuel(true);
+				craft->returnToBase();
+				return new LowFuelState(craft, globe);
+			}
+		}
+		return nullptr;
+	}
 	case CalypsoHarnessScenario::F19DogfightError:
 	{
 		Game *game = getCurrentGame();
