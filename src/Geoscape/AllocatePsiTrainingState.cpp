@@ -40,6 +40,10 @@
 #include <algorithm>
 #include "../Engine/Unicode.h"
 
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#endif
+
 namespace OpenXcom
 {
 
@@ -171,7 +175,9 @@ AllocatePsiTrainingState::AllocatePsiTrainingState(Base *base) : _sel(0), _base(
 	_cbxSortBy->onChange((ActionHandler)&AllocatePsiTrainingState::cbxSortByChange);
 	_cbxSortBy->setText(tr("STR_SORT_BY"));
 
+#ifndef __EMSCRIPTEN__
 	_lstSoldiers->setArrowColumn(238, ARROW_VERTICAL);
+#endif
 	_lstSoldiers->setColumns(4, 114, 80, 66, 40);
 	_lstSoldiers->setSelectable(true);
 	_lstSoldiers->setBackground(_window);
@@ -180,7 +186,25 @@ AllocatePsiTrainingState::AllocatePsiTrainingState(Base *base) : _sel(0), _base(
 	_lstSoldiers->onRightArrowClick((ActionHandler)&AllocatePsiTrainingState::lstItemsRightArrowClick);
 	_lstSoldiers->onMouseClick((ActionHandler)&AllocatePsiTrainingState::lstSoldiersClick);
 	_lstSoldiers->onMouseClick((ActionHandler)&AllocatePsiTrainingState::lstSoldiersClick, SDL_BUTTON_RIGHT);
+#ifdef __EMSCRIPTEN__
+	_cbxSortBy->setVisible(false);
+	configureRoster(base, "allocatePsi", std::move(sortOptions),
+		(ActionHandler)&AllocatePsiTrainingState::btnAssignAllSoldiersClick, (ActionHandler)&AllocatePsiTrainingState::btnDeassignAllSoldiersClick);
+	_sortIndex = [this] { return _cbxSortBy->getSelected(); };
+	_applySort = [this](size_t index, bool reverse) {
+		_cbxSortBy->setSelected(index);
+		_reverseOrder = reverse;
+		cbxSortByChange(nullptr);
+	};
+	_moveDiver = [this](size_t index, int direction) {
+		if (direction < 0) moveSoldierUp(nullptr, index);
+		else moveSoldierDown(nullptr, index);
+		_cbxSortBy->setSelected(static_cast<size_t>(-1));
+	};
+	_ledger = new Calypso::CalypsoBaseLedger(*this);
+#else
 	_lstSoldiers->onMousePress((ActionHandler)&AllocatePsiTrainingState::lstSoldiersMousePress);
+#endif
 }
 /**
  * cleans up dynamic state
@@ -221,7 +245,11 @@ void AllocatePsiTrainingState::cbxSortByChange(Action *action)
 		{
 			std::stable_sort(_base->getSoldiers()->begin(), _base->getSoldiers()->end(), *compFunc);
 		}
-		if (_game->isShiftPressed())
+		if (_game->isShiftPressed()
+#ifdef __EMSCRIPTEN__
+			|| _reverseOrder
+#endif
+		)
 		{
 			std::reverse(_base->getSoldiers()->begin(), _base->getSoldiers()->end());
 		}
@@ -311,7 +339,6 @@ void AllocatePsiTrainingState::initList(size_t scrl)
 
 		std::ostringstream ssStr;
 		std::ostringstream ssSkl;
-		_soldiers.push_back(soldier);
 		if (soldier->getCurrentStats()->psiSkill > 0 || (Options::psiStrengthEval && _game->getSavedGame()->isResearched(_game->getMod()->getPsiRequirements())))
 		{
 			ssStr << "   " << stats->psiStrength;
@@ -331,7 +358,7 @@ void AllocatePsiTrainingState::initList(size_t scrl)
 		}
 		if (soldier->getRules()->getTrainingStatCaps().psiSkill <= 0)
 		{
-			_lstSoldiers->addRow(4, soldier->getName(true).c_str(), ssStr.str().c_str(), ssSkl.str().c_str(), tr("STR_NO_WOUNDED").c_str());
+			_lstSoldiers->addRow(4, soldier->getName(true).c_str(), ssStr.str().c_str(), ssSkl.str().c_str(), tr("STR_CAL_TRAIN_INELIGIBLE").c_str());
 			_lstSoldiers->setRowColor(row, _lstSoldiers->getColor());
 			if (soldier->isInPsiTraining())
 			{
@@ -410,7 +437,7 @@ void AllocatePsiTrainingState::moveSoldierUp(Action *action, unsigned int row, b
 		_base->getSoldiers()->at(row - 1) = s;
 		if (row != _lstSoldiers->getScroll())
 		{
-			SDL_WarpMouse(action->getLeftBlackBand() + action->getXMouse(), action->getTopBlackBand() + action->getYMouse() - static_cast<Uint16>(8 * action->getYScale()));
+			if (action) SDL_WarpMouse(action->getLeftBlackBand() + action->getXMouse(), action->getTopBlackBand() + action->getYMouse() - static_cast<Uint16>(8 * action->getYScale()));
 		}
 		else
 		{
@@ -463,7 +490,7 @@ void AllocatePsiTrainingState::moveSoldierDown(Action *action, unsigned int row,
 		_base->getSoldiers()->at(row + 1) = s;
 		if (row != _lstSoldiers->getVisibleRows() - 1 + _lstSoldiers->getScroll())
 		{
-			SDL_WarpMouse(action->getLeftBlackBand() + action->getXMouse(), action->getTopBlackBand() + action->getYMouse() + static_cast<Uint16>(8 * action->getYScale()));
+			if (action) SDL_WarpMouse(action->getLeftBlackBand() + action->getXMouse(), action->getTopBlackBand() + action->getYMouse() + static_cast<Uint16>(8 * action->getYScale()));
 		}
 		else
 		{
@@ -479,13 +506,19 @@ void AllocatePsiTrainingState::moveSoldierDown(Action *action, unsigned int row,
  */
 void AllocatePsiTrainingState::lstSoldiersClick(Action *action)
 {
+#ifndef __EMSCRIPTEN__
 	double mx = action->getAbsoluteXMouse();
 	if (mx >= _lstSoldiers->getArrowsLeftEdge() && mx < _lstSoldiers->getArrowsRightEdge())
 	{
 		return;
 	}
 
+#endif
 	_sel = _lstSoldiers->getSelectedRow();
+	if (_sel >= _base->getSoldiers()->size()) return;
+#ifdef __EMSCRIPTEN__
+	_selectedDiver = _base->getSoldiers()->at(_sel);
+#endif
 	if (action->getDetails()->button.button == SDL_BUTTON_LEFT)
 	{
 		auto* s = _base->getSoldiers()->at(_sel);
@@ -566,7 +599,7 @@ void AllocatePsiTrainingState::btnDeassignAllSoldiersClick(Action* action)
 		s->setPsiTraining(false);
 		if (s->getRules()->getTrainingStatCaps().psiSkill <= 0)
 		{
-			_lstSoldiers->setCellText(row, 3, tr("STR_NO_WOUNDED"));
+			_lstSoldiers->setCellText(row, 3, tr("STR_CAL_TRAIN_INELIGIBLE"));
 		}
 		else if (s->isFullyPsiTrained())
 		{

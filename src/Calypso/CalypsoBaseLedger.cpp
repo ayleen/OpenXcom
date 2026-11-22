@@ -1,5 +1,12 @@
 #ifdef __EMSCRIPTEN__
 #include "CalypsoTrainingBases.h"
+#include "CalypsoTrainingRoster.h"
+#include "Generated/CalypsoF22TrainingOrder.generated.h"
+#include "Generated/CalypsoF22PhysicalRoster.generated.h"
+#include "Generated/CalypsoF22PsionicRoster.generated.h"
+#include "../Geoscape/AllocateTrainingState.h"
+#include "../Geoscape/AllocatePsiTrainingState.h"
+#include <type_traits>
 #include "Generated/CalypsoF22TrainingBases.generated.h"
 #include "Generated/CalypsoF22TrainingFinished.generated.h"
 #include "../Geoscape/TrainingFinishedState.h"
@@ -78,6 +85,8 @@ struct Column
 {
 	std::string label;
 	Surface *sort = nullptr;
+	int source = -1;
+	int paired = -1;
 };
 
 struct Summary
@@ -190,8 +199,14 @@ CalypsoHdOperationsModel ledgerModel(State &state, const std::string &title, Tex
 		for (int c = 0; c < table.columnCount; ++c)
 		{
 			const auto &cells = nativeRows[i];
-			const auto *text = static_cast<std::size_t>(c) < cells.size() ? cells[c] : nullptr;
-			row.values.push_back(text ? CommandCenter::calypsoHdNormalizeTtfDisplayText(text->getText()) : std::string());
+			auto value = [&](int index) {
+				const auto *cell = static_cast<size_t>(index) < cells.size() ? cells[index] : nullptr;
+				return cell ? CommandCenter::calypsoHdNormalizeTtfDisplayText(cell->getText()) : std::string();
+			};
+			const auto &column = columns[c];
+			auto text = value(column.source < 0 ? c : column.source);
+			if (column.paired >= 0) text += " / " + value(column.paired);
+			row.values.push_back(std::move(text));
 			row.cells.push_back({row.values.back(),table.columns[c].contentRole,
 				{true,false,row.state.selected,false}});
 		}
@@ -749,5 +764,111 @@ CalypsoBaseLedger::CalypsoBaseLedger(CalypsoTrainingBases &s)
 	};
 	open();
 }
+template<class StateType, class Layout, class Collection, class Style, class Typography>
+CalypsoHdOperationsModel CalypsoBaseLedger::rosterModel(StateType &s, const Layout &g, const Collection &table,
+	const Style &style, const Typography &typography)
+{
+	std::vector<Column> columns = {{s._txtName->getText()}};
+	int capacity, free;
+	if constexpr (std::is_same_v<StateType, AllocateTrainingState>)
+	{
+		columns.push_back({s._txtTu->getText() + " / " + s._txtStamina->getText(), nullptr, 1, 2});
+		columns.push_back({s._txtHealth->getText() + " / " + s._txtStrength->getText(), nullptr, 3, 7});
+		columns.push_back({s._txtFiring->getText() + " / " + s._txtThrowing->getText(), nullptr, 4, 5});
+		columns.push_back({s._txtMelee->getText(), nullptr, 6});
+		columns.push_back({s._txtTraining->getText(), nullptr, 8});
+		capacity = s._base->getAvailableTraining();
+		free = capacity - s._base->getUsedTraining();
+	}
+	else
+	{
+		columns.push_back({s._txtPsiStrength->getText()});
+		columns.push_back({s._txtPsiSkill->getText()});
+		columns.push_back({s._txtTraining->getText()});
+		capacity = s._base->getAvailablePsiLabs();
+		free = capacity - s._base->getUsedPsiLabs();
+	}
+	return ledgerModel(s, s._txtTitle->getText(), *s._lstSoldiers, s._base, g, table, style, typography,
+		{{"free", s.tr("STR_CAL_TRAINING_FREE"), std::to_string(free), design(g.summary_free)},
+		 {"capacity", s.tr("STR_CAL_TRAINING_CAPACITY"), std::to_string(capacity), design(g.summary_capacity)}}, columns,
+		{{"order", s._order, s._order->getText(), design(g.toolbar_order), false, true},
+		 {"details", s._details, s._details->getText(), design(g.toolbar_details), false, true, s.diverIndex() >= s._base->getSoldiers()->size()},
+		 {"bonus", s._btnPlus, s.tr("STR_CAL_TRAIN_BONUSES"), design(g.toolbar_bonus), s._btnPlus->getPressed(), true},
+		 {"assign", s._assign, s._assign->getText(), design(g.action_assign)},
+		 {"clear", s._clear, s._clear->getText(), design(g.action_clear)},
+		 {"done", s._btnOk, s._btnOk->getText(), design(g.action_done)}},
+		"STR_CAL_TRAIN_EMPTY", "STR_TRAINING", 22);
+}
+
+CalypsoBaseLedger::CalypsoBaseLedger(AllocateTrainingState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]() {
+		namespace Gen = CalypsoF22PhysicalRosterGen;
+		const bool wide = wideLayout();
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		auto model = rosterModel(s, g, table, Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact);
+		model.headerArtId = Gen::kHeaderArt;
+		model.sectionLabel = s.tr("STR_TRAINING");
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+
+CalypsoBaseLedger::CalypsoBaseLedger(AllocatePsiTrainingState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]() {
+		namespace Gen = CalypsoF22PsionicRosterGen;
+		const bool wide = wideLayout();
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		auto model = rosterModel(s, g, table, Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact);
+		model.headerArtId = Gen::kHeaderArt;
+		model.sectionLabel = s.tr("STR_TRAINING");
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+
+CalypsoBaseLedger::CalypsoBaseLedger(CalypsoTrainingOrder &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]() {
+		namespace Gen = CalypsoF22TrainingOrderGen;
+		const bool wide = wideLayout();
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		const auto index = s._roster.diverIndex();
+		const auto count = s._roster._rosterBase->getSoldiers()->size();
+		auto model = ledgerModel(s, s.tr("STR_SORT_BY"), *s._rows, s._roster._rosterBase, g, table, Gen::kProfileStyle,
+			wide ? Gen::kTypographyWide : Gen::kTypographyCompact, {}, {{s.tr("STR_SORT_BY")}, {s.tr("STR_CAL_TRAIN_CURRENT")}},
+			{{"reverse", s._reverse, s._reverse->getText(), design(g.toolbar_reverse), s._roster._reverseOrder, true},
+			 {"up", s._up, s._up->getText(), design(g.action_up), false, false, index >= count || index == 0},
+			 {"down", s._down, s._down->getText(), design(g.action_down), false, false, index >= count || index + 1 == count},
+			 {"done", s._done, s._done->getText(), design(g.action_done)}}, "STR_SORT_BY", "STR_TRAINING", 22);
+		model.headerArtId = Gen::kHeaderArt;
+		model.sectionLabel = s.tr("STR_TRAINING");
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+
 } } // namespace OpenXcom::Calypso
 #endif

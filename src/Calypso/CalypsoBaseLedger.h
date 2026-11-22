@@ -17,6 +17,9 @@ class UfoTrackerState;
 class MultipleTargetsState;
 class TrainingFinishedState;
 class CalypsoTrainingBases;
+class CalypsoTrainingOrder;
+class AllocateTrainingState;
+class AllocatePsiTrainingState;
 class StoresState;
 class TransfersState;
 class ItemLocationsState;
@@ -41,12 +44,18 @@ public:
 	explicit CalypsoBaseLedger(MultipleTargetsState &state);
 	explicit CalypsoBaseLedger(TransfersState &state);
 	explicit CalypsoBaseLedger(ItemLocationsState &state);
+	explicit CalypsoBaseLedger(CalypsoTrainingOrder &state);
+	explicit CalypsoBaseLedger(AllocateTrainingState &state);
+	explicit CalypsoBaseLedger(AllocatePsiTrainingState &state);
 	void refresh();
 private:
 	CalypsoHdOperationsChrome _chrome;
 	CalypsoHdOperationsRenderer _renderer;
 	std::function<CalypsoHdOperationsModel()> _collect;
 	void open();
+	template<class StateType, class Layout, class Collection, class Style, class Typography>
+	CalypsoHdOperationsModel rosterModel(StateType &state, const Layout &geometry, const Collection &table,
+		const Style &style, const Typography &typography);
 };
 }
 }

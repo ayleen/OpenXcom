@@ -40,6 +40,10 @@
 #include <algorithm>
 #include "../Engine/Unicode.h"
 
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#endif
+
 namespace OpenXcom
 {
 
@@ -183,7 +187,9 @@ AllocateTrainingState::AllocateTrainingState(Base *base) : _sel(0), _base(base),
 	_cbxSortBy->onChange((ActionHandler)&AllocateTrainingState::cbxSortByChange);
 	_cbxSortBy->setText(tr("STR_SORT_BY"));
 
+#ifndef __EMSCRIPTEN__
 	_lstSoldiers->setArrowColumn(238, ARROW_VERTICAL);
+#endif
 	_lstSoldiers->setColumns(9, 110, 18, 18, 18, 18, 18, 18, 42, 40);
 	_lstSoldiers->setSelectable(true);
 	_lstSoldiers->setBackground(_window);
@@ -192,7 +198,25 @@ AllocateTrainingState::AllocateTrainingState(Base *base) : _sel(0), _base(base),
 	_lstSoldiers->onRightArrowClick((ActionHandler)&AllocateTrainingState::lstItemsRightArrowClick);
 	_lstSoldiers->onMouseClick((ActionHandler)&AllocateTrainingState::lstSoldiersClick);
 	_lstSoldiers->onMouseClick((ActionHandler)&AllocateTrainingState::lstSoldiersClick, SDL_BUTTON_RIGHT);
+#ifdef __EMSCRIPTEN__
+	_cbxSortBy->setVisible(false);
+	configureRoster(base, "allocateMartial", std::move(sortOptions),
+		(ActionHandler)&AllocateTrainingState::btnAssignAllSoldiersClick, (ActionHandler)&AllocateTrainingState::btnDeassignAllSoldiersClick);
+	_sortIndex = [this] { return _cbxSortBy->getSelected(); };
+	_applySort = [this](size_t index, bool reverse) {
+		_cbxSortBy->setSelected(index);
+		_reverseOrder = reverse;
+		cbxSortByChange(nullptr);
+	};
+	_moveDiver = [this](size_t index, int direction) {
+		if (direction < 0) moveSoldierUp(nullptr, index);
+		else moveSoldierDown(nullptr, index);
+		_cbxSortBy->setSelected(static_cast<size_t>(-1));
+	};
+	_ledger = new Calypso::CalypsoBaseLedger(*this);
+#else
 	_lstSoldiers->onMousePress((ActionHandler)&AllocateTrainingState::lstSoldiersMousePress);
+#endif
 }
 
 /**
@@ -234,7 +258,11 @@ void AllocateTrainingState::cbxSortByChange(Action *action)
 		{
 			std::stable_sort(_base->getSoldiers()->begin(), _base->getSoldiers()->end(), *compFunc);
 		}
-		if (_game->isShiftPressed())
+		if (_game->isShiftPressed()
+#ifdef __EMSCRIPTEN__
+			|| _reverseOrder
+#endif
+		)
 		{
 			std::reverse(_base->getSoldiers()->begin(), _base->getSoldiers()->end());
 		}
@@ -409,7 +437,7 @@ void AllocateTrainingState::moveSoldierUp(Action *action, unsigned int row, bool
 		_base->getSoldiers()->at(row - 1) = s;
 		if (row != _lstSoldiers->getScroll())
 		{
-			SDL_WarpMouse(action->getLeftBlackBand() + action->getXMouse(), action->getTopBlackBand() + action->getYMouse() - static_cast<Uint16>(8 * action->getYScale()));
+			if (action) SDL_WarpMouse(action->getLeftBlackBand() + action->getXMouse(), action->getTopBlackBand() + action->getYMouse() - static_cast<Uint16>(8 * action->getYScale()));
 		}
 		else
 		{
@@ -462,7 +490,7 @@ void AllocateTrainingState::moveSoldierDown(Action *action, unsigned int row, bo
 		_base->getSoldiers()->at(row + 1) = s;
 		if (row != _lstSoldiers->getVisibleRows() - 1 + _lstSoldiers->getScroll())
 		{
-			SDL_WarpMouse(action->getLeftBlackBand() + action->getXMouse(), action->getTopBlackBand() + action->getYMouse() + static_cast<Uint16>(8 * action->getYScale()));
+			if (action) SDL_WarpMouse(action->getLeftBlackBand() + action->getXMouse(), action->getTopBlackBand() + action->getYMouse() + static_cast<Uint16>(8 * action->getYScale()));
 		}
 		else
 		{
@@ -478,13 +506,19 @@ void AllocateTrainingState::moveSoldierDown(Action *action, unsigned int row, bo
  */
 void AllocateTrainingState::lstSoldiersClick(Action *action)
 {
+#ifndef __EMSCRIPTEN__
 	double mx = action->getAbsoluteXMouse();
 	if (mx >= _lstSoldiers->getArrowsLeftEdge() && mx < _lstSoldiers->getArrowsRightEdge())
 	{
 		return;
 	}
 
+#endif
 	_sel = _lstSoldiers->getSelectedRow();
+	if (_sel >= _base->getSoldiers()->size()) return;
+#ifdef __EMSCRIPTEN__
+	_selectedDiver = _base->getSoldiers()->at(_sel);
+#endif
 	if (action->getDetails()->button.button == SDL_BUTTON_LEFT)
 	{
 		auto* soldier = _base->getSoldiers()->at(_sel);

@@ -142,7 +142,9 @@ enum class CalypsoHarnessScenario
 	F17OverlappingTargets = 144,
 	F17TargetInfo = 145,
 	F22PhysicalBases = 151,
-	F22PsiBases = 152
+	F22PsiBases = 152,
+	F22PhysicalRoster = 153,
+	F22PsionicRoster = 154
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -237,7 +239,9 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F17OverlappingTargets)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F17TargetInfo)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F22PhysicalBases)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F22PsiBases);
+		|| id == static_cast<int>(CalypsoHarnessScenario::F22PsiBases)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F22PhysicalRoster)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F22PsionicRoster);
 }
 
 struct CalypsoHarnessSwitchRequest

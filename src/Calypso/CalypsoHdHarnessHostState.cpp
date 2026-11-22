@@ -124,6 +124,8 @@
 #include "../Geoscape/TrainingFinishedState.h"
 #include "../Geoscape/PsiTrainingState.h"
 #include "../Geoscape/TrainingState.h"
+#include "../Geoscape/AllocateTrainingState.h"
+#include "../Geoscape/AllocatePsiTrainingState.h"
 #include "../Geoscape/ProductionCompleteState.h"
 #include "../Geoscape/ItemsArrivingState.h"
 #include "../Battlescape/AbortMissionState.h"
@@ -1665,6 +1667,19 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 				game->pushState(globe);
 				calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
 				return new MissionDetectedState(site, globe);
+			}
+			return nullptr;
+		}
+	case CalypsoHarnessScenario::F22PhysicalRoster:
+	case CalypsoHarnessScenario::F22PsionicRoster:
+		{
+			auto *game = getCurrentGame();
+			if (!prepareOperationsSave(game, true)) return nullptr;
+			for (auto *base : *game->getSavedGame()->getBases())
+			{
+				if (!base || base->getSoldiers()->empty()) continue;
+				if (id == CalypsoHarnessScenario::F22PsionicRoster) return new AllocatePsiTrainingState(base);
+				return new AllocateTrainingState(base);
 			}
 			return nullptr;
 		}
