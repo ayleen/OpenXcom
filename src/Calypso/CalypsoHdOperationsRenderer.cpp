@@ -670,7 +670,7 @@ void addImage(CalypsoHdFrameBuilder& builder, const CalypsoHdOperationsModel& mo
 
 std::string operationsArtSource(const std::string& artId)
 {
-	if (artId == "base-research" || artId == "base-manufacture")
+	if (artId == "base-research" || artId == "base-manufacture" || artId == "logistics-group")
 		return "Resources/basescape/cards/" + artId + ".png";
 	return {};
 }

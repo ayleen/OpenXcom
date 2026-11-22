@@ -75,6 +75,10 @@
 #include "../Basescape/TechTreeViewerState.h"
 #include "../Ufopaedia/ArticleStateCraftWeapon.h"
 #include "../Basescape/BasescapeState.h"
+#include "../Basescape/StoresState.h"
+#include "../Basescape/TransfersState.h"
+#include "../Basescape/ItemLocationsState.h"
+#include "../Savegame/Transfer.h"
 #include "../Basescape/TransferBaseState.h"
 #include "../Basescape/TransferItemsState.h"
 #include "../Basescape/TransferConfirmState.h"
@@ -1452,6 +1456,26 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		Base* marketBase = new Base(game->getMod());
 		g_harnessSaveLease.fixtureBases.push_back(marketBase);
 		return new CalypsoMarketState(marketBase, false);
+	}
+	case CalypsoHarnessScenario::F12Stores:
+	case CalypsoHarnessScenario::F12ActiveTransfers:
+	case CalypsoHarnessScenario::F12ItemLocations:
+	{
+		Game *game = getCurrentGame();
+		Base *source = nullptr, *destination = nullptr;
+		ensureTransferFixture(game, source, destination);
+		if (!source || !destination) return nullptr;
+		const auto *stock = source->getStorageItems()->getContents();
+		if (stock->empty()) return nullptr;
+		auto *item = stock->begin()->first;
+		auto *shipment = new Transfer(12);
+		shipment->setItems(item, 1);
+		destination->getTransfers()->push_back(shipment);
+		if (id == CalypsoHarnessScenario::F12ActiveTransfers)
+			return new TransfersState(destination);
+		if (id == CalypsoHarnessScenario::F12ItemLocations)
+			return new ItemLocationsState(item);
+		return new StoresState(source);
 	}
 	case CalypsoHarnessScenario::F12TransferBase:
 	{

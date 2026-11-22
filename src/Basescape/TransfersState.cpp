@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "TransfersState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoInventoryLedger.h"
+#endif
 #include <sstream>
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
@@ -87,11 +90,17 @@ TransfersState::TransfersState(Base *base) : _base(base)
 
 	for (const auto* transfer : *_base->getTransfers())
 	{
+		if (_nextArrivalHours < 0 || transfer->getHours() < _nextArrivalHours)
+			_nextArrivalHours = transfer->getHours();
 		std::ostringstream ss, ss2;
 		ss << transfer->getQuantity();
 		ss2 << transfer->getHours();
 		_lstTransfers->addRow(3, transfer->getName(_game->getLanguage()).c_str(), ss.str().c_str(), ss2.str().c_str());
 	}
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_hdLedger = new Calypso::CalypsoInventoryLedger(*this);
+#endif
 }
 
 /**
@@ -99,6 +108,9 @@ TransfersState::TransfersState(Base *base) : _base(base)
  */
 TransfersState::~TransfersState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdLedger;
+#endif
 
 }
 
@@ -110,5 +122,13 @@ void TransfersState::btnOkClick(Action *)
 {
 	_game->popState();
 }
+
+#ifdef __EMSCRIPTEN__
+void TransfersState::resize(int &dX, int &dY)
+{
+	if (_hdLedger) _hdLedger->refresh();
+	else State::resize(dX, dY);
+}
+#endif
 
 }

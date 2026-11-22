@@ -17,7 +17,11 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "StoresState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoInventoryLedger.h"
+#endif
 #include "ItemLocationsState.h"
+#include "InventoryLocations.h"
 #include <sstream>
 #include "../Engine/CrossPlatform.h"
 #include "../Engine/Game.h"
@@ -31,17 +35,10 @@
 #include "../Interface/ToggleTextButton.h"
 #include "../Interface/Window.h"
 #include "../Savegame/Base.h"
-#include "../Savegame/BaseFacility.h"
-#include "../Savegame/Craft.h"
 #include "../Savegame/ItemContainer.h"
-#include "../Savegame/ResearchProject.h"
 #include "../Savegame/SavedGame.h"
-#include "../Savegame/Soldier.h"
-#include "../Savegame/Transfer.h"
-#include "../Mod/Armor.h"
 #include "../Mod/Mod.h"
 #include "../Mod/RuleItem.h"
-#include "../Mod/RuleResearch.h"
 #include "../Ufopaedia/Ufopaedia.h"
 #include <algorithm>
 #include <locale>
@@ -171,6 +168,10 @@ StoresState::StoresState(Base *base) : _base(base)
 	_btnQuickSearch->setVisible(Options::oxceQuickSearchButton);
 
 	_btnOk->onKeyboardRelease((ActionHandler)&StoresState::btnQuickSearchToggle, Options::keyToggleQuickSearch);
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_hdLedger = new Calypso::CalypsoInventoryLedger(*this);
+#endif
 }
 
 /**
@@ -178,6 +179,9 @@ StoresState::StoresState(Base *base) : _base(base)
  */
 StoresState::~StoresState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdLedger;
+#endif
 
 }
 
@@ -252,74 +256,8 @@ void StoresState::initList()
 		}
 		else
 		{
-
-			// items from all bases
-			for (auto* xbase : *_game->getSavedGame()->getBases())
-			{
-				// 1. items in base stores
-				qty += xbase->getStorageItems()->getItem(rule);
-
-				// 1b. items from base defense facilities
-				for (const auto* facility : *xbase->getFacilities())
-				{
-					if (facility->getRules()->getAmmoMax() > 0 && facility->getRules()->getAmmoItem() == rule)
-					{
-						qty += facility->getAmmo();
-					}
-				}
-
-				// 2. items from craft
-				for (const auto* craft : *xbase->getCrafts())
-				{
-					qty += craft->getTotalItemCount(rule);
-				}
-
-				// 3. armor in use (worn by soldiers)
-				for (const auto* soldier : *xbase->getSoldiers())
-				{
-					if (soldier->getArmor()->getStoreItem() == rule)
-					{
-						qty += 1;
-					}
-				}
-
-				// 4. items/aliens in research
-				for (const auto* research : xbase->getResearch())
-				{
-					const auto* rrule = research->getRules();
-					if (rrule->isHoldingNeededItem())
-					{
-						if (rrule->getNeededItem() && rrule->getNeededItem() == rule)
-						{
-							qty += 1;
-							break;
-						}
-					}
-				}
-
-				// 5. items in transfer
-				for (auto* transfer : *xbase->getTransfers())
-				{
-					if (transfer->getCraft())
-					{
-						// 5a. craft equipment, weapons, vehicles
-						qty += transfer->getCraft()->getTotalItemCount(rule);
-					}
-					else if (transfer->getSoldier())
-					{
-						// 5c. armor in use (worn by soldiers)
-						if (transfer->getSoldier()->getArmor()->getStoreItem() == rule)
-						{
-							qty += 1;
-						}
-					}
-					else if (transfer->getItems() == rule)
-					{
-						// 5b. items in transfer
-						qty += transfer->getQuantity();
-					}
-				}
-			}
+			for (auto *base : *_game->getSavedGame()->getBases())
+				qty += locateBaseItems(*base, rule).total();
 		}
 
 		if (qty > 0)
@@ -490,19 +428,30 @@ void StoresState::sortSpaceUsedClick(Action *)
  */
 void StoresState::lstStoresClick(Action* action)
 {
+	const auto row = _lstStores->getSelectedRow();
+	if (row >= _itemList.size())
+		return;
 	if (_game->isMiddleClick(action))
 	{
-		auto* rule = _itemList[_lstStores->getSelectedRow()].rule;
+		auto* rule = _itemList[row].rule;
 
 		std::string articleId = rule->getUfopediaType();
 		Ufopaedia::openArticle(_game, articleId);
 	}
 	else if (_game->isLeftClick(action))
 	{
-		auto* rule = _itemList[_lstStores->getSelectedRow()].rule;
+		auto* rule = _itemList[row].rule;
 
-		_game->pushState(new ItemLocationsState(rule));
+		_game->pushState(new ItemLocationsState(rule, _btnGrandTotal->getPressed()));
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void StoresState::resize(int &dX, int &dY)
+{
+	if (_hdLedger) _hdLedger->refresh();
+	else State::resize(dX, dY);
+}
+#endif
 
 }

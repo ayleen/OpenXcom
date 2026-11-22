@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "id": "f12-stores",
+  "familyId": 12,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "logistics-group"
+  },
+  "state": "StoresState",
+  "labelKeys": {
+    "title": "STR_STORES",
+    "done": "STR_OK"
+  },
+  "title": "STORES",
+  "actions": [
+    {
+      "id": "quick-search",
+      "label": "SEARCH",
+      "labelKey": "STR_QUICK_SEARCH",
+      "tone": "normal",
+      "action": "quick-search"
+    },
+    {
+      "id": "scope",
+      "label": "GRAND TOTAL",
+      "labelKey": "STR_GRAND_TOTAL",
+      "tone": "normal",
+      "action": "scope"
+    },
+    {
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "tone": "primary",
+      "action": "done"
+    }
+  ],
+  "summary": [
+    {
+      "id": "scope",
+      "label": "SCOPE",
+      "value": "Batumi"
+    },
+    {
+      "id": "items",
+      "label": "ITEM TYPES",
+      "value": "4"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "inventory-record",
+    "columns": [
+      {
+        "id": "item",
+        "label": "ITEM",
+        "contentRole": "name"
+      },
+      {
+        "id": "quantity",
+        "label": "QUANTITY",
+        "contentRole": "count"
+      },
+      {
+        "id": "size",
+        "label": "SIZE",
+        "contentRole": "count"
+      },
+      {
+        "id": "space",
+        "label": "SPACE USED",
+        "contentRole": "count"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Chemical Flare",
+          "18",
+          "0.1",
+          "1.8"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": []
+}

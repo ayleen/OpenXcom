@@ -17,6 +17,27 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "ItemLocationsState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoInventoryLedger.h"
+#endif
+#include "InventoryLocations.h"
+#include "BasescapeState.h"
+#include "CraftInfoState.h"
+#include "CraftsState.h"
+#include "ResearchInfoState.h"
+#include "SoldierInfoState.h"
+#include "StoresState.h"
+#include "TransfersState.h"
+#include "../Ufopaedia/Ufopaedia.h"
+#include "../Geoscape/GeoscapeState.h"
+#include <algorithm>
+#include "../Interface/ToggleTextButton.h"
+#include "../Savegame/Craft.h"
+#include "../Savegame/Soldier.h"
+#include "../Savegame/ResearchProject.h"
+#include "../Savegame/BaseFacility.h"
+#include "../Mod/RuleBaseFacility.h"
+#include "../Mod/RuleResearch.h"
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
 #include "../Mod/RuleItem.h"
@@ -27,9 +48,7 @@
 #include "../Interface/Text.h"
 #include "../Interface/TextList.h"
 #include "../Savegame/Base.h"
-#include "../Savegame/ItemContainer.h"
 #include "../Savegame/SavedGame.h"
-#include "../Savegame/Transfer.h"
 
 namespace OpenXcom
 {
@@ -37,7 +56,7 @@ namespace OpenXcom
 /**
  * Initializes all the elements on the UI.
  */
-ItemLocationsState::ItemLocationsState(const RuleItem* selectedItem)
+ItemLocationsState::ItemLocationsState(const RuleItem *selectedItem, bool allLocations) : _item(selectedItem)
 {
 	_screen = false;
 
@@ -46,7 +65,8 @@ ItemLocationsState::ItemLocationsState(const RuleItem* selectedItem)
 	_txtBase = new Text(98, 9, 59, 56);
 	_txtQuantity = new Text(98, 9, 159, 56);
 	_lstLocations = new TextList(186, 64, 57, 70);
-	_btnOk = new TextButton(100, 16, 110, 150);
+	_btnScope = new ToggleTextButton(116, 16, 57, 150);
+	_btnOk = new TextButton(82, 16, 177, 150);
 
 	// Set palette
 	setInterface("itemLocations");
@@ -55,6 +75,7 @@ ItemLocationsState::ItemLocationsState(const RuleItem* selectedItem)
 	add(_txtTitle, "text", "itemLocations");
 	add(_txtBase, "text", "itemLocations");
 	add(_txtQuantity, "text", "itemLocations");
+	add(_btnScope, "button", "itemLocations");
 	add(_btnOk, "button", "itemLocations");
 	add(_lstLocations, "list", "itemLocations");
 
@@ -69,6 +90,10 @@ ItemLocationsState::ItemLocationsState(const RuleItem* selectedItem)
 	_txtBase->setText(tr("STR_BASE"));
 	_txtQuantity->setText(tr("STR_QUANTITY_UC"));
 
+	_btnScope->setText(tr("STR_CAL_ALL_LOCATIONS"));
+	_btnScope->setPressed(allLocations);
+	_btnScope->onMouseClick((ActionHandler)&ItemLocationsState::btnScopeClick);
+
 	_btnOk->setText(tr("STR_OK"));
 	_btnOk->onMouseClick((ActionHandler)&ItemLocationsState::btnOkClick);
 	_btnOk->onKeyboardPress((ActionHandler)&ItemLocationsState::btnOkClick, Options::keyCancel);
@@ -77,21 +102,135 @@ ItemLocationsState::ItemLocationsState(const RuleItem* selectedItem)
 	_lstLocations->setBackground(_window);
 	_lstLocations->setMargin(2);
 	_lstLocations->setSelectable(true);
+	_lstLocations->onMouseClick((ActionHandler)&ItemLocationsState::lstLocationClick, SDL_BUTTON_LEFT);
 
-	for (auto* xbase : *_game->getSavedGame()->getBases())
+	updateList();
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_hdLedger = new Calypso::CalypsoInventoryLedger(*this);
+#endif
+}
+
+ItemLocationsState::~ItemLocationsState()
+{
+#ifdef __EMSCRIPTEN__
+	delete _hdLedger;
+#endif
+}
+
+void ItemLocationsState::btnScopeClick(Action *)
+{
+	updateList();
+}
+
+void ItemLocationsState::init()
+{
+	State::init();
+	updateList();
+}
+
+void ItemLocationsState::lstLocationClick(Action *)
+{
+	const auto row = _lstLocations->getSelectedRow();
+	if (row < _openLocation.size())
+		_openLocation[row]();
+}
+
+void ItemLocationsState::updateList()
+{
+	_lstLocations->clearList();
+	_openLocation.clear();
+	_scopeTotal = 0;
+	_scopeInbound = 0;
+	const bool all = _btnScope->getPressed();
+	for (auto *base : *_game->getSavedGame()->getBases())
 	{
-		std::ostringstream ssInBase, ssInTransfer;
-		ssInBase << xbase->getStorageItems()->getItem(selectedItem);
-		int total = 0;
-		for (auto* xtransfer : *xbase->getTransfers())
+		const auto locations = locateBaseItems(*base, _item);
+		auto openStores = [base]() { _game->pushState(new StoresState(base)); };
+		auto openTransfers = [base]() { _game->pushState(new TransfersState(base)); };
+		_openLocation.emplace_back([base, openStores]()
 		{
-			if (xtransfer->getType() == TRANSFER_ITEM && xtransfer->getItems() == selectedItem)
+			if (auto *geo = _game->getGeoscapeState())
+				_game->pushState(new BasescapeState(base, geo->getGlobe()));
+			else
+				openStores();
+		});
+		const int quantity = all ? locations.total() : locations.stores;
+		_scopeTotal += all ? quantity : quantity + locations.inboundItems;
+		_scopeInbound += locations.inboundItems;
+		if (all)
+			for (const auto &holding : locations.holdings)
+				if (holding.inbound)
+					_scopeInbound += holding.quantity;
+		const auto incoming = all ? std::string() : "+" + std::to_string(locations.inboundItems);
+		_lstLocations->addRow(3, base->getName().c_str(), std::to_string(quantity).c_str(), incoming.c_str());
+		if (!all)
+			continue;
+
+		auto addDetail = [&](const std::string &label, int count, std::function<void()> open)
+		{
+			if (count > 0)
 			{
-				total += xtransfer->getQuantity();
+				_lstLocations->addRow(3, ("  " + label).c_str(), std::to_string(count).c_str(), "");
+				_openLocation.emplace_back(std::move(open));
 			}
+		};
+		addDetail(tr("STR_STORES"), locations.stores, openStores);
+		addDetail(tr("STR_TRANSFERS"), locations.inboundItems, openTransfers);
+		for (const auto &holding : locations.holdings)
+		{
+			std::string label;
+			std::function<void()> open;
+			if (auto owner = std::get_if<Craft *>(&holding.owner))
+			{
+				auto *craft = *owner;
+				label = craft->getName(_game->getLanguage());
+				open = [base, craft]()
+				{
+					const auto &crafts = *base->getCrafts();
+					const auto it = std::find(crafts.begin(), crafts.end(), craft);
+					if (it != crafts.end() && craft->getStatus() != "STR_OUT")
+						_game->pushState(new CraftInfoState(base, it - crafts.begin()));
+					else
+						_game->pushState(new CraftsState(base));
+				};
+			}
+			else if (auto owner = std::get_if<Soldier *>(&holding.owner))
+			{
+				auto *soldier = *owner;
+				label = soldier->getName();
+				open = [base, soldier]()
+				{
+					const auto &soldiers = *base->getSoldiers();
+					const auto it = std::find(soldiers.begin(), soldiers.end(), soldier);
+					if (it != soldiers.end())
+						_game->pushState(new SoldierInfoState(base, it - soldiers.begin(), true, true));
+				};
+			}
+			else if (auto owner = std::get_if<BaseFacility *>(&holding.owner))
+			{
+				const auto *facility = *owner;
+				label = std::string(tr(facility->getRules()->getType())) + " (" +
+					std::to_string(facility->getX() + 1) + ", " + std::to_string(facility->getY() + 1) + ")";
+				open = [facility]()
+				{
+					auto article = facility->getRules()->getUfopediaType();
+					Ufopaedia::openArticle(_game, article);
+				};
+			}
+			else
+			{
+				auto *project = std::get<ResearchProject *>(holding.owner);
+				label = tr(project->getRules()->getName());
+				open = [base, project]() { _game->pushState(new ResearchInfoState(base, project)); };
+			}
+			if (holding.inbound)
+			{
+				label = tr("STR_CAL_INBOUND_HOLDER").arg(label);
+				open = openTransfers;
+			}
+			addDetail(label, holding.quantity, std::move(open));
 		}
-		ssInTransfer << "+" << total;
-		_lstLocations->addRow(3, xbase->getName().c_str(), ssInBase.str().c_str(), ssInTransfer.str().c_str());
 	}
 }
 
@@ -103,5 +242,13 @@ void ItemLocationsState::btnOkClick(Action *)
 {
 	_game->popState();
 }
+
+#ifdef __EMSCRIPTEN__
+void ItemLocationsState::resize(int &dX, int &dY)
+{
+	if (_hdLedger) _hdLedger->refresh();
+	else State::resize(dX, dY);
+}
+#endif
 
 }

@@ -23,6 +23,9 @@ namespace OpenXcom
 {
 
 class Base;
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoInventoryLedger; }
+#endif
 class TextButton;
 class Window;
 class Text;
@@ -35,13 +38,21 @@ class TextList;
 class TransfersState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoInventoryLedger;
+	Calypso::CalypsoInventoryLedger *_hdLedger = nullptr;
+#endif
 	Base *_base;
+	int _nextArrivalHours = -1;
 
 	TextButton *_btnOk;
 	Window *_window;
 	Text *_txtTitle, *_txtItem, *_txtQuantity, *_txtArrivalTime;
 	TextList *_lstTransfers;
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 	/// Creates the Transfers state.
 	TransfersState(Base *base);
 	/// Cleans up the Transfers state.

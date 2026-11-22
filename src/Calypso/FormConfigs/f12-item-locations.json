@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "id": "f12-item-locations",
+  "familyId": 12,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "logistics-group"
+  },
+  "state": "ItemLocationsState",
+  "labelKeys": {
+    "title": "STR_TOPIC",
+    "done": "STR_OK"
+  },
+  "title": "ITEM LOCATIONS",
+  "actions": [
+    {
+      "id": "scope",
+      "label": "ALL LOCATIONS",
+      "labelKey": "STR_CAL_ALL_LOCATIONS",
+      "tone": "normal",
+      "action": "scope"
+    },
+    {
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "tone": "primary",
+      "action": "done"
+    }
+  ],
+  "summary": [
+    {
+      "id": "scope",
+      "label": "SCOPE",
+      "value": "Stores + inbound"
+    },
+    {
+      "id": "total",
+      "label": "TOTAL",
+      "value": "3"
+    },
+    {
+      "id": "inbound",
+      "label": "INBOUND",
+      "value": "1"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "inventory-record",
+    "columns": [
+      {
+        "id": "holder",
+        "label": "LOCATION",
+        "contentRole": "name"
+      },
+      {
+        "id": "quantity",
+        "label": "QUANTITY",
+        "contentRole": "count"
+      },
+      {
+        "id": "inbound",
+        "label": "INBOUND",
+        "contentRole": "count"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Garni",
+          "2",
+          "+1"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": []
+}

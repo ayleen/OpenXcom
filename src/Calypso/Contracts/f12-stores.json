@@ -1,0 +1,1858 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f12-stores",
+    "familyId": 12,
+    "archetype": "operations-workspace",
+    "source": "FormConfigs/f12-stores.json",
+    "actions": [
+      {
+        "id": "quick-search",
+        "label": "SEARCH",
+        "labelKey": "STR_QUICK_SEARCH",
+        "tone": "normal",
+        "action": "quick-search",
+        "style": {
+          "fill": "071624FF",
+          "border": "173246FF",
+          "text": "E7F0F3FF"
+        }
+      },
+      {
+        "id": "scope",
+        "label": "GRAND TOTAL",
+        "labelKey": "STR_GRAND_TOTAL",
+        "tone": "normal",
+        "action": "scope",
+        "style": {
+          "fill": "071624FF",
+          "border": "173246FF",
+          "text": "E7F0F3FF"
+        }
+      },
+      {
+        "id": "done",
+        "label": "OK",
+        "labelKey": "STR_OK",
+        "tone": "primary",
+        "action": "done",
+        "style": {
+          "fill": "81E0B5FF",
+          "border": "81E0B5FF",
+          "text": "03130DFF"
+        }
+      }
+    ],
+    "presentation": "table-context",
+    "state": "StoresState",
+    "labelKeys": {
+      "title": "STR_STORES",
+      "done": "STR_OK"
+    },
+    "summary": [
+      {
+        "id": "scope",
+        "label": "SCOPE",
+        "value": "Batumi"
+      },
+      {
+        "id": "items",
+        "label": "ITEM TYPES",
+        "value": "4"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "inventory-record",
+      "columns": [
+        {
+          "id": "item",
+          "label": "ITEM",
+          "contentRole": "name"
+        },
+        {
+          "id": "quantity",
+          "label": "QUANTITY",
+          "contentRole": "count"
+        },
+        {
+          "id": "size",
+          "label": "SIZE",
+          "contentRole": "count"
+        },
+        {
+          "id": "space",
+          "label": "SPACE USED",
+          "contentRole": "count"
+        }
+      ],
+      "items": [
+        {
+          "id": "example",
+          "values": [
+            "Chemical Flare",
+            "18",
+            "0.1",
+            "1.8"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": [],
+    "visual": {
+      "shell": "base-operations",
+      "headerArt": "logistics-group"
+    },
+    "sharedChrome": {
+      "id": "base-command-shell",
+      "version": "hd.2026-09-07.1"
+    }
+  },
+  "copy": {
+    "title": "STORES",
+    "tabs": {
+      "workspace-a": "WORKSPACE",
+      "workspace-b": "WORKSPACE"
+    },
+    "summary": [
+      {
+        "id": "scope",
+        "label": "SCOPE",
+        "value": "Batumi"
+      },
+      {
+        "id": "items",
+        "label": "ITEM TYPES",
+        "value": "4"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "inventory-record",
+      "columns": [
+        {
+          "id": "item",
+          "label": "ITEM",
+          "contentRole": "name"
+        },
+        {
+          "id": "quantity",
+          "label": "QUANTITY",
+          "contentRole": "count"
+        },
+        {
+          "id": "size",
+          "label": "SIZE",
+          "contentRole": "count"
+        },
+        {
+          "id": "space",
+          "label": "SPACE USED",
+          "contentRole": "count"
+        }
+      ],
+      "items": [
+        {
+          "id": "example",
+          "values": [
+            "Chemical Flare",
+            "18",
+            "0.1",
+            "1.8"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": {}
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "cornerRadiusPx": 12,
+    "panelFillBottom": "02060EFF",
+    "frame": "173246FF",
+    "divider": "173246FF",
+    "text": "E7F0F3FF",
+    "mutedText": "A8BBC4FF",
+    "selection": "0D2931FF",
+    "accent": "81E0B5FF",
+    "warning": "F2C56DFF",
+    "danger": "FF6E72FF",
+    "textOnAccent": "03130DFF"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      },
+      "title": {
+        "x": 130,
+        "y": 119,
+        "width": 480,
+        "height": 36
+      },
+      "summaryBar": {
+        "x": 1000,
+        "y": 96,
+        "width": 256,
+        "height": 78
+      },
+      "summary": {
+        "scope": {
+          "x": 1000,
+          "y": 96,
+          "width": 127,
+          "height": 78
+        },
+        "items": {
+          "x": 1128,
+          "y": 96,
+          "width": 128,
+          "height": 78
+        }
+      },
+      "collectionViewport": {
+        "x": 112,
+        "y": 190,
+        "width": 1144,
+        "height": 456
+      },
+      "detailPanel": {
+        "x": 944,
+        "y": 190,
+        "width": 312,
+        "height": 456
+      },
+      "contextDock": null,
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "item",
+            "rect": {
+              "x": 112,
+              "y": 190,
+              "width": 629,
+              "height": 36
+            },
+            "contentRole": "name",
+            "font": "body",
+            "align": "left",
+            "minWidth": 96,
+            "weight": 6
+          },
+          {
+            "id": "quantity",
+            "rect": {
+              "x": 742,
+              "y": 190,
+              "width": 153,
+              "height": 36
+            },
+            "contentRole": "count",
+            "font": "data",
+            "align": "right",
+            "minWidth": 64,
+            "weight": 1
+          },
+          {
+            "id": "size",
+            "rect": {
+              "x": 896,
+              "y": 190,
+              "width": 153,
+              "height": 36
+            },
+            "contentRole": "count",
+            "font": "data",
+            "align": "right",
+            "minWidth": 64,
+            "weight": 1
+          },
+          {
+            "id": "space",
+            "rect": {
+              "x": 1050,
+              "y": 190,
+              "width": 152,
+              "height": 36
+            },
+            "contentRole": "count",
+            "font": "data",
+            "align": "right",
+            "minWidth": 64,
+            "weight": 1
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 112,
+              "y": 226,
+              "width": 1090,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 112,
+                  "y": 226,
+                  "width": 629,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 742,
+                  "y": 226,
+                  "width": 153,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "size",
+                "rect": {
+                  "x": 896,
+                  "y": 226,
+                  "width": 153,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "space",
+                "rect": {
+                  "x": 1050,
+                  "y": 226,
+                  "width": 152,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 112,
+              "y": 270,
+              "width": 1090,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 112,
+                  "y": 270,
+                  "width": 629,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 742,
+                  "y": 270,
+                  "width": 153,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "size",
+                "rect": {
+                  "x": 896,
+                  "y": 270,
+                  "width": 153,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "space",
+                "rect": {
+                  "x": 1050,
+                  "y": 270,
+                  "width": 152,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              }
+            ]
+          },
+          {
+            "id": "row-slot-3",
+            "rect": {
+              "x": 112,
+              "y": 314,
+              "width": 1090,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 112,
+                  "y": 314,
+                  "width": 629,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 742,
+                  "y": 314,
+                  "width": 153,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "size",
+                "rect": {
+                  "x": 896,
+                  "y": 314,
+                  "width": 153,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "space",
+                "rect": {
+                  "x": 1050,
+                  "y": 314,
+                  "width": 152,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              }
+            ]
+          },
+          {
+            "id": "row-slot-4",
+            "rect": {
+              "x": 112,
+              "y": 358,
+              "width": 1090,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 112,
+                  "y": 358,
+                  "width": 629,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 742,
+                  "y": 358,
+                  "width": 153,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "size",
+                "rect": {
+                  "x": 896,
+                  "y": 358,
+                  "width": 153,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "space",
+                "rect": {
+                  "x": 1050,
+                  "y": 358,
+                  "width": 152,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              }
+            ]
+          },
+          {
+            "id": "row-slot-5",
+            "rect": {
+              "x": 112,
+              "y": 402,
+              "width": 1090,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 112,
+                  "y": 402,
+                  "width": 629,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 742,
+                  "y": 402,
+                  "width": 153,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "size",
+                "rect": {
+                  "x": 896,
+                  "y": 402,
+                  "width": 153,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "space",
+                "rect": {
+                  "x": 1050,
+                  "y": 402,
+                  "width": 152,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              }
+            ]
+          },
+          {
+            "id": "row-slot-6",
+            "rect": {
+              "x": 112,
+              "y": 446,
+              "width": 1090,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 112,
+                  "y": 446,
+                  "width": 629,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 742,
+                  "y": 446,
+                  "width": 153,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "size",
+                "rect": {
+                  "x": 896,
+                  "y": 446,
+                  "width": 153,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "space",
+                "rect": {
+                  "x": 1050,
+                  "y": 446,
+                  "width": 152,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              }
+            ]
+          },
+          {
+            "id": "row-slot-7",
+            "rect": {
+              "x": 112,
+              "y": 490,
+              "width": 1090,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 112,
+                  "y": 490,
+                  "width": 629,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 742,
+                  "y": 490,
+                  "width": 153,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "size",
+                "rect": {
+                  "x": 896,
+                  "y": 490,
+                  "width": 153,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "space",
+                "rect": {
+                  "x": 1050,
+                  "y": 490,
+                  "width": 152,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              }
+            ]
+          }
+        ],
+        "count": 1,
+        "scroll": {
+          "track": {
+            "x": 1238,
+            "y": 226,
+            "width": 18,
+            "height": 308
+          },
+          "thumb": {
+            "x": 1238,
+            "y": 226,
+            "width": 18,
+            "height": 308
+          }
+        }
+      },
+      "toolbarBar": {
+        "x": 112,
+        "y": 190,
+        "width": 816,
+        "height": 44
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 112,
+        "y": 658,
+        "width": 1144,
+        "height": 44
+      },
+      "toolbar": {},
+      "actions": {
+        "quick-search": {
+          "x": 112,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        },
+        "scope": {
+          "x": 280,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        },
+        "done": {
+          "x": 1098,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "toolbarChooser": {
+        "optionRowHeight": 44,
+        "optionInsetX": 8,
+        "optionInsetY": 0,
+        "maxOptions": 5,
+        "minPanelWidth": 240,
+        "bounds": {
+          "x": 112,
+          "y": 234,
+          "width": 1144,
+          "height": 412
+        }
+      },
+      "screenHeader": {
+        "x": 112,
+        "y": 96,
+        "width": 1144,
+        "height": 78
+      },
+      "headerArt": {
+        "x": 640,
+        "y": 96,
+        "width": 360,
+        "height": 78
+      },
+      "partRects": {
+        "window": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720
+        },
+        "screenHeader": {
+          "x": 112,
+          "y": 96,
+          "width": 1144,
+          "height": 78
+        },
+        "headerArt": {
+          "x": 640,
+          "y": 96,
+          "width": 360,
+          "height": 78
+        },
+        "title": {
+          "x": 130,
+          "y": 119,
+          "width": 480,
+          "height": 36
+        },
+        "summaryBar": {
+          "x": 1000,
+          "y": 96,
+          "width": 256,
+          "height": 78
+        },
+        "toolbarBar": {
+          "x": 112,
+          "y": 190,
+          "width": 816,
+          "height": 44
+        },
+        "collectionViewport": {
+          "x": 112,
+          "y": 190,
+          "width": 1144,
+          "height": 456
+        },
+        "footer": {
+          "x": 112,
+          "y": 658,
+          "width": 1144,
+          "height": 44
+        },
+        "summary.scope": {
+          "x": 1000,
+          "y": 96,
+          "width": 127,
+          "height": 78
+        },
+        "summary.items": {
+          "x": 1128,
+          "y": 96,
+          "width": 128,
+          "height": 78
+        },
+        "tab.workspace-a": {
+          "x": 92,
+          "y": 158,
+          "width": 414,
+          "height": 44
+        },
+        "tab.workspace-b": {
+          "x": 514,
+          "y": 158,
+          "width": 414,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 1238,
+          "y": 226,
+          "width": 18,
+          "height": 308
+        },
+        "collection.scroll.thumb": {
+          "x": 1238,
+          "y": 226,
+          "width": 18,
+          "height": 308
+        },
+        "collection.column.item": {
+          "x": 112,
+          "y": 190,
+          "width": 629,
+          "height": 36
+        },
+        "collection.column.quantity": {
+          "x": 742,
+          "y": 190,
+          "width": 153,
+          "height": 36
+        },
+        "collection.column.size": {
+          "x": 896,
+          "y": 190,
+          "width": 153,
+          "height": 36
+        },
+        "collection.column.space": {
+          "x": 1050,
+          "y": 190,
+          "width": 152,
+          "height": 36
+        },
+        "collection.row-slot.1": {
+          "x": 112,
+          "y": 226,
+          "width": 1090,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 112,
+          "y": 270,
+          "width": 1090,
+          "height": 44
+        },
+        "action.quick-search": {
+          "x": 112,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        },
+        "action.scope": {
+          "x": 280,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        },
+        "action.done": {
+          "x": 1098,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 740,
+        "height": 360
+      },
+      "title": {
+        "x": 60,
+        "y": 61,
+        "width": 350,
+        "height": 26
+      },
+      "summaryBar": {
+        "x": 520,
+        "y": 48,
+        "width": 212,
+        "height": 52
+      },
+      "summary": {
+        "scope": {
+          "x": 520,
+          "y": 48,
+          "width": 105,
+          "height": 52
+        },
+        "items": {
+          "x": 626,
+          "y": 48,
+          "width": 106,
+          "height": 52
+        }
+      },
+      "collectionViewport": {
+        "x": 52,
+        "y": 108,
+        "width": 680,
+        "height": 196
+      },
+      "detailPanel": {
+        "x": 526,
+        "y": 108,
+        "width": 206,
+        "height": 196
+      },
+      "contextDock": null,
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "item",
+            "rect": {
+              "x": 52,
+              "y": 108,
+              "width": 321,
+              "height": 28
+            },
+            "contentRole": "name",
+            "font": "body",
+            "align": "left",
+            "minWidth": 96,
+            "weight": 6
+          },
+          {
+            "id": "quantity",
+            "rect": {
+              "x": 374,
+              "y": 108,
+              "width": 102,
+              "height": 28
+            },
+            "contentRole": "count",
+            "font": "data",
+            "align": "right",
+            "minWidth": 64,
+            "weight": 1
+          },
+          {
+            "id": "size",
+            "rect": {
+              "x": 477,
+              "y": 108,
+              "width": 101,
+              "height": 28
+            },
+            "contentRole": "count",
+            "font": "data",
+            "align": "right",
+            "minWidth": 64,
+            "weight": 1
+          },
+          {
+            "id": "space",
+            "rect": {
+              "x": 579,
+              "y": 108,
+              "width": 101,
+              "height": 28
+            },
+            "contentRole": "count",
+            "font": "data",
+            "align": "right",
+            "minWidth": 64,
+            "weight": 1
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 52,
+              "y": 136,
+              "width": 628,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 52,
+                  "y": 136,
+                  "width": 321,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 374,
+                  "y": 136,
+                  "width": 102,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "size",
+                "rect": {
+                  "x": 477,
+                  "y": 136,
+                  "width": 101,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "space",
+                "rect": {
+                  "x": 579,
+                  "y": 136,
+                  "width": 101,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 52,
+              "y": 180,
+              "width": 628,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 52,
+                  "y": 180,
+                  "width": 321,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 374,
+                  "y": 180,
+                  "width": 102,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "size",
+                "rect": {
+                  "x": 477,
+                  "y": 180,
+                  "width": 101,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "space",
+                "rect": {
+                  "x": 579,
+                  "y": 180,
+                  "width": 101,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              }
+            ]
+          }
+        ],
+        "count": 1,
+        "scroll": {
+          "track": {
+            "x": 714,
+            "y": 136,
+            "width": 18,
+            "height": 88
+          },
+          "thumb": {
+            "x": 714,
+            "y": 136,
+            "width": 18,
+            "height": 88
+          }
+        }
+      },
+      "toolbarBar": {
+        "x": 52,
+        "y": 108,
+        "width": 466,
+        "height": 44
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 52,
+        "y": 312,
+        "width": 680,
+        "height": 44
+      },
+      "toolbar": {},
+      "actions": {
+        "quick-search": {
+          "x": 52,
+          "y": 312,
+          "width": 120,
+          "height": 44
+        },
+        "scope": {
+          "x": 184,
+          "y": 312,
+          "width": 120,
+          "height": 44
+        },
+        "done": {
+          "x": 612,
+          "y": 312,
+          "width": 120,
+          "height": 44
+        }
+      },
+      "toolbarChooser": {
+        "optionRowHeight": 44,
+        "optionInsetX": 8,
+        "optionInsetY": 0,
+        "maxOptions": 5,
+        "minPanelWidth": 240,
+        "bounds": {
+          "x": 52,
+          "y": 52,
+          "width": 680,
+          "height": 260
+        }
+      },
+      "screenHeader": {
+        "x": 52,
+        "y": 48,
+        "width": 680,
+        "height": 52
+      },
+      "headerArt": {
+        "x": 420,
+        "y": 48,
+        "width": 100,
+        "height": 52
+      },
+      "partRects": {
+        "window": {
+          "x": 0,
+          "y": 0,
+          "width": 740,
+          "height": 360
+        },
+        "screenHeader": {
+          "x": 52,
+          "y": 48,
+          "width": 680,
+          "height": 52
+        },
+        "headerArt": {
+          "x": 420,
+          "y": 48,
+          "width": 100,
+          "height": 52
+        },
+        "title": {
+          "x": 60,
+          "y": 61,
+          "width": 350,
+          "height": 26
+        },
+        "summaryBar": {
+          "x": 520,
+          "y": 48,
+          "width": 212,
+          "height": 52
+        },
+        "toolbarBar": {
+          "x": 52,
+          "y": 108,
+          "width": 466,
+          "height": 44
+        },
+        "collectionViewport": {
+          "x": 52,
+          "y": 108,
+          "width": 680,
+          "height": 196
+        },
+        "footer": {
+          "x": 52,
+          "y": 312,
+          "width": 680,
+          "height": 44
+        },
+        "summary.scope": {
+          "x": 520,
+          "y": 48,
+          "width": 105,
+          "height": 52
+        },
+        "summary.items": {
+          "x": 626,
+          "y": 48,
+          "width": 106,
+          "height": 52
+        },
+        "tab.workspace-a": {
+          "x": 52,
+          "y": 102,
+          "width": 230,
+          "height": 44
+        },
+        "tab.workspace-b": {
+          "x": 288,
+          "y": 102,
+          "width": 230,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 714,
+          "y": 136,
+          "width": 18,
+          "height": 88
+        },
+        "collection.scroll.thumb": {
+          "x": 714,
+          "y": 136,
+          "width": 18,
+          "height": 88
+        },
+        "collection.column.item": {
+          "x": 52,
+          "y": 108,
+          "width": 321,
+          "height": 28
+        },
+        "collection.column.quantity": {
+          "x": 374,
+          "y": 108,
+          "width": 102,
+          "height": 28
+        },
+        "collection.column.size": {
+          "x": 477,
+          "y": 108,
+          "width": 101,
+          "height": 28
+        },
+        "collection.column.space": {
+          "x": 579,
+          "y": 108,
+          "width": 101,
+          "height": 28
+        },
+        "collection.row-slot.1": {
+          "x": 52,
+          "y": 136,
+          "width": 628,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 52,
+          "y": 180,
+          "width": 628,
+          "height": 44
+        },
+        "action.quick-search": {
+          "x": 52,
+          "y": 312,
+          "width": 120,
+          "height": 44
+        },
+        "action.scope": {
+          "x": 184,
+          "y": 312,
+          "width": 120,
+          "height": 44
+        },
+        "action.done": {
+          "x": 612,
+          "y": 312,
+          "width": 120,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/operations-workspace.json",
+    "templateVersion": 4,
+    "generatorKind": "operations",
+    "profile": "StyleProfiles/operations-ac.json",
+    "profileVersion": "hd.2026-09-10.1",
+    "themeSource": "CommandCenter/CommandCenterTheme.h",
+    "themeSourceHash": "8c4eb7f074fe2868aac3d0835b324d42f4d57ca727dcea7ab1e16220c19e53b2"
+  },
+  "profile": {
+    "schema": 1,
+    "id": "operations-ac",
+    "version": "hd.2026-09-10.1",
+    "theme": {
+      "source": "CommandCenter/CommandCenterTheme.h",
+      "sourceHash": "8c4eb7f074fe2868aac3d0835b324d42f4d57ca727dcea7ab1e16220c19e53b2",
+      "tokens": {
+        "background": "BgRoot",
+        "panel": "BgPanel",
+        "panelRaised": "BgPanelRaised",
+        "hover": "BgHover",
+        "selected": "BgActive",
+        "border": "Border",
+        "borderStrong": "BorderStrong",
+        "accent": "Accent",
+        "text": "TextPrimary",
+        "secondary": "TextSecondary",
+        "disabled": "TextDisabled",
+        "onAccent": "TextOnAccent",
+        "warning": "Warning",
+        "danger": "Danger"
+      },
+      "resolvedTokens": {
+        "background": "02060EFF",
+        "panel": "071624FF",
+        "panelRaised": "0A1C2DFF",
+        "hover": "0C2232FF",
+        "selected": "0D2931FF",
+        "border": "173246FF",
+        "borderStrong": "285267FF",
+        "accent": "81E0B5FF",
+        "text": "E7F0F3FF",
+        "secondary": "A8BBC4FF",
+        "disabled": "455966FF",
+        "onAccent": "03130DFF",
+        "warning": "F2C56DFF",
+        "danger": "FF6E72FF"
+      }
+    },
+    "actionTones": {
+      "normal": {
+        "fill": "BgPanel",
+        "border": "Border",
+        "text": "TextPrimary"
+      },
+      "safe": {
+        "fill": "BgPanel",
+        "border": "BorderStrong",
+        "text": "TextPrimary"
+      },
+      "primary": {
+        "fill": "Accent",
+        "border": "Accent",
+        "text": "TextOnAccent"
+      },
+      "warning": {
+        "fill": "Warning",
+        "border": "Warning",
+        "text": "TextOnAccent"
+      },
+      "danger": {
+        "fill": "BgPanel",
+        "border": "Danger",
+        "text": "Danger"
+      }
+    },
+    "columnRoles": {
+      "name": {
+        "weight": 6,
+        "minWidth": 96,
+        "font": "body",
+        "align": "left"
+      },
+      "category": {
+        "weight": 3,
+        "minWidth": 72,
+        "font": "body",
+        "align": "left"
+      },
+      "status": {
+        "weight": 2,
+        "minWidth": 64,
+        "font": "body",
+        "align": "left"
+      },
+      "count": {
+        "weight": 1,
+        "minWidth": 64,
+        "font": "data",
+        "align": "right"
+      },
+      "quantity": {
+        "weight": 2,
+        "minWidth": 64,
+        "font": "data",
+        "align": "right"
+      },
+      "money": {
+        "weight": 2,
+        "minWidth": 72,
+        "font": "data",
+        "align": "right"
+      },
+      "time": {
+        "weight": 2,
+        "minWidth": 64,
+        "font": "data",
+        "align": "right"
+      },
+      "date": {
+        "weight": 2,
+        "minWidth": 72,
+        "font": "data",
+        "align": "right"
+      },
+      "type": {
+        "weight": 1,
+        "minWidth": 64,
+        "font": "data",
+        "align": "right"
+      }
+    },
+    "layouts": {
+      "wide": {
+        "margin": 24,
+        "titleHeight": 72,
+        "sectionGap": 16,
+        "footerHeight": 44,
+        "panelGap": 20,
+        "inspectorWidth": 360,
+        "detailSummaryWidth": 428,
+        "toolbarHeight": 64,
+        "headerHeight": 36,
+        "rowHeight": 52,
+        "tableRowHeight": 44,
+        "dockHeight": 64,
+        "dockGap": 8,
+        "scrollHitWidth": 44,
+        "scrollVisualWidth": 16,
+        "scrollGap": 8,
+        "minimumThumbHeight": 44,
+        "panelInset": 16
+      },
+      "compact": {
+        "margin": 12,
+        "titleHeight": 28,
+        "sectionGap": 8,
+        "footerHeight": 44,
+        "panelGap": 12,
+        "inspectorWidth": 0,
+        "detailSummaryWidth": 270,
+        "toolbarHeight": 44,
+        "headerHeight": 28,
+        "rowHeight": 44,
+        "tableRowHeight": 44,
+        "dockHeight": 52,
+        "dockGap": 8,
+        "scrollHitWidth": 44,
+        "scrollVisualWidth": 16,
+        "scrollGap": 8,
+        "minimumThumbHeight": 44,
+        "panelInset": 8
+      }
+    },
+    "art": {
+      "required": false,
+      "wideMaxHeight": 128,
+      "compactVisible": false
+    },
+    "minimumHitTarget": {
+      "width": 44,
+      "height": 44
+    },
+    "typography": {
+      "wide": {
+        "title": 28,
+        "detailTitle": 18,
+        "body": 14,
+        "label": 12,
+        "data": 15,
+        "input": 14,
+        "action": 14
+      },
+      "compact": {
+        "title": 18,
+        "detailTitle": 16,
+        "body": 12,
+        "label": 12,
+        "data": 13,
+        "input": 12,
+        "action": 12
+      }
+    },
+    "resolvedActionTones": {
+      "normal": {
+        "fill": "071624FF",
+        "border": "173246FF",
+        "text": "E7F0F3FF"
+      },
+      "safe": {
+        "fill": "071624FF",
+        "border": "285267FF",
+        "text": "E7F0F3FF"
+      },
+      "primary": {
+        "fill": "81E0B5FF",
+        "border": "81E0B5FF",
+        "text": "03130DFF"
+      },
+      "warning": {
+        "fill": "F2C56DFF",
+        "border": "F2C56DFF",
+        "text": "03130DFF"
+      },
+      "danger": {
+        "fill": "071624FF",
+        "border": "FF6E72FF",
+        "text": "FF6E72FF"
+      }
+    },
+    "resolvedTypography": {
+      "wide": {
+        "title": 28,
+        "detailTitle": 18,
+        "body": 14,
+        "label": 12,
+        "data": 15,
+        "input": 14,
+        "action": 14
+      },
+      "compact": {
+        "title": 18,
+        "detailTitle": 16,
+        "body": 12,
+        "label": 12,
+        "data": 13,
+        "input": 12,
+        "action": 12
+      }
+    },
+    "resolvedColumnRoles": {
+      "name": {
+        "weight": 6,
+        "minWidth": 96,
+        "font": "body",
+        "align": "left"
+      },
+      "category": {
+        "weight": 3,
+        "minWidth": 72,
+        "font": "body",
+        "align": "left"
+      },
+      "status": {
+        "weight": 2,
+        "minWidth": 64,
+        "font": "body",
+        "align": "left"
+      },
+      "count": {
+        "weight": 1,
+        "minWidth": 64,
+        "font": "data",
+        "align": "right"
+      },
+      "quantity": {
+        "weight": 2,
+        "minWidth": 64,
+        "font": "data",
+        "align": "right"
+      },
+      "money": {
+        "weight": 2,
+        "minWidth": 72,
+        "font": "data",
+        "align": "right"
+      },
+      "time": {
+        "weight": 2,
+        "minWidth": 64,
+        "font": "data",
+        "align": "right"
+      },
+      "date": {
+        "weight": 2,
+        "minWidth": 72,
+        "font": "data",
+        "align": "right"
+      },
+      "type": {
+        "weight": 1,
+        "minWidth": 64,
+        "font": "data",
+        "align": "right"
+      }
+    }
+  },
+  "collectionMetrics": {
+    "wide": {
+      "totalItems": 1,
+      "visibleCapacity": 7,
+      "totalUnits": 1,
+      "visibleUnits": 7,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 1238,
+        "y": 226,
+        "width": 18,
+        "height": 308
+      },
+      "thumb": {
+        "x": 1238,
+        "y": 226,
+        "width": 18,
+        "height": 308
+      },
+      "trackHitTarget": {
+        "x": 1212,
+        "y": 226,
+        "width": 44,
+        "height": 308
+      },
+      "thumbHitTarget": {
+        "x": 1212,
+        "y": 226,
+        "width": 44,
+        "height": 308
+      },
+      "thumbTravelPx": 0
+    },
+    "compact": {
+      "totalItems": 1,
+      "visibleCapacity": 2,
+      "totalUnits": 1,
+      "visibleUnits": 2,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 714,
+        "y": 136,
+        "width": 18,
+        "height": 88
+      },
+      "thumb": {
+        "x": 714,
+        "y": 136,
+        "width": 18,
+        "height": 88
+      },
+      "trackHitTarget": {
+        "x": 688,
+        "y": 136,
+        "width": 44,
+        "height": 88
+      },
+      "thumbHitTarget": {
+        "x": 688,
+        "y": 136,
+        "width": 44,
+        "height": 88
+      },
+      "thumbTravelPx": 0
+    }
+  },
+  "actions": [
+    "action.quick-search",
+    "action.scope",
+    "action.done"
+  ],
+  "parts": [
+    "window",
+    "screenHeader",
+    "headerArt",
+    "title",
+    "summaryBar",
+    "toolbarBar",
+    "collectionViewport",
+    "footer",
+    "summary.scope",
+    "summary.items",
+    "tab.workspace-a",
+    "tab.workspace-b",
+    "collection.scroll.track",
+    "collection.scroll.thumb",
+    "collection.column.item",
+    "collection.column.quantity",
+    "collection.column.size",
+    "collection.column.space",
+    "collection.row-slot.1",
+    "collection.row-slot.2",
+    "action.quick-search",
+    "action.scope",
+    "action.done"
+  ],
+  "spacingRules": []
+}
