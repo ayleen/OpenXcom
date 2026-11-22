@@ -1,5 +1,6 @@
 #ifdef __EMSCRIPTEN__
 #include "CalypsoF18PatrolArrivalUi.h"
+#include <algorithm>
 #include "CalypsoFleetAlertLayout.h"
 #include "Generated/CalypsoF18PatrolArrival.generated.h"
 #include "../Engine/Game.h"
@@ -45,6 +46,11 @@ void CalypsoF18PatrolArrivalUi::configure(CraftPatrolState &s, bool allow)
 {
 	if (!allow || !s._game || !s._game->getMod())
 		CalypsoHdUiOverlay::instance().failHdRoute("Fleet alert requires a loaded mod");
+	// The original string contains forced breaks for the 320-pixel display.
+	// Let the HD text box wrap the translated ship and destination together.
+	std::string arrival = s._txtDestination->getText();
+	std::replace(arrival.begin(), arrival.end(), '\n', ' ');
+	s._txtDestination->setText(arrival);
 	auto *ui = new CalypsoF18PatrolArrivalUi(&s);
 	auto &overlay = CalypsoHdUiOverlay::instance();
 	const auto *globe = dynamic_cast<GeoscapeState*>(s._game->getTopState());
