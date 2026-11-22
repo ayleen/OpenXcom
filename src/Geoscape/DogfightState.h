@@ -46,6 +46,9 @@ class CraftWeaponProjectile;
 class DogfightState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	unsigned _displayId;
+#endif
 	GeoscapeState *_state;
 	Timer *_craftDamageAnimTimer;
 	Surface *_window, *_battle, *_range[RuleCraft::WeaponMax], *_damage, *_craftSprite, *_craftShield;
@@ -81,6 +84,11 @@ private:
 	void updateOceanIndicator();
 
 public:
+#ifdef __EMSCRIPTEN__
+	unsigned displayId() const { return _displayId; }
+	void presentInterception();
+	void interceptionAction(int command, int slot);
+#endif
 	/// Creates the Dogfight state.
 	DogfightState(GeoscapeState *state, Craft *craft, Ufo *ufo, bool ufoIsAttacking = false);
 	/// Cleans up the Dogfight state.

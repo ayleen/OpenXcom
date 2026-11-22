@@ -831,3 +831,13 @@ en-US:
   STR_CAL_GRAPH_ZOOM_OUT: "Zoom −"
   STR_CAL_GRAPH_ZOOM_IN: "Zoom +"
   STR_CAL_GRAPH_EMPTY: "Choose a series or select All to plot activity."
+
+  STR_CAL_INTERCEPT_ALL: "Apply mode to all"
+  STR_CAL_INTERCEPT_INSPECT: "Inspect contact"
+  STR_CAL_INTERCEPT_BACK: "Back"
+  STR_CAL_INTERCEPT_MINIMIZE: "Minimize at standoff range"
+  STR_CAL_INTERCEPT_DESTRUCT: "Self-destruct"
+  STR_CAL_INTERCEPT_CANCEL_DESTRUCT: "Cancel self-destruct"
+  STR_CAL_INTERCEPT_HULL: "Hull"
+  STR_CAL_INTERCEPT_SHIELD: "Shield"
+  STR_CAL_INTERCEPT_CONFIRM: "Confirm self-destruct"

@@ -56,6 +56,8 @@
 #include "../Mod/Mod.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#include <emscripten.h>
 #endif
 
 namespace OpenXcom
@@ -255,6 +257,10 @@ DogfightState::DogfightState(GeoscapeState *state, Craft *craft, Ufo *ufo, bool 
 	_delayedRecolorDone(false)
 {
 	_screen = false;
+#ifdef __EMSCRIPTEN__
+	static unsigned nextDisplayId = 0;
+	_displayId = ++nextDisplayId;
+#endif
 	_craft->setInDogfight(true);
 	_weaponNum = _craft->getRules()->getWeapons();
 	if (_weaponNum > RuleCraft::WeaponMax)
@@ -1988,6 +1994,96 @@ void DogfightState::aggressiveDistance()
  * the text timeout counter.
  * @param status New status text.
  */
+#ifdef __EMSCRIPTEN__
+static void sendInterceptionArt(const char *kind, Surface *surface, int top, int height)
+{
+	if (!surface || height <= 0 || !EM_ASM_INT({return CalypsoInterception.needsImage(UTF8ToString($0));},kind)) return;
+	auto pixels = Surface::NewSdlSurface(SDL_ConvertSurfaceFormat(surface->getSurface(), SDL_PIXELFORMAT_RGBA32, 0));
+	if (!pixels || top < 0 || top + height > pixels->h || pixels->pitch != pixels->w * 4)
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Could not decode interception artwork");
+	const auto *data = static_cast<const Uint8*>(pixels->pixels) + top * pixels->pitch;
+	EM_ASM({ CalypsoInterception.image(UTF8ToString($0), HEAPU8.subarray($1,$1+$2*$3*4),$2,$3); },
+		kind, data, pixels->w, height);
+}
+
+void DogfightState::presentInterception()
+{
+	ImageButton *buttons[] = {_btnStandoff,_btnCautious,_btnStandard,_btnAggressive,_btnDisengage};
+	int mode = -1, available = 0;
+	for (int i = 0; i < 5; ++i)
+	{
+		if (_mode == buttons[i]) mode = i;
+		if (buttons[i]->getVisible()) available |= 1 << i;
+	}
+	const int values[] = {_minimized, 100 - _craft->getDamagePercentage(),
+		_craft->getShieldCapacity() ? _craft->getShieldPercentage() : -1, _animatingHit, _ufoSize,
+		_currentDist, mode, available, _preview->getVisible(), _craftIsDefenseless, _selfDestructPressed, _btnMinimize->getVisible()};
+	EM_ASM({
+		const p = $1 >> 2;
+		CalypsoInterception.frame({id:$0, minimized:!!HEAP32[p], hull:HEAP32[p+1], shield:HEAP32[p+2],
+			hit:!!HEAP32[p+3], size:HEAP32[p+4], distance:HEAP32[p+5], mode:HEAP32[p+6], available:HEAP32[p+7],
+			preview:!!HEAP32[p+8], attacker:!!HEAP32[p+9], armed:!!HEAP32[p+10], minimizeVisible:!!HEAP32[p+11],
+			craft:UTF8ToString($2), target:UTF8ToString($3), status:UTF8ToString($4), rangeText:UTF8ToString($5), ocean:UTF8ToString($6)});
+	}, _displayId, values, _craft->getName(_game->getLanguage()).c_str(), _ufo->getName(_game->getLanguage()).c_str(),
+		_txtStatus->getText().c_str(), _txtDistance->getText().c_str(), _txtOceanIndicator->getText().c_str());
+	if (_minimized) return;
+	const auto *layout = _game->getMod()->getInterface("dogfight");
+	sendInterceptionArt("ship", _craftSprite, 0, _craftSprite->getHeight());
+	if (_preview->getVisible())
+	{
+		int top = layout->getElement("previewTop")->h;
+		sendInterceptionArt("art", _preview, top, _preview->getHeight() - top - layout->getElement("previewBot")->h);
+	}
+	for (int i = 0; i < _weaponNum; ++i)
+	{
+		const CraftWeapon *weapon = _craft->getWeapons()->at(i);
+		if (!weapon) continue;
+		const RuleCraftWeapon *rule = weapon->getRules();
+		EM_ASM({ CalypsoInterception.weapon({slot:$0, name:UTF8ToString($1), ammo:$2, range:$3, on:!!$4}); },
+			i, tr(rule->getType()).c_str(), weapon->getAmmo(), rule->getRange(), _weaponEnabled[i]);
+	}
+	for (const auto *shot : _projectiles)
+		EM_ASM({ CalypsoInterception.shot({position:$0,offset:$1,out:!!$2,beam:!!$3}); },
+			shot->getPosition(), shot->getHorizontalPosition(), shot->getDirection()==D_UP, shot->getGlobalType()==CWPGT_BEAM);
+}
+
+void DogfightState::interceptionAction(int command, int slot)
+{
+	if (_minimized)
+	{
+		if (command == 7) btnMinimizedIconClick(nullptr);
+		return;
+	}
+	if (_preview->getVisible())
+	{
+		if (command == 6) previewClick(nullptr);
+		return;
+	}
+	SDL_Event event{};
+	event.type = SDL_MOUSEBUTTONDOWN;
+	event.button.button = SDL_BUTTON_LEFT;
+	Action action(&event, 1, 1, 0, 0);
+	switch (command)
+	{
+	case 0: btnStandoffSimulateLeftPress(&action); break;
+	case 1: btnCautiousSimulateLeftPress(&action); break;
+	case 2: btnStandardSimulateLeftPress(&action); break;
+	case 3: btnAggressiveSimulateLeftPress(&action); break;
+	case 4: btnDisengageSimulateLeftPress(&action); break;
+	case 5: if (_btnMinimize->getVisible()) btnMinimizeClick(nullptr); break;
+	case 6: if (_btnUfo->getVisible()) btnUfoClick(nullptr); break;
+	case 8:
+		if (slot >= 0 && slot < _weaponNum && _craft->getWeapons()->at(slot) && _weapon[slot]->getVisible())
+		{
+			action.setSender(_weapon[slot]);
+			weaponClick(&action);
+		}
+		break;
+	case 9: if (slot >= 0 && slot < 5) _state->handleDogfightMultiAction(slot); break;
+	}
+}
+#endif
+
 void DogfightState::setStatus(const std::string &status)
 {
 	_txtStatus->setText(tr(status));

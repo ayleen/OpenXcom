@@ -713,3 +713,13 @@ ru:
   STR_CAL_GRAPH_ZOOM_OUT: "Масштаб −"
   STR_CAL_GRAPH_ZOOM_IN: "Масштаб +"
   STR_CAL_GRAPH_EMPTY: "Выберите ряды для графика или нажмите «Все»."
+
+  STR_CAL_INTERCEPT_ALL: "Применить режим ко всем"
+  STR_CAL_INTERCEPT_INSPECT: "Осмотреть цель"
+  STR_CAL_INTERCEPT_BACK: "Назад"
+  STR_CAL_INTERCEPT_MINIMIZE: "Свернуть на дальней дистанции"
+  STR_CAL_INTERCEPT_DESTRUCT: "Самоуничтожение"
+  STR_CAL_INTERCEPT_CANCEL_DESTRUCT: "Отменить самоуничтожение"
+  STR_CAL_INTERCEPT_HULL: "Корпус"
+  STR_CAL_INTERCEPT_SHIELD: "Щит"
+  STR_CAL_INTERCEPT_CONFIRM: "Подтвердить самоуничтожение"

@@ -218,6 +218,10 @@ public:
 	/// Multi-dogfights logic handling.
 	void handleDogfights();
 	void handleDogfightMultiAction(int button);
+#ifdef __EMSCRIPTEN__
+	void dispatchInterception(unsigned id, int command, int slot);
+	void startHarnessInterception(Craft *craft, Ufo *ufo);
+#endif
 	/// Dogfight experience handling.
 	void handleDogfightExperience();
 	/// Gets the number of minimized dogfights.

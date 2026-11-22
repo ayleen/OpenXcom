@@ -2623,6 +2623,43 @@ void warnUnknownScenario(int scenarioId)
 extern "C" {
 
 EMSCRIPTEN_KEEPALIVE
+int calypso_qa_preview_interception()
+{
+	using namespace OpenXcom;
+	using namespace OpenXcom::Calypso;
+	if (!EM_ASM_INT({return location.hostname === 'localhost' || location.hostname === '127.0.0.1';})) return 0;
+	Game *game = getCurrentGame();
+	if (!game || game->getSavedGame() || !game->getTopState() || !prepareOperationsSave(game, true)) return 0;
+	SavedGame *save = game->getSavedGame();
+	Mod *mod = game->getMod();
+	if (save->getBases()->empty() || mod->getUfosList().empty() || mod->getAlienMissionList().empty()) return 0;
+	Base *base = save->getBases()->front();
+	const auto &fleet = *base->getCrafts();
+	auto armed = std::find_if(fleet.begin(), fleet.end(), [](Craft *craft) { return craft && craft->getNumWeapons(true) > 0; });
+	if (armed == fleet.end()) return 0;
+	const auto *rule = mod->getUfo(mod->getUfosList().front(), false);
+	const auto *missionRule = mod->getAlienMission(mod->getAlienMissionList().front(), false);
+	const auto *trajectory = mod->getUfoTrajectory(UfoTrajectory::RETALIATION_ASSAULT_RUN, false);
+	if (!rule || !missionRule || !trajectory) return 0;
+	auto *mission = new AlienMission(*missionRule);
+	save->getAlienMissions().push_back(mission);
+	auto *ufo = new Ufo(rule, 1);
+	ufo->setMissionInfo(mission, trajectory);
+	ufo->setId(save->getId("STR_UFO"));
+	ufo->setLongitude(base->getLongitude()); ufo->setLatitude(base->getLatitude());
+	ufo->setAltitude("STR_VERY_LOW"); ufo->setDetected(true);
+	save->getUfos()->push_back(ufo);
+	Craft *craft = *armed;
+	craft->setDestination(ufo);
+	craft->setStatus("STR_OUT");
+	CalypsoTutorial::get().disableForCampaign();
+	auto *state = new GeoscapeState();
+	game->pushState(state);
+	state->startHarnessInterception(craft, ufo);
+	return 1;
+}
+
+EMSCRIPTEN_KEEPALIVE
 int calypso_hd_harness_open(int scenarioId, int layoutClass, int sideBySide)
 {
 	if (!OpenXcom::Calypso::calypsoHarnessScenarioValid(scenarioId))
