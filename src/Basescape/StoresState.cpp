@@ -122,7 +122,9 @@ StoresState::StoresState(Base *base) : _base(base)
 	centerAllSurfaces();
 
 	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "storesInfo");
+#endif
 
 	_btnOk->setText(tr("STR_OK"));
 	_btnOk->onMouseClick((ActionHandler)&StoresState::btnOkClick);

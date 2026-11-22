@@ -41,10 +41,13 @@ namespace OpenXcom
  */
 TransfersState::TransfersState(Base *base) : _base(base)
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_window = new Window(this, 320, 184, 0, 8);
+#else
 	_screen = false;
-
-	// Create objects
 	_window = new Window(this, 320, 184, 0, 8, POPUP_BOTH);
+#endif
 	_btnOk = new TextButton(288, 16, 16, 166);
 	_txtTitle = new Text(278, 17, 21, 18);
 	_txtItem = new Text(114, 9, 16, 34);
@@ -66,7 +69,9 @@ TransfersState::TransfersState(Base *base) : _base(base)
 	centerAllSurfaces();
 
 	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "transferInfo");
+#endif
 
 	_btnOk->setText(tr("STR_OK"));
 	_btnOk->onMouseClick((ActionHandler)&TransfersState::btnOkClick);
@@ -98,7 +103,6 @@ TransfersState::TransfersState(Base *base) : _base(base)
 		_lstTransfers->addRow(3, transfer->getName(_game->getLanguage()).c_str(), ss.str().c_str(), ss2.str().c_str());
 	}
 #ifdef __EMSCRIPTEN__
-	_screen = true;
 	_hdLedger = new Calypso::CalypsoInventoryLedger(*this);
 #endif
 }
