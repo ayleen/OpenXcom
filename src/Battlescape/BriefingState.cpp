@@ -17,6 +17,12 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "BriefingState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#include "../Calypso/CalypsoReportLines.h"
+#include "../Mod/RuleEnviroEffects.h"
+#include "../Mod/RuleStartingCondition.h"
+#endif
 #include "BattlescapeState.h"
 #include "BattlescapeGame.h"
 #include "AliensCrashState.h"
@@ -108,13 +114,19 @@ BriefingState::BriefingState(Craft *craft, Base *base, bool infoOnly, BriefingDa
 	{
 		setStandardPalette("PAL_GEOSCAPE", 0);
 		_musicId = "GMDEFEND";
+
+#ifndef __EMSCRIPTEN__
 		_window->setBackground(_game->getMod()->getSurface("BACK16.SCR"));
+#endif
 	}
 	else
 	{
 		BriefingData data = customBriefing ? *customBriefing : deployment->getBriefingData();
 		setStandardPalette("PAL_GEOSCAPE", data.palette);
+
+#ifndef __EMSCRIPTEN__
 		_window->setBackground(_game->getMod()->getSurface(data.background));
+#endif
 		_txtCraft->setY(56 + data.textOffset);
 		_txtBriefing->setY(72 + data.textOffset);
 		_txtTarget->setVisible(data.showTarget);
@@ -220,6 +232,29 @@ BriefingState::BriefingState(Craft *craft, Base *base, bool infoOnly, BriefingDa
 	_txtBriefing->setWordWrap(true);
 	_txtBriefing->setText(tr(desc));
 
+#ifdef __EMSCRIPTEN__
+	_btnOk->setText(tr(_infoOnly ? "STR_CAL_BRIEF_CLOSE" : "STR_CAL_BRIEF_BEGIN"));
+	if (isPreview) _briefingParagraphs.push_back(tr("STR_PREVIEW"));
+	if (_txtTarget->getVisible() && !_txtTarget->getText().empty()) _briefingParagraphs.push_back(_txtTarget->getText());
+	if (_txtCraft->getVisible() && !_txtCraft->getText().empty()) _briefingParagraphs.push_back(_txtCraft->getText());
+	_briefingParagraphs.push_back(_txtBriefing->getText());
+	_briefingParagraphs.push_back(tr("STR_CAL_BRIEF_DEPTH").arg(battleSave->getDepth()));
+	_briefingParagraphs.push_back(tr("STR_CAL_BRIEF_SHADE").arg(battleSave->getGlobalShade()));
+	if (!battleSave->getLastUsedMapScript().empty())
+		_briefingParagraphs.push_back(tr("STR_CAL_BRIEF_MAP").arg(battleSave->getLastUsedMapScript()));
+	if (const auto *condition = battleSave->getStartingCondition())
+		_briefingParagraphs.push_back(tr(condition->getType()));
+	if (const auto *environment = battleSave->getEnviroEffects())
+		_briefingParagraphs.push_back(tr(environment->getType()));
+	for (Text *text : {_txtTarget, _txtCraft, _txtBriefing}) text->setVisible(false);
+	_hdBody = new TextList(1, 1, 0, 0);
+	add(_hdBody, "text", "briefing");
+	_hdBody->setColumns(1, 1);
+	_hdBody->setBackground(_window);
+	_hdList = new Calypso::CalypsoStrategicList(this, nullptr, _game->getMod(), _window, _txtTitle,
+		_hdBody, _btnOk, Calypso::CalypsoStrategicList::Content::MissionBriefing);
+	layoutBriefing(true);
+#endif
 	if (_infoOnly) return;
 
 	if (!isPreview && base && mission == "STR_BASE_DEFENSE")
@@ -245,7 +280,9 @@ BriefingState::BriefingState(Craft *craft, Base *base, bool infoOnly, BriefingDa
  */
 BriefingState::~BriefingState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
 }
 
 void BriefingState::init()
@@ -307,5 +344,29 @@ void BriefingState::btnOkClick(Action *)
 		_game->pushState(new AliensCrashState);
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void BriefingState::layoutBriefing(bool initial)
+{
+	const auto scroll = _hdBody->getScroll();
+	if (!initial) _hdList->layout();
+	_hdBody->clearList();
+	auto append = [&](const std::string &text) {
+		for (const auto &line : Calypso::calypsoWrapReportText(*_game->getMod(), text, _hdList->firstColumnWidth(), _hdList->bodyFontSize()))
+			_hdBody->addRow(1, line.c_str());
+	};
+	for (const auto &paragraph : _briefingParagraphs) append(paragraph);
+	if (initial) enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	else recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+	_hdBody->scrollTo(scroll);
+}
+
+void BriefingState::resize(int &dx, int &dy)
+{
+	if (_hdList) layoutBriefing(false);
+	else State::resize(dx, dy);
+}
+#endif
 
 }

@@ -24,6 +24,10 @@ namespace OpenXcom
 
 class Text;
 class Timer;
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoContactNotice; }
+class TextButton;
+#endif
 class Frame;
 
 /**
@@ -35,7 +39,14 @@ private:
 	Text *_text;
 	Frame *_frame;
 	Timer *_timer;
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoContactNotice *_hdNotice = nullptr;
+#endif
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dx, int &dy) override;
+	void dismiss(Action *);
+#endif
 	static const int INFOBOX_DELAY = 2000;
 	/// Creates the Infobox state.
 	InfoboxState(const std::string &msg);

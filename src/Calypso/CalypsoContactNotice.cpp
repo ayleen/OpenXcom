@@ -4,6 +4,8 @@
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoViewportRuntime.h"
 #include "Generated/CalypsoF17UfoLost.generated.h"
+#include "Generated/CalypsoF28TacticalAlert.generated.h"
+#include "Generated/CalypsoF28TacticalNotice.generated.h"
 #include "Generated/CalypsoF17AlienBase.generated.h"
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
@@ -113,6 +115,48 @@ void CalypsoContactNotice::layout()
 	_design = {};
 	_design.wide = wide;
 	if (_type == ContactNoticeType::TrackingLost) lost(_design, wide);
+	else if (_type == ContactNoticeType::TacticalNotice)
+	{
+		namespace G = CalypsoF28TacticalNoticeGen;
+		const auto *layout = G::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
+		if (!layout) CalypsoHdUiOverlay::instance().failHdRoute("Tactical message layout is unavailable");
+		readGeometry(_design, *layout, G::kButtonRects[wide ? 0 : 1][0].rect, G::kButtons[0]);
+		_design.familyId = G::kFamilyId;
+		_design.protocolText = G::kProtocol;
+		_design.visualScale = G::kPresentationScale;
+		_design.cutCornerPx = G::kCutCornerPx;
+		_design.protocolTextInsetPx = G::kProtocolTextInsetPx;
+		_design.panelFillTop = G::kPanelFillTop;
+		_design.panelFillBottom = G::kPanelFillBottom;
+		_design.frameColor = G::kFrame;
+		_design.protocolColor = G::kProtocolText;
+		_design.dividerColor = G::kDivider;
+		_design.footerDotColor = G::kFooterDot;
+		_design.warningColor = G::kWarning;
+		_design.motionDurationMs = G::kMotionDurationMs;
+		_design.motionScaleFrom = G::kMotionScaleFrom;
+	}
+	else if (_type == ContactNoticeType::TacticalAlert)
+	{
+		namespace G = CalypsoF28TacticalAlertGen;
+		const auto *layout = G::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
+		if (!layout) CalypsoHdUiOverlay::instance().failHdRoute("Tactical message layout is unavailable");
+		readGeometry(_design, *layout, G::kButtonRects[wide ? 0 : 1][0].rect, G::kButtons[0]);
+		_design.familyId = G::kFamilyId;
+		_design.protocolText = G::kProtocol;
+		_design.visualScale = G::kPresentationScale;
+		_design.cutCornerPx = G::kCutCornerPx;
+		_design.protocolTextInsetPx = G::kProtocolTextInsetPx;
+		_design.panelFillTop = G::kPanelFillTop;
+		_design.panelFillBottom = G::kPanelFillBottom;
+		_design.frameColor = G::kFrame;
+		_design.protocolColor = G::kProtocolText;
+		_design.dividerColor = G::kDivider;
+		_design.footerDotColor = G::kFooterDot;
+		_design.warningColor = G::kWarning;
+		_design.motionDurationMs = G::kMotionDurationMs;
+		_design.motionScaleFrom = G::kMotionScaleFrom;
+	}
 	else discovered(_design, wide);
 	place(_window, _design.window);
 	place(_message, _design.message);

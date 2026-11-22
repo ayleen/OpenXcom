@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "id": "f28-tactical-notice",
+  "familyId": 28,
+  "version": "hd.2026-08-29.1",
+  "archetype": "small-confirmation",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "TACTICAL NOTICE",
+    "code": "TA-28-I",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "Battle notice",
+  "body": [
+    "A tactical message from the current battle."
+  ],
+  "icon": {
+    "kind": "warning",
+    "glyph": "!",
+    "tone": "warning"
+  },
+  "buttons": [
+    {
+      "id": "ok",
+      "label": "OK",
+      "tone": "safe",
+      "action": "ok"
+    }
+  ],
+  "visibleButtons": [
+    "ok"
+  ]
+}

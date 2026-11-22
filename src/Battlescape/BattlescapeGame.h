@@ -182,7 +182,7 @@ private:
 	bool handlePanickingUnit(BattleUnit *unit);
 	/// Determines whether there are any actions pending for the given unit.
 	bool noActionsPending(BattleUnit *bu);
-	std::vector<InfoboxOKState*> _infoboxQueue;
+	std::vector<std::string> _infoboxQueue;
 	/// Shows the infoboxes in the queue (if any).
 	void showInfoBoxQueue();
 public:

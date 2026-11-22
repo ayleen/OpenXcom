@@ -1,0 +1,42 @@
+{
+  "actions": [
+    {
+      "action": "cancel",
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "columns": [
+      {
+        "id": "destination",
+        "label": "Action"
+      },
+      {
+        "id": "context",
+        "label": "Context"
+      }
+    ],
+    "heading": "DESTINATIONS",
+    "items": [
+      {
+        "id": "briefing",
+        "values": [
+          "Briefing",
+          "Battlescape"
+        ]
+      }
+    ],
+    "mode": "table",
+    "selectionRole": "route"
+  },
+  "controls": [],
+  "familyId": 28,
+  "id": "f28-tactical-links",
+  "schema": 1,
+  "title": "Tactical links",
+  "version": "hd.2026-08-29.1",
+  "state": "ExtendedBattlescapeLinksState"
+}

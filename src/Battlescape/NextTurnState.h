@@ -25,6 +25,10 @@
 namespace OpenXcom
 {
 
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoStrategicList; }
+class TextList;
+#endif
 class Window;
 class Text;
 class TextButton;
@@ -71,6 +75,13 @@ private:
 	BattleUnit* addReinforcement(const ReinforcementsData &wave, Unit *rules, int alienRank, bool civilian);
 	/// Finds a spot near a friend to spawn at.
 	bool placeReinforcementNearFriend(BattleUnit *unit);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+	TextList *_hdBody = nullptr;
+	void layoutTurnReport();
+	void continueClick(Action *) { close(); }
+	TextButton *_hdContinue = nullptr;
+#endif
 public:
 	/// Creates the Next Turn state.
 	NextTurnState(SavedBattleGame *battleGame, BattlescapeState *state);

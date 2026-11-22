@@ -137,6 +137,12 @@
 #include "../Battlescape/ConfirmEndMissionState.h"
 #include "../Battlescape/NoExperienceState.h"
 #include "../Battlescape/TurnDiaryState.h"
+#include "../Battlescape/InfoboxOKState.h"
+#include "../Battlescape/InfoboxState.h"
+#include "../Battlescape/ExtendedBattlescapeLinksState.h"
+#include "../Battlescape/NextTurnState.h"
+#include "../Battlescape/BriefingState.h"
+#include "../Battlescape/BriefingLightState.h"
 #include "../Battlescape/ExperienceOverviewState.h"
 #include "../Battlescape/PromotionsState.h"
 #include "../Battlescape/CommendationLateState.h"
@@ -1603,8 +1609,25 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new CraftErrorState(nullptr, "Additional research required.");
 	case CalypsoHarnessScenario::F24ResearchComplete:
 		return new CraftErrorState(nullptr, "Research completed successfully.");
+	case CalypsoHarnessScenario::F27MissionBriefing:
+	{
+		Game *game = getCurrentGame();
+		if (!prepareTacticalPreview(game)) return nullptr;
+		return new BriefingState(nullptr, nullptr, true);
+	}
+	case CalypsoHarnessScenario::F27TargetBriefing:
+	{
+		Game *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		auto *deployment = game->getMod()->getDeployment("STR_PORT_TERROR", false);
+		return deployment ? new BriefingLightState(deployment) : nullptr;
+	}
 	case CalypsoHarnessScenario::F28AbortMission:
 	case CalypsoHarnessScenario::F28ConfirmEnd:
+	case CalypsoHarnessScenario::F28TurnTransition:
+	case CalypsoHarnessScenario::F28TacticalLinks:
+	case CalypsoHarnessScenario::F28TacticalNotice:
+	case CalypsoHarnessScenario::F28TacticalAlert:
 	case CalypsoHarnessScenario::F30NoExperience:
 	case CalypsoHarnessScenario::F30TurnDiary:
 	case CalypsoHarnessScenario::F30ExperienceOverview:
@@ -1615,6 +1638,10 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		auto *battle = game->getSavedGame()->getSavedBattle();
 		if (id == CalypsoHarnessScenario::F28AbortMission) return new AbortMissionState(battle, state);
 		if (id == CalypsoHarnessScenario::F28ConfirmEnd) return new ConfirmEndMissionState(battle, 0, state->getBattleGame());
+		if (id == CalypsoHarnessScenario::F28TurnTransition) return new NextTurnState(battle, state);
+		if (id == CalypsoHarnessScenario::F28TacticalLinks) return new ExtendedBattlescapeLinksState(state, battle);
+		if (id == CalypsoHarnessScenario::F28TacticalNotice) return new InfoboxState(game->getLanguage()->getString("STR_THIS_FEATURE_IS_DISABLED_4"));
+		if (id == CalypsoHarnessScenario::F28TacticalAlert) return new InfoboxOKState(game->getLanguage()->getString("STR_MISSION_OVER"));
 		if (id == CalypsoHarnessScenario::F30TurnDiary) return new TurnDiaryState(battle->getHitLog());
 		if (id == CalypsoHarnessScenario::F30ExperienceOverview) return new ExperienceOverviewState(state);
 		return new NoExperienceState();

@@ -24,6 +24,10 @@ namespace OpenXcom
 {
 
 class TextButton;
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoContactNotice; }
+class TextButton;
+#endif
 class Frame;
 class Text;
 
@@ -36,7 +40,13 @@ private:
 	TextButton *_btnOk;
 	Frame *_frame;
 	Text *_txtTitle;
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoContactNotice *_hdNotice = nullptr;
+#endif
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dx, int &dy) override;
+#endif
 	/// Creates the InfoboxOKState.
 	InfoboxOKState(const std::string &msg);
 	/// Cleans up the InfoboxOKState.

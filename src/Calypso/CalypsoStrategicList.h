@@ -10,7 +10,7 @@ namespace Calypso
 class CalypsoStrategicList final : public CalypsoHdFamilyAdapter
 {
 public:
-	enum class Content { Destinations, Tracks, ExperienceRoster, TurnDiary, Promotions, FallenCommendations, Commendations, ExperienceOverview };
+	enum class Content { TurnTransition, TacticalLinks, Destinations, Tracks, MissionBriefing, TargetBriefing, ExperienceRoster, TurnDiary, Promotions, FallenCommendations, Commendations, ExperienceOverview };
 	CalypsoStrategicList(State *owner, const State *underlay, Mod *mod, Window *window,
 		Text *title, TextList *list, TextButton *cancel, Content content, TextButton *keep = nullptr);
 	~CalypsoStrategicList() override;

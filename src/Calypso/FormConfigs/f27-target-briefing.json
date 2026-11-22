@@ -1,0 +1,42 @@
+{
+  "actions": [
+    {
+      "action": "cancel",
+      "id": "cancel",
+      "label": "Close briefing",
+      "tone": "safe"
+    },
+    {
+      "action": "keep",
+      "id": "keep",
+      "label": "What can I wear?",
+      "tone": "primary"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "mode": "list",
+    "selectionRole": "entry",
+    "columns": [
+      {
+        "id": "entry",
+        "label": "Briefing"
+      }
+    ],
+    "items": [
+      {
+        "id": "orders",
+        "values": [
+          "Mission orders"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "familyId": 27,
+  "id": "f27-target-briefing",
+  "schema": 1,
+  "title": "Target intelligence",
+  "version": "hd.2026-08-29.1",
+  "state": "BriefingLightState"
+}

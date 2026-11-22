@@ -8,6 +8,10 @@
 #include "Generated/CalypsoF16MusicSelector.generated.h"
 #include "Generated/CalypsoF30NoExperience.generated.h"
 #include "Generated/CalypsoF30TurnDiary.generated.h"
+#include "Generated/CalypsoF28TacticalLinks.generated.h"
+#include "Generated/CalypsoF28TurnTransition.generated.h"
+#include "Generated/CalypsoF27TargetBriefing.generated.h"
+#include "Generated/CalypsoF27MissionBriefing.generated.h"
 #include "Generated/CalypsoF30Promotions.generated.h"
 #include "Generated/CalypsoF30FallenCommendations.generated.h"
 #include "Generated/CalypsoF30Commendations.generated.h"
@@ -64,6 +68,7 @@ void readTable(CalypsoScrollableCollectionModel &m, const Layout &g, const Slot 
 		const bool primary = std::string(buttons[b].id) == "keep";
 		CalypsoSmallConfirmationButton action;
 		action.widget = primary ? keep : cancel;
+		if (!action.widget || !action.widget->getVisible()) continue;
 		action.text = action.widget->getText();
 		action.tone = primary ? CalypsoActionTone::Primary : CalypsoActionTone::Safe;
 		action.restFill = buttons[b].fill;
@@ -138,6 +143,22 @@ void CalypsoStrategicList::layout()
 		found = CalypsoF30PromotionsGen::bindTable(wide, _design, read);
 		_design.columnLabels = {_owner->tr("STR_NAME"), _owner->tr("STR_NEW_RANK"), _owner->tr("STR_BASE")};
 		break;
+	case Content::MissionBriefing:
+		found = CalypsoF27MissionBriefingGen::bindTable(wide, _design, read);
+		if (found) _design.columnLabels.front() = _owner->tr("STR_BRIEFING");
+		break;
+	case Content::TargetBriefing:
+		found = CalypsoF27TargetBriefingGen::bindTable(wide, _design, read);
+		if (found) _design.columnLabels.front() = _owner->tr("STR_BRIEFING");
+		break;
+	case Content::TurnTransition:
+		found = CalypsoF28TurnTransitionGen::bindTable(wide, _design, read);
+		if (found) _design.columnLabels.front() = _owner->tr("STR_CAL_BATTLE_MESSAGE");
+		break;
+	case Content::TacticalLinks:
+		found = CalypsoF28TacticalLinksGen::bindTable(wide, _design, read);
+		_design.columnLabels = {_owner->tr("STR_EXTENDED_LINKS"), _owner->tr("STR_CAL_BATTLE_CONTEXT")};
+		break;
 	case Content::TurnDiary:
 		found = CalypsoF30TurnDiaryGen::bindTable(wide, _design, read);
 		if (found) _design.columnLabels.front() = _owner->tr("STR_HIT_LOG");
@@ -206,7 +227,7 @@ void CalypsoStrategicList::collect(CalypsoHdFrameBuilder &builder) const
 	m.selectedRow = _list->getSelectedRow();
 	const bool article = _articleIds && m.selectedRow < _articleIds->size() && !(*_articleIds)[m.selectedRow].empty();
 	m.hasSelection = m.selectedRow < m.rows.size() && (article || _content == Content::Tracks
-		|| _content == Content::Destinations || _content == Content::ExperienceOverview);
+		|| _content == Content::Destinations || _content == Content::TacticalLinks || _content == Content::ExperienceOverview);
 	m.scrollOffset = _list->getScroll();
 	m.nativeTrack = rect(_list->getCalypsoHdTrackRect());
 	m.nativeThumb = rect(_list->getCalypsoHdThumbRect());

@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "NextTurnState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#include "../Calypso/CalypsoReportLines.h"
+#endif
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
 #include "../Engine/Timer.h"
@@ -155,7 +159,9 @@ NextTurnState::NextTurnState(SavedBattleGame *battleGame, BattlescapeState *stat
 	// Set up objects
 	_window->setColor(Palette::blockOffset(0)-1);
 	_window->setHighContrast(true);
+#ifndef __EMSCRIPTEN__
 	_window->setBackground(_game->getMod()->getSurface(_battleGame->getHiddenMovementBackground()));
+#endif
 
 
 	_txtMessageReinforcements->setBig();
@@ -268,8 +274,9 @@ NextTurnState::NextTurnState(SavedBattleGame *battleGame, BattlescapeState *stat
 
 				if (showMessage)
 				{
+					ss.str("");
 					ss.clear();
-					ss << tr(hostile.message) << tr(neutral.message);
+					ss << _txtMessage2->getText() << _txtMessage3->getText();
 					message = ss.str();
 				}
 			}
@@ -307,6 +314,25 @@ NextTurnState::NextTurnState(SavedBattleGame *battleGame, BattlescapeState *stat
 		}
 	}
 
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	for (Surface *widget : std::vector<Surface *>{_bg,_txtTitle,_txtSide,_txtMessage,_txtMessage2,_txtMessage3,_txtMessageReinforcements})
+		widget->setVisible(false);
+	_hdBody = new TextList(1, 1, 0, 0);
+	add(_hdBody, "messageWindows", "battlescape");
+	_hdBody->setColumns(1, 1);
+	_hdBody->setBackground(_window);
+	_hdContinue = new TextButton(1, 1, 0, 0);
+	add(_hdContinue, "messageWindowButtons", "battlescape");
+	_hdContinue->setText(tr("STR_CAL_BATTLE_CONTINUE"));
+	_hdContinue->onMouseClick((ActionHandler)&NextTurnState::continueClick);
+	_hdContinue->onKeyboardPress((ActionHandler)&NextTurnState::continueClick, Options::keyOk);
+	_hdContinue->onKeyboardPress((ActionHandler)&NextTurnState::continueClick, Options::keyCancel);
+	_hdList = new Calypso::CalypsoStrategicList(this, nullptr, _game->getMod(), _window, _txtTurn, _hdBody,
+		_hdContinue, Calypso::CalypsoStrategicList::Content::TurnTransition, _btnBriefingReinforcements);
+	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	layoutTurnReport();
+#endif
 	if (Options::skipNextTurnScreen && message.empty() && messageReinforcements.empty())
 	{
 		_timer = new Timer(NEXT_TURN_DELAY);
@@ -320,6 +346,9 @@ NextTurnState::NextTurnState(SavedBattleGame *battleGame, BattlescapeState *stat
  */
 NextTurnState::~NextTurnState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
 	delete _timer;
 }
 
@@ -480,6 +509,10 @@ bool NextTurnState::applyEnvironmentalConditionToFaction(UnitFaction faction, En
  */
 void NextTurnState::handle(Action *action)
 {
+#ifdef __EMSCRIPTEN__
+	if (!_battleGame->isPreview()) State::handle(action);
+	return;
+#endif
 	State::handle(action);
 
 	if (_battleGame->isPreview())
@@ -522,6 +555,7 @@ void NextTurnState::think()
  */
 void NextTurnState::close()
 {
+	if (!_game->isState(this)) return;
 	_battleGame->getBattleGame()->cleanupDeleted();
 	_game->popState();
 
@@ -571,8 +605,28 @@ void NextTurnState::close()
 	}
 }
 
+#ifdef __EMSCRIPTEN__
+void NextTurnState::layoutTurnReport()
+{
+	_hdBody->clearList();
+	for (Text *part : {_txtSide, _txtMessage2, _txtMessage3, _txtMessageReinforcements})
+		for (const auto &line : Calypso::calypsoWrapReportText(*_game->getMod(), part->getText(), _hdList->firstColumnWidth(), _hdList->bodyFontSize()))
+			_hdBody->addRow(1, line.c_str());
+	_hdList->fitInput();
+}
+#endif
 void NextTurnState::resize(int &dX, int &dY)
 {
+#ifdef __EMSCRIPTEN__
+	if (_battleGame->isPreview()) return;
+	if (_hdList)
+	{
+		_hdList->layout();
+		recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+		layoutTurnReport();
+		return;
+	}
+#endif
 	State::resize(dX, dY);
 	_bg->setX(0);
 	_bg->setY(0);

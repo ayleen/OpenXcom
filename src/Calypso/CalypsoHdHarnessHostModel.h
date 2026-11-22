@@ -144,6 +144,12 @@ enum class CalypsoHarnessScenario
 	F23Graphs = 162,
 	F19PilotExperience = 190,
 	F30TurnDiary = 191,
+	F28TacticalAlert = 201,
+	F28TacticalNotice = 200,
+	F28TacticalLinks = 199,
+	F28TurnTransition = 198,
+	F27TargetBriefing = 197,
+	F27MissionBriefing = 196,
 	F30Promotions = 192,
 	F30FallenCommendations = 195,
 	F30Commendations = 194,
@@ -246,6 +252,12 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F23Graphs)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F19PilotExperience)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F30TurnDiary)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F28TacticalAlert)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F28TacticalNotice)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F28TacticalLinks)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F28TurnTransition)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F27TargetBriefing)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F27MissionBriefing)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F30Promotions)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F30FallenCommendations)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F30Commendations)
