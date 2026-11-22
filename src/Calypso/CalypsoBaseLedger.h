@@ -16,6 +16,7 @@ class TargetInfoState;
 class UfoTrackerState;
 class MultipleTargetsState;
 class TrainingFinishedState;
+class CalypsoTrainingBases;
 class StoresState;
 class TransfersState;
 class ItemLocationsState;
@@ -33,6 +34,7 @@ public:
 	explicit CalypsoBaseLedger(TechTreeSelectState &state);
 	explicit CalypsoBaseLedger(MonthlyCostsState &state);
 	explicit CalypsoBaseLedger(TrainingFinishedState &state);
+	explicit CalypsoBaseLedger(CalypsoTrainingBases &state);
 	explicit CalypsoBaseLedger(StoresState &state);
 	explicit CalypsoBaseLedger(UfoTrackerState &state);
 	explicit CalypsoBaseLedger(TargetInfoState &state);

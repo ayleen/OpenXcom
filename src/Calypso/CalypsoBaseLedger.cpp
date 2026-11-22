@@ -1,4 +1,6 @@
 #ifdef __EMSCRIPTEN__
+#include "CalypsoTrainingBases.h"
+#include "Generated/CalypsoF22TrainingBases.generated.h"
 #include "Generated/CalypsoF22TrainingFinished.generated.h"
 #include "../Geoscape/TrainingFinishedState.h"
 #include "Generated/CalypsoF17ContactTracker.generated.h"
@@ -708,6 +710,34 @@ CalypsoBaseLedger::CalypsoBaseLedger(TrainingFinishedState &s)
 			{{"open", s._btnOpen, s._btnOpen->getText(), design(g.action_open)},
 			 {"done", s._btnOk, s._btnOk->getText(), design(g.action_done)}},
 			"STR_CAL_NO_GRADUATES", "STR_CAL_NO_GRADUATES_HINT", 22);
+		model.headerArtId = Gen::kHeaderArt;
+		model.sectionLabel = s.tr("STR_TRAINING");
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+CalypsoBaseLedger::CalypsoBaseLedger(CalypsoTrainingBases &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]() {
+		namespace Gen = CalypsoF22TrainingBasesGen;
+		const bool wide = wideLayout();
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		auto model = ledgerModel(s, s.tr(s._psi ? "STR_PSIONIC_TRAINING" : "STR_PHYSICAL_TRAINING"), *s._rows, nullptr, g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"used", s.tr("STR_CAL_TRAINING_USED"), std::to_string(s._used), design(g.summary_used)},
+			 {"capacity", s.tr("STR_CAL_TRAINING_CAPACITY"), std::to_string(s._capacity), design(g.summary_capacity)}},
+			{{s.tr("STR_BASE")}, {s.tr("STR_CAL_TRAINING_USED")}, {s.tr("STR_CAL_TRAINING_CAPACITY")}, {s.tr("STR_CAL_TRAINING_FREE")}},
+			{{"physical", s._physical, s._physical->getText(), design(g.toolbar_physical), !s._psi, true},
+			 {"psi", s._psionic, s._psionic->getText(), design(g.toolbar_psi), s._psi, true},
+			 {"done", s._done, s._done->getText(), design(g.action_done)}},
+			"STR_CAL_NO_TRAINING_FACILITY", "STR_BASES", 22);
 		model.headerArtId = Gen::kHeaderArt;
 		model.sectionLabel = s.tr("STR_TRAINING");
 		model.profileId = Gen::kProfileId;

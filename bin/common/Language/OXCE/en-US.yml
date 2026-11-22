@@ -1,4 +1,8 @@
 en-US:
+  STR_CAL_TRAINING_USED: "Assigned"
+  STR_CAL_TRAINING_CAPACITY: "Places"
+  STR_CAL_TRAINING_FREE: "Free places"
+  STR_CAL_NO_TRAINING_FACILITY: "No facility"
   STR_CAL_TRAINING_COMPLETED: "Training completed"
   STR_CAL_NO_GRADUATES: "No graduates"
   STR_CAL_NO_GRADUATES_HINT: "Open training to view assignments."

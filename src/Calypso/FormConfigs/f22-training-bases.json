@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "id": "f22-training-bases",
+  "familyId": 22,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-research"
+  },
+  "state": "TrainingState",
+  "labelKeys": {
+    "title": "STR_TRAINING",
+    "done": "STR_OK"
+  },
+  "title": "TRAINING BASES",
+  "actions": [
+    {
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "tone": "primary",
+      "action": "done"
+    }
+  ],
+  "summary": [
+    {
+      "id": "used",
+      "label": "ASSIGNED",
+      "value": "2"
+    },
+    {
+      "id": "capacity",
+      "label": "PLACES",
+      "value": "8"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "base",
+    "columns": [
+      {
+        "id": "base",
+        "label": "BASE",
+        "contentRole": "name"
+      },
+      {
+        "id": "used",
+        "label": "ASSIGNED",
+        "contentRole": "count"
+      },
+      {
+        "id": "capacity",
+        "label": "PLACES",
+        "contentRole": "count"
+      },
+      {
+        "id": "available",
+        "label": "AVAILABLE",
+        "contentRole": "status"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Batumi",
+          "2",
+          "8",
+          "6"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [
+    {
+      "id": "physical",
+      "label": "PHYSICAL",
+      "labelKey": "STR_PHYSICAL_TRAINING",
+      "tone": "normal",
+      "action": "physical"
+    },
+    {
+      "id": "psi",
+      "label": "PSIONIC",
+      "labelKey": "STR_PSIONIC_TRAINING",
+      "tone": "normal",
+      "action": "psi"
+    }
+  ]
+}
