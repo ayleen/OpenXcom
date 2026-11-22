@@ -182,7 +182,6 @@ CalypsoHdOperationsModel ledgerModel(State &state, Text &title, TextList &list, 
 		action.hit = action.visible;
 		action.widget = binding.owner;
 		action.state.selected = binding.selected;
-		action.state.disabled = binding.disabled;
 		action.tone = action.id == "confirm" || action.id == "cleanup" ? "danger" : action.id == "done" ? "primary" : "normal";
 		if (binding.toolbar)
 		{
