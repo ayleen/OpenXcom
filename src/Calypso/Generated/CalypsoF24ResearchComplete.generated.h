@@ -4,11 +4,15 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF24ResearchCompleteGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kFormId = "f24-research-complete";
 inline constexpr int kFamilyId = 24;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f24-research-complete.json";
+inline constexpr const char* kProtocol = "CALYPSO COMMAND · RESEARCH PROTOCOL RS-24-C";
+inline constexpr const char* kTitle = "RESEARCH COMPLETE";
+inline constexpr const char* kMessage[] = { "Research project has been", "successfully completed." };
+inline constexpr int kMessageCount = 2;
 
 inline constexpr const char* kDensityProfile = "standard";
 inline constexpr int kPresentationScaleNumerator = 1;
@@ -32,6 +36,10 @@ inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
 inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
 inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
 inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
+inline constexpr std::uint32_t kDestructiveFill = 0xF25F5CFFu;
+inline constexpr std::uint32_t kDestructiveText = 0x071013FFu;
+inline constexpr std::uint32_t kSafeBorder = 0x74FFB0CCu;
+inline constexpr std::uint32_t kSafeFill = 0x051417B8u;
 
 struct CalypsoF24ResearchCompleteGenRect { int x; int y; int w; int h; };
 struct CalypsoF24ResearchCompleteGenLayout { int designWidth; int designHeight; CalypsoF24ResearchCompleteGenRect window; CalypsoF24ResearchCompleteGenRect status; CalypsoF24ResearchCompleteGenRect warning; CalypsoF24ResearchCompleteGenRect title; CalypsoF24ResearchCompleteGenRect message; CalypsoF24ResearchCompleteGenRect footer;
