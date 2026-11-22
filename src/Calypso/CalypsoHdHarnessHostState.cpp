@@ -124,6 +124,8 @@
 #include "../Geoscape/TrainingFinishedState.h"
 #include "../Geoscape/ProductionCompleteState.h"
 #include "../Geoscape/ItemsArrivingState.h"
+#include "../Geoscape/ResearchRequiredState.h"
+#include "../Geoscape/ResearchCompleteState.h"
 #include "../Battlescape/AbortMissionState.h"
 #include "../Battlescape/ConfirmEndMissionState.h"
 #include "../Battlescape/NoExperienceState.h" 
@@ -1552,9 +1554,27 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	case CalypsoHarnessScenario::F20ConfirmCydonia:
 		return new CraftErrorState(nullptr, "Confirm final mission?");
 	case CalypsoHarnessScenario::F24ResearchRequired:
-		return new CraftErrorState(nullptr, "Additional research required.");
 	case CalypsoHarnessScenario::F24ResearchComplete:
-		return new CraftErrorState(nullptr, "Research completed successfully.");
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		if (id == CalypsoHarnessScenario::F24ResearchComplete)
+		{
+			auto *research = firstResearchRule(game->getMod());
+			if (!research) return nullptr;
+			return new ResearchCompleteState(research, nullptr, research, game->getSavedGame()->getBases()->front());
+		}
+		for (const auto &name : game->getMod()->getItemsList())
+		{
+			auto *item = game->getMod()->getItem(name);
+			const auto *ammo = item->getPrimaryCompatibleAmmo();
+			if (ammo && !ammo->empty()) return new ResearchRequiredState(item);
+		}
+		return nullptr;
+	}
 	case CalypsoHarnessScenario::F28AbortMission:
 		return new AbortMissionState(nullptr, nullptr);
 	case CalypsoHarnessScenario::F28ConfirmEnd:

@@ -27,7 +27,9 @@
 #include "../Engine/Options.h"
 #include "../Savegame/Base.h"
 #ifdef __EMSCRIPTEN__
-#include "../Calypso/CalypsoF24ResearchCompleteUi.h"
+#include "../Calypso/CalypsoResearchNotice.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#include "GeoscapeState.h"
 #endif
 
 namespace OpenXcom
@@ -62,14 +64,7 @@ ResearchCompleteState::ResearchCompleteState(const RuleResearch *newResearch, co
 	add(_txtResearch, "text2", "geoResearchComplete");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF24ResearchCompleteUi::configure(*this);
-#endif
+
 
 	// Set up objects
 	setWindowBackground(_window, "geoResearchComplete");
@@ -97,6 +92,16 @@ ResearchCompleteState::ResearchCompleteState(const RuleResearch *newResearch, co
 	{
 		_txtResearch->setText(tr(research->getName()));
 	}
+#ifdef __EMSCRIPTEN__
+	const auto *underlay = dynamic_cast<GeoscapeState *>(_game->getTopState());
+	if (!Calypso::CalypsoHdUiOverlay::instance().hasRegisteredState(underlay)) underlay = nullptr;
+	_screen = !underlay;
+	_window->finishPopupForHd();
+	_notice = new Calypso::CalypsoResearchNotice(this, underlay, _game->getMod(), _window,
+		_txtResearch, _txtTitle->getText(),
+		_txtBase->getVisible() ? _txtBase->getText() : std::string(tr("STR_RESEARCH")), _btnOk, _btnReport);
+	enableUiScaling(_notice->designWidth(), _notice->designHeight(), 1.0f, false);
+#endif
 }
 
 /**
@@ -141,8 +146,9 @@ void ResearchCompleteState::btnReportClick(Action *)
 namespace OpenXcom {
 void ResearchCompleteState::resize(int &dX, int &dY)
 {
-	if (Calypso::CalypsoF24ResearchCompleteUi::resize(*this)) return;
-	State::resize(dX, dY);
+	if (!_notice) { State::resize(dX, dY); return; }
+	_notice->layout();
+	recaptureUiScaling(_notice->designWidth(), _notice->designHeight(), 1.0f, false);
 }
 }
 #endif
@@ -151,8 +157,7 @@ namespace OpenXcom {
 ResearchCompleteState::~ResearchCompleteState()
 {
 #ifdef __EMSCRIPTEN__
-	delete _hdAdapter;
-	_hdAdapter = nullptr;
+	delete _notice;
 #endif
 }
 }
