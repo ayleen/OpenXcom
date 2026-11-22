@@ -105,6 +105,7 @@ public:
 	Uint8 getResearchColor(const std::string &topic) const;
 	Uint8 getAltResearchColor(const std::string &topic) const;
 	/// Is given research topic discovered/available?
+	bool isResearchDisabled(const std::string &topic) const { return _disabledResearch.count(topic) != 0; }
 	bool isDiscoveredResearch(const std::string &topic) const;
 	/// Is given manufacture topic discovered/available?
 	bool isDiscoveredManufacture(const std::string &topic) const;

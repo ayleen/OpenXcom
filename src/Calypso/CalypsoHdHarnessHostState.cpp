@@ -75,6 +75,7 @@
 #include "../Basescape/GlobalResearchDiaryState.h"
 #include "../Basescape/GlobalManufactureState.h"
 #include "../Basescape/TechTreeViewerState.h"
+#include "../Basescape/TechTreeSelectState.h"
 #include "../Ufopaedia/ArticleStateCraftWeapon.h"
 #include "../Basescape/BasescapeState.h"
 #include "../Basescape/BaseInfoState.h"
@@ -2019,6 +2020,15 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 			: makeGlobalManufactureFixture(getCurrentGame());
 		const bool openedFromBasescape = profile == 208;
 		return fixture.base ? new GlobalManufactureState(openedFromBasescape) : nullptr;
+	}
+	case CalypsoHarnessScenario::F15TopicSelector:
+	{
+		auto *game = getCurrentGame();
+		auto fixture = makeOperationsFixture(game, true, false);
+		if (!fixture.research) return nullptr;
+		auto *viewer = new TechTreeViewerState(fixture.research);
+		game->pushState(viewer);
+		return new TechTreeSelectState(viewer);
 	}
 	case CalypsoHarnessScenario::F15TechTree:
 	{

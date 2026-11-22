@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "id": "f15-topic-selector",
+  "familyId": 15,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "state": "TechTreeSelectState",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-research"
+  },
+  "labelKeys": {
+    "title": "STR_AVAILABLE_TOPICS",
+    "done": "STR_CANCEL"
+  },
+  "title": "AVAILABLE TOPICS",
+  "actions": [
+    {
+      "id": "open",
+      "label": "OPEN TOPIC",
+      "labelKey": "STR_CAL_OPEN_TOPIC",
+      "action": "open",
+      "tone": "primary"
+    },
+    {
+      "id": "done",
+      "label": "CANCEL",
+      "labelKey": "STR_CANCEL",
+      "action": "done",
+      "tone": "normal"
+    }
+  ],
+  "summary": [
+    {
+      "id": "matches",
+      "label": "RESULTS",
+      "value": "6"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "tech-topic",
+    "columns": [
+      {
+        "id": "topic",
+        "label": "TOPIC",
+        "contentRole": "name"
+      },
+      {
+        "id": "category",
+        "label": "CATEGORY",
+        "contentRole": "status"
+      },
+      {
+        "id": "status",
+        "label": "STATUS",
+        "contentRole": "status"
+      }
+    ],
+    "items": [
+      {
+        "id": "research-example",
+        "values": [
+          "Medi-Kit",
+          "Research",
+          "Discovered"
+        ]
+      }
+    ]
+  },
+  "toolbar": [
+    {
+      "id": "query",
+      "label": "SEARCH",
+      "labelKey": "STR_QUICK_SEARCH",
+      "action": "query",
+      "tone": "normal"
+    },
+    {
+      "id": "category",
+      "label": "CATEGORY",
+      "labelKey": "STR_CAL_TOPIC_TYPE",
+      "action": "category",
+      "tone": "normal"
+    },
+    {
+      "id": "status",
+      "label": "STATUS",
+      "labelKey": "STR_CAL_TOPIC_STATUS",
+      "action": "status",
+      "tone": "normal"
+    }
+  ],
+  "controls": []
+}

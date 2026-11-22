@@ -22,6 +22,7 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoBaseLedger; }
 class TechTreeViewerState;
 class Window;
 class Text;
@@ -47,6 +48,21 @@ private:
 	size_t _firstItemTopicIndex;
 	size_t _firstCraftTopicIndex;
 	void initLists();
+	void buildTopicList();
+	int topicType(size_t index) const;
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
+	TextButton *_category, *_status, *_open;
+	std::vector<size_t> _displayed;
+	size_t _chosen = static_cast<size_t>(-1);
+	int _categoryFilter = 0, _statusFilter = 0;
+	void configureSelector();
+	void updateResults();
+	void chooseCategory(Action *);
+	void chooseStatus(Action *);
+	void openChosen(Action *);
+#endif
 	void onSelectTopic(Action *action);
 public:
 	/// Creates the TechTreeSelect state.
@@ -55,6 +71,9 @@ public:
 	~TechTreeSelectState();
 	/// Initializes the state.
 	void init() override;
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 	/// Handler for clicking the OK button.
 	void btnOkClick(Action *action);
 	/// Handlers for Quick Search.

@@ -8,6 +8,7 @@ class GlobalAlienContainmentState;
 class ManageAlienContainmentState;
 class ContainmentReviewState;
 class BaseInfoState;
+class TechTreeSelectState;
 class MonthlyCostsState;
 class StoresState;
 class TransfersState;
@@ -21,6 +22,7 @@ public:
 	explicit CalypsoBaseLedger(ContainmentReviewState &state);
 	explicit CalypsoBaseLedger(GlobalAlienContainmentState &state);
 	explicit CalypsoBaseLedger(BaseInfoState &state);
+	explicit CalypsoBaseLedger(TechTreeSelectState &state);
 	explicit CalypsoBaseLedger(MonthlyCostsState &state);
 	explicit CalypsoBaseLedger(StoresState &state);
 	explicit CalypsoBaseLedger(TransfersState &state);

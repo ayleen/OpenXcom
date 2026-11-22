@@ -1,5 +1,7 @@
 #ifdef __EMSCRIPTEN__
 #include "CalypsoBaseLedger.h"
+#include "Generated/CalypsoF15TopicSelector.generated.h"
+#include "../Basescape/TechTreeSelectState.h"
 #include "CommandCenter/CommandCenterRenderer.h"
 #include "CalypsoHdOperationsFluid.h"
 #include "CalypsoHdOperationsLayout.h"
@@ -93,10 +95,10 @@ CalypsoHdOperationsModel ledgerModel(State &state, const std::string &title, Tex
 	model.ownerState = &state;
 	model.familyId = familyId;
 	model.visualShell = "base-operations";
-	model.headerArtId = familyId == 13 ? "base-research" : familyId == 2 ? "base-build" : "logistics-group";
+	model.headerArtId = (familyId == 15 || familyId == 13) ? "base-research" : familyId == 2 ? "base-build" : "logistics-group";
 	model.presentation = "table-context";
 	model.title = CommandCenter::calypsoHdNormalizeTtfDisplayText(title);
-	model.sectionLabel = state.tr(familyId == 13 ? "STR_ALIEN_CONTAINMENT" : familyId == 2 ? "STR_BASE_INFORMATION" : "STR_CAL_INVENTORY_SECTION");
+	model.sectionLabel = state.tr(familyId == 15 ? "STR_TECH_TREE" : familyId == 13 ? "STR_ALIEN_CONTAINMENT" : familyId == 2 ? "STR_BASE_INFORMATION" : "STR_CAL_INVENTORY_SECTION");
 	model.baseCaption = state.tr("STR_BASES");
 	if (base) model.baseName = base->getName();
 	model.readiness.contractReady = true;
@@ -442,6 +444,47 @@ CalypsoBaseLedger::CalypsoBaseLedger(ContainmentReviewState &s)
 			{{"confirm", s._confirm, s._confirm->getText(), design(g->action_confirm)},
 			 {"done", s._cancel, s._cancel->getText(), design(g->action_done)}},
 			"STR_CAL_NO_SPECIMENS", "STR_CAL_EMPTY_CELLS_HINT", 13);
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+CalypsoBaseLedger::CalypsoBaseLedger(TechTreeSelectState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]()
+	{
+		namespace Gen = CalypsoF15TopicSelectorGen;
+		const bool wide = wideLayout();
+		const auto *g = Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		const auto &query = s._btnQuickSearch->getText();
+		const bool picked = s._chosen < s._availableTopics.size();
+		auto model = ledgerModel(s, s._txtTitle->getText(), *s._lstTopics, nullptr, *g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"matches", s.tr("STR_CAL_TOPIC_RESULTS"), std::to_string(s._displayed.size()), design(g->summary_matches)}},
+			{{s.tr("STR_TOPIC")}, {s.tr("STR_CAL_TOPIC_TYPE")}, {s.tr("STR_CAL_TOPIC_STATUS")}},
+			{{"query", s._btnQuickSearch, query.empty() ? std::string(s.tr("STR_QUICK_SEARCH")) : query, design(g->toolbar_query), false, true},
+			 {"category", s._category, s._category->getText(), design(g->toolbar_category), false, true},
+			 {"status", s._status, s._status->getText(), design(g->toolbar_status), false, true},
+			 {"open", s._open, s._open->getText(), design(g->action_open), false, false, !picked},
+			 {"done", s._btnOk, s._btnOk->getText(), design(g->action_done)}},
+			query.size() < 3 ? "STR_QS_THREE_LETTERS_A" : "STR_CAL_TOPIC_NO_MATCHES",
+			query.size() < 3 ? "STR_QS_THREE_LETTERS_B" : "STR_CAL_TOPIC_CHANGE_QUERY", 15);
+		auto &collection = model.collection;
+		for (size_t i = 0; i < collection.rows.size(); ++i)
+		{
+			auto &row = collection.rows[i];
+			const auto idx = s._displayed[i];
+			row.id = std::to_string(s.topicType(idx)) + ":" + s._availableTopics[idx];
+			row.state.selected = idx == s._chosen;
+			for (auto &cell : row.cells) cell.state.selected = row.state.selected;
+			if (row.state.selected) collection.selectedIndex = i;
+		}
 		model.profileId = Gen::kProfileId;
 		model.profileVersion = Gen::kProfileVersion;
 		model.provenance = Gen::kProvenanceTemplate;
