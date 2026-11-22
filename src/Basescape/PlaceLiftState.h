@@ -49,6 +49,8 @@ private:
 	Text *_txtHeader;
 	TextList *_lstAccessLifts;
 public:
+	static State *create(Base *base, Globe *globe, bool first);
+	static void finishPlacement(Base *base, Globe *globe, bool first, const RuleBaseFacility *lift, int x, int y);
 	/// Creates the Place Lift state.
 	PlaceLiftState(Base *base, Globe *globe, bool first);
 	/// Cleans up the Place Lift state.

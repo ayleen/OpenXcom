@@ -93,7 +93,7 @@ void SelectStartFacilityState::btnOkClick(Action *)
 	_base->getFacilities()->clear();
 	_game->popState();
 	_game->popState();
-	_game->pushState(new PlaceLiftState(_base, _globe, true));
+	_game->pushState(PlaceLiftState::create(_base, _globe, true));
 }
 
 /**

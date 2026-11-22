@@ -711,7 +711,7 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoHdUiOverlay.cpp)
   # Phase 46.F01: Basescape HD presentation holder (lifecycle only; the
   # shared renderer paints once T14 feeds a complete model).
-  list(APPEND openxcom_src Calypso/CalypsoBasescapeHdUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoBasescapeHdUi.cpp Calypso/CalypsoAccessLift.cpp)
   # Phase 46.F01: strategic navigation bridge (pending global routes).
   list(APPEND openxcom_src Calypso/CalypsoStrategicNavigation.cpp)
   # Phase 46.F01: shared RGBA image source for the HD overlay queue.

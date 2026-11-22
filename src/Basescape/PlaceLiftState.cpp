@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "PlaceLiftState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoAccessLift.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
 #include "../Engine/Sound.h"
@@ -39,6 +43,48 @@
 
 namespace OpenXcom
 {
+
+namespace
+{
+void setLiftBaseTexture(Base *base, Globe *globe)
+{
+	if (globe && base)
+	{
+		int texture, shade;
+		globe->getPolygonTextureAndShade(base->getLongitude(), base->getLatitude(), &texture, &shade);
+		auto* globeTexture = getCurrentGame()->getMod()->getGlobe()->getTexture(texture);
+		base->setGlobeTexture(globeTexture);
+	}
+}
+
+std::vector<RuleBaseFacility *> eligibleLifts(Base *base)
+{
+	std::vector<RuleBaseFacility *> lifts;
+	for (auto& facilityType : getCurrentGame()->getMod()->getBaseFacilitiesList())
+	{
+		auto* facilityRule = getCurrentGame()->getMod()->getBaseFacility(facilityType);
+		if ((facilityRule->isLift() && !facilityRule->isUpgradeOnly())
+			&& facilityRule->isAllowedForBaseType(base->isFakeUnderwater()) && getCurrentGame()->getSavedGame()->isResearched(facilityRule->getRequirements()))
+		{
+			lifts.push_back(facilityRule);
+		}
+	}
+	return lifts;
+}
+}
+
+State *PlaceLiftState::create(Base *base, Globe *globe, bool first)
+{
+#ifdef __EMSCRIPTEN__
+	setLiftBaseTexture(base, globe);
+	auto lifts = eligibleLifts(base);
+	if (lifts.empty())
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Calypso: no eligible access lift for this base");
+	return new CalypsoAccessLift(base, globe, first, std::move(lifts));
+#else
+	return new PlaceLiftState(base, globe, first);
+#endif
+}
 
 /**
  * Initializes all the elements in the Place Lift screen.
@@ -70,13 +116,7 @@ PlaceLiftState::PlaceLiftState(Base *base, Globe *globe, bool first) : _base(bas
 	// Set up objects
 	setWindowBackground(_window, "selectFacility");
 
-	if (_globe && _base)
-	{
-		int texture, shade;
-		_globe->getPolygonTextureAndShade(_base->getLongitude(), _base->getLatitude(), &texture, &shade);
-		auto* globeTexture = _game->getMod()->getGlobe()->getTexture(texture);
-		_base->setGlobeTexture(globeTexture);
-	}
+	setLiftBaseTexture(_base, _globe);
 
 	auto* itf = _game->getMod()->getInterface("basescape")->getElementOptional("trafficLights");
 	if (itf)
@@ -87,16 +127,8 @@ PlaceLiftState::PlaceLiftState(Base *base, Globe *globe, bool first) : _base(bas
 	_view->setBase(_base);
 
 	_lift = nullptr;
-	for (auto& facilityType : _game->getMod()->getBaseFacilitiesList())
-	{
-		auto* facilityRule = _game->getMod()->getBaseFacility(facilityType);
-		if ((facilityRule->isLift() && !facilityRule->isUpgradeOnly())
-			&& facilityRule->isAllowedForBaseType(_base->isFakeUnderwater()) && _game->getSavedGame()->isResearched(facilityRule->getRequirements()))
-		{
-			_accessLifts.push_back(facilityRule);
-		}
-	}
-	if (_first || _accessLifts.size() == 1)
+	_accessLifts = eligibleLifts(_base);
+	if (!_accessLifts.empty() && (_first || _accessLifts.size() == 1))
 	{
 		_lift = _accessLifts.front();
 	}
@@ -146,21 +178,26 @@ PlaceLiftState::~PlaceLiftState()
  */
 void PlaceLiftState::viewClick(Action *)
 {
-	BaseFacility *fac = new BaseFacility(_lift, _base);
-	fac->setX(_view->getGridX());
-	fac->setY(_view->getGridY());
-	_base->getFacilities()->push_back(fac);
+	finishPlacement(_base, _globe, _first, _lift, _view->getGridX(), _view->getGridY());
+}
+
+void PlaceLiftState::finishPlacement(Base *base, Globe *globe, bool first, const RuleBaseFacility *lift, int x, int y)
+{
+	BaseFacility *fac = new BaseFacility(lift, base);
+	fac->setX(x);
+	fac->setY(y);
+	base->getFacilities()->push_back(fac);
 	if (fac->getRules()->getPlaceSound() != Mod::NO_SOUND)
 	{
 		_game->getMod()->getSound("GEO.CAT", fac->getRules()->getPlaceSound())->play();
 	}
 	_game->popState();
-	BasescapeState *bState = new BasescapeState(_base, _globe);
+	BasescapeState *bState = new BasescapeState(base, globe);
 	_game->getSavedGame()->setSelectedBase(_game->getSavedGame()->getBases()->size() - 1);
 	_game->pushState(bState);
-	if (_first)
+	if (first)
 	{
-		_game->pushState(new SelectStartFacilityState(_base, bState, _globe));
+		_game->pushState(new SelectStartFacilityState(base, bState, globe));
 	}
 }
 

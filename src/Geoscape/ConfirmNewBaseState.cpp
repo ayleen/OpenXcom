@@ -170,7 +170,7 @@ void ConfirmNewBaseState::btnOkClick(Action *)
 		_base->setName(_edtName->getText());
 		_game->popState(); // pop ConfirmNewBaseState
 		_game->popState(); // pop BuildNewBaseState
-		_game->pushState(new PlaceLiftState(_base, _globe, false));
+		_game->pushState(PlaceLiftState::create(_base, _globe, false));
 	}
 	else
 	{

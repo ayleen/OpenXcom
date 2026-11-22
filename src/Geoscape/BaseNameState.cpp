@@ -189,7 +189,7 @@ void BaseNameState::btnOkClick(Action *)
 
 		if (!_first || Options::customInitialBase)
 		{
-			_game->pushState(new PlaceLiftState(_base, _globe, _first));
+			_game->pushState(PlaceLiftState::create(_base, _globe, _first));
 		}
 	}
 }

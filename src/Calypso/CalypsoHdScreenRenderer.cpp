@@ -235,9 +235,9 @@ void paintPlacementColumn(CalypsoF21Painter& painter,
 			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0,
 			static_cast<double>(fitParams.smallActionFontSize));
 	}
-	if (cancel == nullptr)
+	if (!cancel || !cancel->widget || !static_cast<const Surface *>(cancel->widget)->getVisible())
 	{
-		// Already failHdRoute'd above: texts paint, no Cancel button.
+		// A mandatory first lift has no cancel action.
 		return;
 	}
 	CalypsoInteractionState cancelState = CalypsoInteractionState::Rest;
