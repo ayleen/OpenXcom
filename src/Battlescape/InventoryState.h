@@ -25,6 +25,10 @@
 
 namespace OpenXcom
 {
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoTacticalEquipment; }
+#endif
+
 
 class Surface;
 class Text;
@@ -43,6 +47,12 @@ class Base;
  */
 class InventoryState : public State
 {
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoTacticalEquipment;
+	Calypso::CalypsoTacticalEquipment *_hdBoard = nullptr;
+	void hdBoardClick(Action *action);
+#endif
+
 private:
 	Surface *_bg, *_soldier;
 	Text *_txtItem, *_txtAmmo, *_txtWeight, *_txtTus, *_txtStatLine1, *_txtStatLine2, *_txtStatLine3, *_txtStatLine4, *_txtPosition;
@@ -54,13 +64,6 @@ private:
 	BattlescapeButton *_btnLinks;
 	Surface *_selAmmo;
 	Inventory *_inv;
-	// Calypso (Emscripten): HD menu scaling — native-size snapshots/scratches
-	// bilinear-stretched into the scaled display surfaces (declared unconditionally,
-	// used only under #ifdef __EMSCRIPTEN__).
-	SDL_Surface *_bgNative = nullptr;   ///< 320×200 static chrome (TAC01.SCR) snapshot
-	Surface *_soldierNat = nullptr;     ///< native paperdoll scratch
-	Surface *_btnRankNat = nullptr;     ///< native rank-badge scratch
-	Surface *_selAmmoNat = nullptr;     ///< native ammo-preview scratch
 	std::vector<EquipmentLayoutItem*> _curInventoryTemplate, _tempInventoryTemplate;
 	SavedBattleGame *_battleGame;
 	const bool _tu, _noCraft;
@@ -80,11 +83,6 @@ private:
 	void _createInventoryTemplate(std::vector<EquipmentLayoutItem*> &inventoryTemplate);
 	/// Helper method for Apply Template button
 	void _applyInventoryTemplate(std::vector<EquipmentLayoutItem*> &inventoryTemplate);
-#ifdef __EMSCRIPTEN__
-	/// Calypso: shrink the soldier-name TextEdit's hit-area to ≈ the name text so a
-	/// scaled field doesn't catch button/grid/drag clicks and grab keyboard focus.
-	void fitNameField();
-#endif
 public:
 	/// Creates the Inventory state.
 	InventoryState(bool tu, BattlescapeState *parent, Base *base, bool noCraft = false);

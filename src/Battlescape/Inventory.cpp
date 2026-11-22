@@ -305,6 +305,9 @@ void Inventory::drawGridLabels(bool showTuCost)
  */
 void Inventory::drawItems()
 {
+#ifdef __EMSCRIPTEN__
+	++_hdItemRevision;
+#endif
 	const int Pulsate[8] = { 0, 1, 2, 3, 4, 3, 2, 1 };
 	const SavedBattleGame* save = _game->getSavedGame()->getSavedBattle();
 	Surface *tempSurface = _game->getMod()->getSurfaceSet("SCANG.DAT")->getFrame(6);
@@ -1217,38 +1220,7 @@ void Inventory::mouseClick(Action *action, State *state)
 						BattleItem *item = _selUnit->getItem(slot, x, y);
 						if (item != 0)
 						{
-							const BattleFuseType fuseType = item->getRules()->getFuseTimerType();
-							if (fuseType != BFT_NONE)
-							{
-								if (item->getFuseTimer() == -1)
-								{
-									if (item->getRules()->getCostPrime().Time > 0)
-									{
-										// Prime that grenade!
-										if (fuseType == BFT_SET)
-										{
-											_game->pushState(new PrimeGrenadeState(0, true, item));
-										}
-										else
-										{
-											_warning->showMessage(_game->getLanguage()->getString(item->getRules()->getPrimeActionMessage()));
-											item->setFuseTimer(item->getRules()->getFuseTimerDefault());
-											arrangeGround();
-											playSound(item->getRules()->getPrimeSound()); // prime sound
-										}
-									}
-								}
-								else
-								{
-									if (item->getRules()->getCostUnprime().Time > 0 /* && !item->getRules()->getUnprimeActionName().empty() */ )
-									{
-										_warning->showMessage(_game->getLanguage()->getString(item->getRules()->getUnprimeActionMessage()));
-										item->setFuseTimer(-1);  // Unprime the grenade
-										arrangeGround();
-										playSound(item->getRules()->getUnprimeSound()); // unprime sound
-									}
-								}
-							}
+							toggleInventoryFuse(item);
 						}
 					}
 				}
@@ -1260,12 +1232,7 @@ void Inventory::mouseClick(Action *action, State *state)
 		}
 		else
 		{
-			if (_selItem->getSlot()->getType() == INV_GROUND)
-			{
-				_stackLevel[_selItem->getSlotX()][_selItem->getSlotY()] += 1;
-			}
-			// Return item to original position
-			setSelectedItem(0);
+			cancelHeldItem();
 		}
 	}
 	else if (_game->isMiddleClick(action))
@@ -1291,6 +1258,51 @@ void Inventory::mouseClick(Action *action, State *state)
 		}
 	}
 	InteractiveSurface::mouseClick(action, state);
+}
+
+void Inventory::cancelHeldItem()
+{
+	if (!_selItem) return;
+	if (_selItem->getSlot()->getType() == INV_GROUND)
+		++_stackLevel[_selItem->getSlotX()][_selItem->getSlotY()];
+	setSelectedItem(nullptr);
+}
+
+void Inventory::toggleInventoryFuse(BattleItem *item)
+{
+	if (!item || _tu || (_base && !Options::includePrimeStateInSavedLayout)) return;
+	const BattleFuseType fuseType = item->getRules()->getFuseTimerType();
+	if (fuseType != BFT_NONE)
+	{
+		if (item->getFuseTimer() == -1)
+		{
+			if (item->getRules()->getCostPrime().Time > 0)
+			{
+				// Prime that grenade!
+				if (fuseType == BFT_SET)
+				{
+					_game->pushState(new PrimeGrenadeState(0, true, item));
+				}
+				else
+				{
+					_warning->showMessage(_game->getLanguage()->getString(item->getRules()->getPrimeActionMessage()));
+					item->setFuseTimer(item->getRules()->getFuseTimerDefault());
+					arrangeGround();
+					playSound(item->getRules()->getPrimeSound()); // prime sound
+				}
+			}
+		}
+		else
+		{
+			if (item->getRules()->getCostUnprime().Time > 0 /* && !item->getRules()->getUnprimeActionName().empty() */ )
+			{
+				_warning->showMessage(_game->getLanguage()->getString(item->getRules()->getUnprimeActionMessage()));
+				item->setFuseTimer(-1);  // Unprime the grenade
+				arrangeGround();
+				playSound(item->getRules()->getUnprimeSound()); // unprime sound
+			}
+		}
+	}
 }
 
 /**

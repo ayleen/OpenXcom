@@ -1119,6 +1119,8 @@
       ]
     },
     {"id": "f23-strategic-graphs", "contract": "f23-strategic-graphs.json", "emitter": "family", "validationProfile": "tabbed-management", "native": {"namespace": "CalypsoF23StrategicGraphsGen", "prefix": "CalypsoF23StrategicGraphs", "output": "CalypsoF23StrategicGraphs.generated.h"}, "browser": {"global": "CalypsoF23StrategicGraphs", "output": "f23-strategic-graphs.js"}, "rendererOwnership": "tabbed-management", "harnessScenarioIds": [162]},
+    {"id": "f26-inspection", "contract": "f26-inspection.json", "emitter": "family", "validationProfile": "tabbed-management", "native": {"namespace": "CalypsoF26InspectionGen", "prefix": "CalypsoF26Inspection", "output": "CalypsoF26Inspection.generated.h"}, "browser": {"global": "CalypsoF26Inspection", "output": "f26-inspection.js"}, "rendererOwnership": "tabbed-management", "harnessScenarioIds": [225]},
+    {"id": "f26-inventory", "contract": "f26-inventory.json", "emitter": "family", "validationProfile": "tabbed-management", "native": {"namespace": "CalypsoF26InventoryGen", "prefix": "CalypsoF26Inventory", "output": "CalypsoF26Inventory.generated.h"}, "browser": {"global": "CalypsoF26Inventory", "output": "f26-inventory.js"}, "rendererOwnership": "tabbed-management", "harnessScenarioIds": [224]},
     {"id": "f19-pilot-experience", "contract": "f19-pilot-experience.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF19PilotExperienceGen", "prefix": "CalypsoF19PilotExperience", "output": "CalypsoF19PilotExperience.generated.h"}, "browser": {"global": "CalypsoF19PilotExperience", "output": "f19-pilot-experience.js"}, "rendererOwnership": "research-manufacture-operations", "harnessScenarioIds": [190]}
   ]
 }

@@ -130,6 +130,7 @@
 #include "../Geoscape/ProductionCompleteState.h"
 #include "../Geoscape/ItemsArrivingState.h"
 #include "../Battlescape/InventoryState.h"
+#include "../Battlescape/AlienInventoryState.h"
 #include "../Battlescape/InventoryLoadState.h"
 #include "../Battlescape/InventorySaveState.h"
 #include "../Battlescape/InventoryPersonalState.h"
@@ -1615,6 +1616,8 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new CraftErrorState(nullptr, "Additional research required.");
 	case CalypsoHarnessScenario::F24ResearchComplete:
 		return new CraftErrorState(nullptr, "Research completed successfully.");
+	case CalypsoHarnessScenario::F26Inspection:
+	case CalypsoHarnessScenario::F26Inventory:
 	case CalypsoHarnessScenario::F26InventoryLinks:
 	case CalypsoHarnessScenario::F26LoadTemplate:
 	case CalypsoHarnessScenario::F26SaveTemplate:
@@ -1623,6 +1626,13 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		auto *state = prepareTacticalPreview(game);
 		if (!state) return nullptr;
 		auto *battle = game->getSavedGame()->getSavedBattle();
+		if (id == CalypsoHarnessScenario::F26Inspection)
+		{
+			for (auto *unit : *battle->getUnits())
+				if (unit && unit->getOriginalFaction() == FACTION_HOSTILE) return new AlienInventoryState(unit);
+			return nullptr;
+		}
+		if (id == CalypsoHarnessScenario::F26Inventory) return new InventoryState(true,state,nullptr);
 		auto *inventory = new InventoryState(false, state, nullptr);
 		game->pushState(inventory);
 		calypsoHarnessNavigationDestination(calypsoHarnessSession(), inventory);

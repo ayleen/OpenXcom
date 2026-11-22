@@ -24,6 +24,10 @@
 
 namespace OpenXcom
 {
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoTacticalEquipment; }
+#endif
+
 
 class RuleInventory;
 class Game;
@@ -39,6 +43,11 @@ class Timer;
  */
 class Inventory : public InteractiveSurface
 {
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoTacticalEquipment;
+	std::uint64_t _hdItemRevision = 0;
+#endif
+
 private:
 	Game *_game;
 	Surface *_grid, *_items, *_gridLabels, *_selection;
@@ -118,6 +127,8 @@ public:
 	void mouseOver(Action *action, State *state) override;
 	/// Special handling for mouse clicks.
 	void mouseClick(Action *action, State *state) override;
+	void cancelHeldItem();
+	void toggleInventoryFuse(BattleItem *item);
 	/// Quickly drops the selected item on the ground.
 	bool quickDrop();
 	/// Unloads the selected weapon.

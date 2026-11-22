@@ -532,6 +532,7 @@ void calypsoCollectTabbedManagement(
 	}
 	}
 
+	for (const auto &cell : model.plotCells) addFrame(cell, model.dividerColor);
 	if (!model.plotImage.source.empty())
 	{
 		CalypsoHdItem plot;
@@ -541,10 +542,11 @@ void calypsoCollectTabbedManagement(
 		plot.opacity = opacity;
 		stamp(plot, TABBED_ROLE_COLLECTION);
 		builder.add(plot);
-		for (const auto &label : model.plotLabels)
-			addText(label.rect, nullptr, mono, label.text, model.mutedTextColor,
-				CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, summaryPx, 0, 0, TABBED_ROLE_SUMMARY);
+
 	}
+	for (const auto &label : model.plotLabels)
+		addText(label.rect, nullptr, mono, label.text, model.mutedTextColor,
+			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, summaryPx, 0, 0, TABBED_ROLE_SUMMARY);
 	if (model.detail.present)
 	{
 		CalypsoHdPanelStyle detailStyle;
