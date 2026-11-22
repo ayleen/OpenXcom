@@ -389,7 +389,30 @@ void CalypsoTacticalEquipment::updateData(CalypsoTabbedModel& m) const
 		auto* unit = _inspection->_inv->getSelectedUnit();
 		if (!unit)
 			return;
-		m.summary[0].text = unit->getArmor() ? std::string(_owner.tr(unit->getArmor()->getType())) : std::string();
+		if (const auto* armor = unit->getArmor())
+		{
+			const auto& type = armor->getType();
+			const std::string translated = _owner.tr(type);
+			m.summary[0].text = translated == type ? std::string(_owner.tr("STR_EQUIPMENT")) : translated;
+		}
+		if (!_details)
+		{
+			for (const auto& pair : *m.mod->getInventories())
+			{
+				const auto* slot = pair.second;
+				if (slot->getType() != INV_HAND)
+					continue;
+				const int offset = _inspection->_inv->_dynamicOffset;
+				const int x = slot->getX() + m.mod->getAlienInventoryOffsetX() + (slot->isRightHand() ? -offset : slot->isLeftHand() ? offset
+																																	 : 0);
+				const int y = slot->getY();
+				const int w = RuleInventory::HAND_W * RuleInventory::SLOT_W;
+				const int h = RuleInventory::HAND_H * RuleInventory::SLOT_H;
+				m.plotCells.push_back({board.x + x * board.w / 320, board.y + y * board.h / 200,
+									   std::max(1, w * board.w / 320), std::max(1, h * board.h / 200)});
+				labelAt(x, std::max(0, y - 12), 85, 12, _owner.tr(slot->getId()));
+			}
+		}
 		if (_details)
 		{
 			int y = 0;
