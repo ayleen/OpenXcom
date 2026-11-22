@@ -199,7 +199,7 @@ void restoreHarnessCursor(Game* game)
 	}
 	g_harnessCursorCaptured = false;
 }
-bool prepareOperationsSave(Game *game)
+bool prepareOperationsSave(Game *game, bool withGlobe = false)
 {
 	if (!game || !game->getMod()) return false;
 	// Fixture routes may only mutate a save owned by this harness.  Reusing a
@@ -213,7 +213,8 @@ bool prepareOperationsSave(Game *game)
 			return false;
 		else
 		{
-			g_harnessSaveLease.fixture = new SavedGame();
+			// A playable globe needs the mod's countries, regions and alien strategy.
+			g_harnessSaveLease.fixture = withGlobe ? game->getMod()->newSave(DIFF_BEGINNER) : new SavedGame();
 			game->setSavedGame(g_harnessSaveLease.fixture);
 		}
 		g_harnessSaveLease.active = true;
@@ -2027,7 +2028,7 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	case CalypsoHarnessScenario::F16MusicSelector:
 	{
 		auto *game = getCurrentGame();
-		if (!makeOperationsFixture(game, false, false).base) return nullptr;
+		if (!prepareOperationsSave(game, true)) return nullptr;
 		auto *globe = new GeoscapeState();
 		game->pushState(globe);
 		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
