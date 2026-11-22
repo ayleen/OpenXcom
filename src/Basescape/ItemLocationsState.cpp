@@ -143,6 +143,8 @@ void ItemLocationsState::updateList()
 	_scopeTotal = 0;
 	_scopeInbound = 0;
 	const bool all = _btnScope->getPressed();
+	_txtTitle->setText(std::string(tr(_item->getType())) + " · " +
+		std::string(tr(all ? "STR_CAL_ALL_LOCATIONS" : "STR_CAL_STOCK_AND_INBOUND")));
 	for (auto *base : *_game->getSavedGame()->getBases())
 	{
 		const auto locations = locateBaseItems(*base, _item);

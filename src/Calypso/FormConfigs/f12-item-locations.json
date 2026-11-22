@@ -33,11 +33,6 @@
   ],
   "summary": [
     {
-      "id": "scope",
-      "label": "SCOPE",
-      "value": "Stores + inbound"
-    },
-    {
       "id": "total",
       "label": "TOTAL",
       "value": "3"
