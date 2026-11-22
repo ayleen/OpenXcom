@@ -1,4 +1,6 @@
 #ifdef __EMSCRIPTEN__
+#include "Generated/CalypsoF22TrainingFinished.generated.h"
+#include "../Geoscape/TrainingFinishedState.h"
 #include "Generated/CalypsoF17ContactTracker.generated.h"
 #include "Generated/CalypsoF17TargetInfo.generated.h"
 #include "../Geoscape/TargetInfoState.h"
@@ -680,6 +682,34 @@ CalypsoBaseLedger::CalypsoBaseLedger(TechTreeSelectState &s)
 			for (auto &cell : row.cells) cell.state.selected = row.state.selected;
 			if (row.state.selected) collection.selectedIndex = i;
 		}
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+CalypsoBaseLedger::CalypsoBaseLedger(TrainingFinishedState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]() {
+		namespace Gen = CalypsoF22TrainingFinishedGen;
+		const bool wide = wideLayout();
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		auto model = ledgerModel(s, s.tr("STR_CAL_TRAINING_COMPLETED"), *s._lstPossibilities, s._base, g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"base", s.tr("STR_BASE"), s._base->getName(), design(g.summary_base)},
+			 {"type", s.tr("STR_TRAINING"), s.tr(s._psi ? "STR_PSIONIC_TRAINING" : "STR_PHYSICAL_TRAINING"), design(g.summary_type)},
+			 {"completed", s.tr("STR_CAL_TRAINING_COMPLETED"), std::to_string(s._lstPossibilities->getCellTextsSnapshot().size()), design(g.summary_completed)}},
+			{{s.tr("STR_NAME")}, {s.tr("STR_RANK")}},
+			{{"open", s._btnOpen, s._btnOpen->getText(), design(g.action_open)},
+			 {"done", s._btnOk, s._btnOk->getText(), design(g.action_done)}},
+			"STR_CAL_NO_GRADUATES", "STR_CAL_NO_GRADUATES_HINT", 22);
+		model.headerArtId = Gen::kHeaderArt;
+		model.sectionLabel = s.tr("STR_TRAINING");
 		model.profileId = Gen::kProfileId;
 		model.profileVersion = Gen::kProfileVersion;
 		model.provenance = Gen::kProvenanceTemplate;

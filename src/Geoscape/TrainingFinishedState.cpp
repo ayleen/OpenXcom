@@ -30,7 +30,7 @@
 #include "AllocatePsiTrainingState.h"
 #include "../Engine/Options.h"
 #ifdef __EMSCRIPTEN__
-#include "../Calypso/CalypsoF22TrainingFinishedUi.h"
+#include "../Calypso/CalypsoBaseLedger.h"
 #endif
 
 namespace OpenXcom
@@ -43,7 +43,11 @@ namespace OpenXcom
  */
 TrainingFinishedState::TrainingFinishedState(Base *base, const std::vector<Soldier *> & list, bool psi) : _base(base), _psi(psi)
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+#else
 	_screen = false;
+#endif
 
 	// Create objects
 	_window = new Window(this, 288, 180, 16, 10);
@@ -62,17 +66,9 @@ TrainingFinishedState::TrainingFinishedState(Base *base, const std::vector<Soldi
 	add(_lstPossibilities, "text2", "trainingFinished");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF22TrainingFinishedUi::configure(*this);
-#endif
-
-	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "trainingFinished");
+#endif
 
 	_btnOk->setText(tr("STR_OK"));
 	_btnOk->onMouseClick((ActionHandler)&TrainingFinishedState::btnOkClick);
@@ -84,14 +80,25 @@ TrainingFinishedState::TrainingFinishedState(Base *base, const std::vector<Soldi
 	_txtTitle->setAlign(ALIGN_CENTER);
 	_txtTitle->setText(tr(_psi ? "STR_PSI_TRAINING_FINISHED" : "STR_TRAINING_FINISHED").arg(base->getName()));
 
+#ifdef __EMSCRIPTEN__
+	_lstPossibilities->setColumns(2, 170, 80);
+#else
 	_lstPossibilities->setColumns(1, 250);
+#endif
 	_lstPossibilities->setBig();
 	_lstPossibilities->setAlign(ALIGN_CENTER);
 	_lstPossibilities->setScrolling(true, 0);
 	for (const auto* soldier : list)
 	{
-		_lstPossibilities->addRow (1, soldier->getName().c_str());
+#ifdef __EMSCRIPTEN__
+		_lstPossibilities->addRow(2, soldier->getName().c_str(), tr(soldier->getRankString()).c_str());
+#else
+		_lstPossibilities->addRow(1, soldier->getName().c_str());
+#endif
 	}
+#ifdef __EMSCRIPTEN__
+	_hdAdapter = new Calypso::CalypsoBaseLedger(*this);
+#endif
 }
 
 /**
@@ -126,7 +133,7 @@ void TrainingFinishedState::btnOpenClick(Action *)
 namespace OpenXcom {
 void TrainingFinishedState::resize(int &dX, int &dY)
 {
-	if (Calypso::CalypsoF22TrainingFinishedUi::resize(*this)) return;
+	if (_hdAdapter) { _hdAdapter->refresh(); return; }
 	State::resize(dX, dY);
 }
 }

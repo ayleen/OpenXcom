@@ -1667,7 +1667,18 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 			return nullptr;
 		}
 	case CalypsoHarnessScenario::F22TrainingFinished:
-		return new CraftErrorState(nullptr, "Training program has finished.");
+		{
+			auto *game = getCurrentGame();
+			if (!prepareOperationsSave(game, true)) return nullptr;
+			for (auto *base : *game->getSavedGame()->getBases())
+			{
+				if (base->getSoldiers()->empty()) continue;
+				const auto &soldiers = *base->getSoldiers();
+				std::vector<Soldier*> completed(soldiers.begin(), soldiers.begin() + std::min<std::size_t>(3, soldiers.size()));
+				return new TrainingFinishedState(base, completed, false);
+			}
+			return nullptr;
+		}
 	case CalypsoHarnessScenario::F30NoExperience:
 		return new NoExperienceState();
 	case CalypsoHarnessScenario::F24ProductionComplete:

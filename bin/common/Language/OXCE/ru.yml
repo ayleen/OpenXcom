@@ -1,4 +1,7 @@
 ru:
+  STR_CAL_TRAINING_COMPLETED: "Подготовка завершена"
+  STR_CAL_NO_GRADUATES: "Никто не завершил подготовку"
+  STR_CAL_NO_GRADUATES_HINT: "Откройте подготовку, чтобы посмотреть назначения."
   STR_CANNOT_DISMANTLE_FACILITY_UPGRADING: "СНОС НЕВОЗМОЖЕН!{SMALLLINE}Строение невозможно снести в ходе модернизации."
   STR_CANNOT_UPGRADE_FACILITY_ALREADY_UPGRADING: "СТРОИТЕЛЬСТВО НЕВОЗМОЖНО!{SMALLLINE}Существующее сооружение уже надстроено."
   STR_CANNOT_UPGRADE_FACILITY_WRONG_SIZE: "СТРОИТЕЛЬСТВО НЕВОЗМОЖНО!{SMALLLINE}Выбранная постройка должна совпадать по размерам с существующим сооружением."
