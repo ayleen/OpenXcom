@@ -98,6 +98,15 @@
 #include "../Geoscape/ResearchRequiredState.h"
 #include "../Geoscape/ResearchCompleteState.h"
 #include "../Geoscape/UfoLostState.h"
+#include "../Geoscape/AlienBaseState.h"
+#include "../Geoscape/MissionDetectedState.h"
+#include "../Savegame/MissionSite.h"
+#include "../Geoscape/MultipleTargetsState.h"
+#include "../Geoscape/TargetInfoState.h"
+#include "../Geoscape/UfoTrackerState.h"
+#include "../Savegame/Waypoint.h"
+#include "../Savegame/AlienBase.h"
+#include "../Mod/AlienDeployment.h"
 #include "../Geoscape/UfoDetectedState.h"
 #include "../Geoscape/GeoscapeState.h"
 #include "../Geoscape/ExtendedGeoscapeLinksState.h"
@@ -1551,7 +1560,45 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	case CalypsoHarnessScenario::F28ConfirmEnd:
 		return new CraftErrorState(nullptr, "Confirm end of mission?");
 	case CalypsoHarnessScenario::F17UfoLost:
-		return new CraftErrorState(nullptr, "Contact with UFO has been lost.");
+		return new UfoLostState("Contact 17");
+	case CalypsoHarnessScenario::F17TargetInfo:
+	case CalypsoHarnessScenario::F17OverlappingTargets:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		auto *home = game->getSavedGame()->getBases()->front();
+		auto *waypoint = new Waypoint();
+		waypoint->setId(17);
+		game->getSavedGame()->getWaypoints()->push_back(waypoint);
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		if (id == CalypsoHarnessScenario::F17TargetInfo) return new TargetInfoState(waypoint, globe->getGlobe());
+		return new MultipleTargetsState({home, waypoint}, {}, globe, false);
+	}
+	case CalypsoHarnessScenario::F17ContactTracker:
+	case CalypsoHarnessScenario::F17AlienBase:
+	{
+		Game *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		for (const auto &deploymentId : game->getMod()->getDeploymentsList())
+		{
+			auto *deployment = game->getMod()->getDeployment(deploymentId);
+			if (!deployment || !deployment->isAlienBase()) continue;
+			auto *base = new AlienBase(deployment, 0);
+			base->setId(17);
+			base->setLongitude(0.73);
+			base->setLatitude(0.72);
+			base->setDiscovered(true);
+			game->getSavedGame()->getAlienBases()->push_back(base);
+			auto *globe = new GeoscapeState();
+			game->pushState(globe);
+			calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+			if (id == CalypsoHarnessScenario::F17ContactTracker) return new UfoTrackerState(globe, globe->getGlobe());
+			return new AlienBaseState(base, globe);
+		}
+		return nullptr;
+	}
 	case CalypsoHarnessScenario::F17UfoDetected:
 	{
 		// The S01 board renders real contact data, so this fixture builds a
@@ -1600,7 +1647,25 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new UfoDetectedState(ufo, geoscape, true, false);
 	}
 	case CalypsoHarnessScenario::F17MissionDetected:
-		return new CraftErrorState(nullptr, "Alien mission detected nearby.");
+		{
+			auto *game = getCurrentGame();
+			if (!makeOperationsFixture(game, false, false).base) return nullptr;
+			auto *mod = game->getMod();
+			if (mod->getAlienMissionList().empty()) return nullptr;
+			for (const auto &key : mod->getDeploymentsList())
+			{
+				auto *rule = mod->getDeployment(key);
+				if (!rule || rule->getAlertMessage().empty() || rule->getAlertBackground().empty()) continue;
+				auto *site = new MissionSite(mod->getAlienMission(mod->getAlienMissionList().front()), rule, nullptr);
+				site->setDetected(true);
+				game->getSavedGame()->getMissionSites()->push_back(site);
+				auto *globe = new GeoscapeState();
+				game->pushState(globe);
+				calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+				return new MissionDetectedState(site, globe);
+			}
+			return nullptr;
+		}
 	case CalypsoHarnessScenario::F22TrainingFinished:
 		return new CraftErrorState(nullptr, "Training program has finished.");
 	case CalypsoHarnessScenario::F30NoExperience:

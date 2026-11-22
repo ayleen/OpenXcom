@@ -52,7 +52,13 @@ MissionDetectedState::MissionDetectedState(MissionSite *mission, GeoscapeState *
 	}
 
 	// Create objects
-	_window = new Window(this, 256, 200, 0, 0, POPUP_BOTH);
+	_window = new Window(this, 256, 200, 0, 0,
+#ifdef __EMSCRIPTEN__
+			POPUP_NONE
+#else
+			POPUP_BOTH
+#endif
+		);
 	_btnIntercept = new TextButton(200, 16, 28, 130);
 	_btnCenter = new TextButton(200, 16, 28, 150);
 	_btnCancel = new TextButton(200, 16, 28, 170);

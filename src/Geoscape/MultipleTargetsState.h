@@ -23,6 +23,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoBaseLedger; }
+class TextList;
 class TextButton;
 class Window;
 class Craft;
@@ -35,6 +37,17 @@ class GeoscapeState;
 class MultipleTargetsState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
+	size_t _picked = static_cast<size_t>(-1);
+	void chooseContact(Action *);
+	void openPicked(Action *);
+	TextButton *_details, *_open, *_cancel;
+	TextList *_contacts;
+	bool _showDetails = false;
+	void inspectPicked(Action *);
+#endif
 	static const int MARGIN = 10;
 	static const int SPACING = 4;
 	static const int BUTTON_HEIGHT = 16;
@@ -47,6 +60,9 @@ private:
 	Window *_window;
 	std::vector<TextButton*> _btnTargets;
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 	/// Creates the Multiple Targets state.
 	MultipleTargetsState(std::vector<Target*> targets, std::vector<Craft*> crafts, GeoscapeState *state, bool useCustomSound);
 	/// Cleans up the Multiple Targets state.
@@ -59,10 +75,6 @@ public:
 	void btnCancelClick(Action *action);
 	/// Handler for clicking the Targets list.
 	void btnTargetClick(Action *action);
-#ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
-#endif
 };
 
 }

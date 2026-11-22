@@ -21,6 +21,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoContactNotice; }
 
 class Region;
 class TextButton;
@@ -35,6 +36,9 @@ class AlienBase;
 class AlienBaseState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoContactNotice *_notice = nullptr;
+#endif
 	GeoscapeState *_state;
 	AlienBase *_base;
 	TextButton *_btnOk;
@@ -49,7 +53,7 @@ public:
 	void btnOkClick(Action *action);
 #ifdef __EMSCRIPTEN__
 	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+	void resize(int &dX, int &dY) override;
 #endif
 };
 

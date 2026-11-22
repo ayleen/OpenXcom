@@ -24,7 +24,9 @@
 #include "../Interface/Text.h"
 #include "../Engine/Options.h"
 #ifdef __EMSCRIPTEN__
-#include "../Calypso/CalypsoF17UfoLostUi.h"
+#include "../Calypso/CalypsoContactNotice.h"
+#include "GeoscapeState.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
 #endif
 
 namespace OpenXcom
@@ -40,7 +42,13 @@ UfoLostState::UfoLostState(const std::string &id) : _id(id)
 	_screen = false;
 
 	// Create objects
-	_window = new Window(this, 192, 104, 32, 48, POPUP_BOTH);
+	_window = new Window(this, 192, 104, 32, 48,
+#ifdef __EMSCRIPTEN__
+		POPUP_NONE
+#else
+		POPUP_BOTH
+#endif
+	);
 	_btnOk = new TextButton(60, 12, 98, 112);
 	_txtTitle = new Text(160, 32, 48, 72);
 
@@ -52,14 +60,8 @@ UfoLostState::UfoLostState(const std::string &id) : _id(id)
 	add(_txtTitle, "text", "UFOLost");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF17UfoLostUi::configure(*this);
-#endif
+
+
 
 	// Set up objects
 	setWindowBackground(_window, "UFOLost");
@@ -75,6 +77,15 @@ UfoLostState::UfoLostState(const std::string &id) : _id(id)
 	s += '\n';
 	s += tr("STR_TRACKING_LOST");
 	_txtTitle->setText(s);
+#ifdef __EMSCRIPTEN__
+	const State *underlay = dynamic_cast<GeoscapeState*>(_game->getTopState());
+	if (!Calypso::CalypsoHdUiOverlay::instance().hasRegisteredState(underlay)) underlay = nullptr;
+	_screen = !underlay;
+	_txtTitle->setText(_id);
+	_notice = new Calypso::CalypsoContactNotice(Calypso::ContactNoticeType::TrackingLost,
+		this, underlay, _game->getMod(), _window, _txtTitle, _btnOk, tr("STR_TRACKING_LOST"));
+	enableUiScaling(_notice->designWidth(), _notice->designHeight(), 1.0f, false);
+#endif
 }
 
 /**
@@ -83,8 +94,7 @@ UfoLostState::UfoLostState(const std::string &id) : _id(id)
 UfoLostState::~UfoLostState()
 {
 #ifdef __EMSCRIPTEN__
-	delete _hdAdapter;
-	_hdAdapter = nullptr;
+	delete _notice;
 #endif
 
 }
@@ -100,12 +110,14 @@ void UfoLostState::btnOkClick(Action *)
 
 }
 
+
 #ifdef __EMSCRIPTEN__
 namespace OpenXcom {
 void UfoLostState::resize(int &dX, int &dY)
 {
-	if (Calypso::CalypsoF17UfoLostUi::resize(*this)) return;
-	State::resize(dX, dY);
+	if (!_notice) { State::resize(dX, dY); return; }
+	_notice->layout();
+	recaptureUiScaling(_notice->designWidth(), _notice->designHeight(), 1.0f, false);
 }
 }
 #endif
