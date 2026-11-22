@@ -10,6 +10,7 @@ en-US:
   STR_CAL_LEDGER_EARLIEST: "Earliest first"
   STR_CAL_LEDGER_LATEST: "Latest first"
   STR_CAL_SENSOR_TITLE: "Motion scanner"
+  STR_CAL_SENSOR_RECENTER: "Recenter"
   STR_CAL_SENSOR_READOUT: "Readout"
   STR_CAL_SENSOR_LEGEND: "Legend"
   STR_CAL_SENSOR_CLOSE: "Close"

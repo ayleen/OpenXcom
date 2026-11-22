@@ -10,6 +10,7 @@ ru:
   STR_CAL_LEDGER_EARLIEST: "Сначала ближайшие"
   STR_CAL_LEDGER_LATEST: "Сначала поздние"
   STR_CAL_SENSOR_TITLE: "Сканер движения"
+  STR_CAL_SENSOR_RECENTER: "К бойцу"
   STR_CAL_SENSOR_READOUT: "Сигнал"
   STR_CAL_SENSOR_LEGEND: "Обозначения"
   STR_CAL_SENSOR_CLOSE: "Закрыть"

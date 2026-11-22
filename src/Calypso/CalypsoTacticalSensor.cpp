@@ -51,7 +51,7 @@ const char* label(const std::string& id)
 	if (id == "higher")
 		return "STR_VIEW_LEVEL_ABOVE";
 	if (id == "center")
-		return "STR_CENTER_SELECTED_UNIT";
+		return "STR_CAL_SENSOR_RECENTER";
 	if (id == "readout")
 		return "STR_CAL_SENSOR_READOUT";
 	if (id == "legend")
