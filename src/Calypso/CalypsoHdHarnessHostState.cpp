@@ -107,6 +107,11 @@
 #include "../Mod/AlienDeployment.h"
 #include "../Geoscape/UfoDetectedState.h"
 #include "../Geoscape/GeoscapeState.h"
+#include "../Geoscape/GraphsState.h"
+#include "../Geoscape/FundingState.h"
+#include "../Geoscape/DogfightExperienceState.h"
+#include "../Geoscape/MonthlyReportState.h"
+#include "../Savegame/GameTime.h"
 #include "../Geoscape/ExtendedGeoscapeLinksState.h"
 #include "../Geoscape/SelectMusicTrackState.h"
 #include "../Geoscape/Globe.h"
@@ -138,8 +143,23 @@
 #include "../Geoscape/NewPossibleResearchState.h"
 #include "../Geoscape/ResearchCompleteState.h"
 #include "../Battlescape/AbortMissionState.h"
+#include "../Battlescape/BattlescapeState.h"
+#include "../Battlescape/BattlescapeGame.h"
+#include "../Battlescape/BattlescapeGenerator.h"
+#include "../Savegame/SavedBattleGame.h"
 #include "../Battlescape/ConfirmEndMissionState.h"
-#include "../Battlescape/NoExperienceState.h" 
+#include "../Battlescape/NoExperienceState.h"
+#include "../Battlescape/TurnDiaryState.h"
+#include "../Battlescape/InfoboxOKState.h"
+#include "../Battlescape/InfoboxState.h"
+#include "../Battlescape/ExtendedBattlescapeLinksState.h"
+#include "../Battlescape/NextTurnState.h"
+#include "../Battlescape/BriefingState.h"
+#include "../Battlescape/BriefingLightState.h"
+#include "../Battlescape/ExperienceOverviewState.h"
+#include "../Battlescape/PromotionsState.h"
+#include "../Battlescape/CommendationLateState.h"
+#include "../Battlescape/CommendationState.h"
 #include "../Mod/Mod.h"
 #include "../Mod/RuleInterface.h"
 #include "../Mod/RuleBaseFacility.h"
@@ -151,6 +171,7 @@
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/Soldier.h"
 #include "../Savegame/SoldierDiary.h"
+#include "../Mod/RuleCommendations.h"
 
 #include "CalypsoAbandonPopupUi.h" // calypsoHdHarnessSetSideBySide (F33 comparison shift)
 #include "CalypsoHdOperationsRenderer.h"
@@ -255,6 +276,33 @@ bool prepareOperationsSave(Game *game, bool withGlobe = false)
 		&& !save->getDebugMode())
 		save->setDebugMode();
 	return true;
+}
+
+// The preview owns the campaign and its mission. Never attach a form to a player's battle.
+BattlescapeState *prepareTacticalPreview(Game *game)
+{
+	if (!prepareOperationsSave(game, true)) return nullptr;
+	auto *save = game->getSavedGame();
+	if (save->getSavedBattle()) return save->getSavedBattle()->getBattleState();
+	if (save->getBases()->empty()) return nullptr;
+	auto &fleet = *save->getBases()->front()->getCrafts();
+	const auto transport = std::find_if(fleet.begin(), fleet.end(), [](Craft *craft) {
+		return craft && craft->getNumTotalUnits() > 0;
+	});
+	auto *mod = game->getMod();
+	if (transport == fleet.end() || !mod->getDeployment("STR_PORT_TERROR") || !mod->getAlienRace("STR_AQUATOID")) return nullptr;
+	auto *battle = new SavedBattleGame(mod, game->getLanguage());
+	save->setBattleGame(battle);
+	battle->setMissionType("STR_PORT_TERROR");
+	BattlescapeGenerator generator(game);
+	generator.setCraft(*transport);
+	generator.setAlienRace("STR_AQUATOID");
+	generator.run();
+	auto *state = new BattlescapeState();
+	battle->setBattleState(state);
+	game->pushState(state);
+	calypsoHarnessNavigationDestination(calypsoHarnessSession(), state);
+	return state;
 }
 
 RuleResearch *firstResearchRule(Mod *mod)
@@ -1559,7 +1607,13 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	case CalypsoHarnessScenario::F18NotEnoughPilots:
 		return new CraftErrorState(nullptr, "Not enough pilots for this craft.");
 	case CalypsoHarnessScenario::F19DogfightError:
-		return new CraftErrorState(nullptr, "Craft cannot engage the target now.");
+	{
+		Game *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		const auto &craft = *game->getSavedGame()->getBases()->front()->getCrafts();
+		if (craft.empty()) return nullptr;
+		return new DogfightErrorState(craft.front(), game->getLanguage()->getString("STR_UNABLE_TO_ENGAGE_DEPTH"));
+	}
 	case CalypsoHarnessScenario::F20ConfirmLanding:
 		return new CraftErrorState(nullptr, "Confirm landing at selected site?");
 	case CalypsoHarnessScenario::F20ConfirmCydonia:
@@ -1586,12 +1640,106 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		}
 		return nullptr;
 	}
+	case CalypsoHarnessScenario::F27MissionBriefing:
+	{
+		Game *game = getCurrentGame();
+		if (!prepareTacticalPreview(game)) return nullptr;
+		return new BriefingState(nullptr, nullptr, true);
+	}
+	case CalypsoHarnessScenario::F27TargetBriefing:
+	{
+		Game *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		auto *deployment = game->getMod()->getDeployment("STR_PORT_TERROR", false);
+		return deployment ? new BriefingLightState(deployment) : nullptr;
+	}
 	case CalypsoHarnessScenario::F28AbortMission:
-		return new AbortMissionState(nullptr, nullptr);
 	case CalypsoHarnessScenario::F28ConfirmEnd:
-		return new CraftErrorState(nullptr, "Confirm end of mission?");
+	case CalypsoHarnessScenario::F28TurnTransition:
+	case CalypsoHarnessScenario::F28TacticalLinks:
+	case CalypsoHarnessScenario::F28TacticalNotice:
+	case CalypsoHarnessScenario::F28TacticalAlert:
+	case CalypsoHarnessScenario::F30NoExperience:
+	case CalypsoHarnessScenario::F30TurnDiary:
+	case CalypsoHarnessScenario::F30ExperienceOverview:
+	{
+		auto *game = getCurrentGame();
+		auto *state = prepareTacticalPreview(game);
+		if (!state) return nullptr;
+		auto *battle = game->getSavedGame()->getSavedBattle();
+		if (id == CalypsoHarnessScenario::F28AbortMission) return new AbortMissionState(battle, state);
+		if (id == CalypsoHarnessScenario::F28ConfirmEnd) return new ConfirmEndMissionState(battle, 0, state->getBattleGame());
+		if (id == CalypsoHarnessScenario::F28TurnTransition) return new NextTurnState(battle, state);
+		if (id == CalypsoHarnessScenario::F28TacticalLinks) return new ExtendedBattlescapeLinksState(state, battle);
+		if (id == CalypsoHarnessScenario::F28TacticalNotice) return new InfoboxState(game->getLanguage()->getString("STR_THIS_FEATURE_IS_DISABLED_4"));
+		if (id == CalypsoHarnessScenario::F28TacticalAlert) return new InfoboxOKState(game->getLanguage()->getString("STR_MISSION_OVER"));
+		if (id == CalypsoHarnessScenario::F30TurnDiary) return new TurnDiaryState(battle->getHitLog());
+		if (id == CalypsoHarnessScenario::F30ExperienceOverview) return new ExperienceOverviewState(state);
+		return new NoExperienceState();
+	}
 	case CalypsoHarnessScenario::F17UfoLost:
 		return new UfoLostState("Contact 17");
+	case CalypsoHarnessScenario::F23MonthlyReport:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		auto *save = game->getSavedGame();
+		save->setTime(GameTime(2, 1, 2, 2040, 0, 0, 0));
+		save->addMonth();
+		save->monthlyFunding();
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		return new MonthlyReportState(globe->getGlobe());
+	}
+	case CalypsoHarnessScenario::F23Graphs:
+		if (!prepareOperationsSave(getCurrentGame(), true)) return nullptr;
+		return new GraphsState();
+	case CalypsoHarnessScenario::F30Commendations:
+	case CalypsoHarnessScenario::F30FallenCommendations:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		const auto &soldiers = *game->getSavedGame()->getBases()->front()->getSoldiers();
+		const auto &rules = game->getMod()->getCommendationsList();
+		const auto award = std::find_if(rules.begin(), rules.end(), [](const auto &rule) {
+			return rule.second && !rule.second->getCriteria()->empty();
+		});
+		if (soldiers.empty()) return nullptr;
+		auto *soldier = soldiers.front();
+		if (award != rules.end())
+			soldier->getDiary()->getSoldierCommendations()->push_back(
+				new SoldierCommendations(award->first, "noNoun", game->getMod()));
+		if (id == CalypsoHarnessScenario::F30FallenCommendations) return new CommendationLateState({soldier});
+		return new CommendationState({soldier});
+	}
+	case CalypsoHarnessScenario::F30Promotions:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		auto &soldiers = *game->getSavedGame()->getBases()->front()->getSoldiers();
+		if (soldiers.empty()) return nullptr;
+		auto *soldier = soldiers.front();
+		soldier->setRank(RANK_SQUADDIE);
+		soldier->promoteRank();
+		return new PromotionsState();
+	}
+	case CalypsoHarnessScenario::F19PilotExperience:
+	{
+		Game *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		Base *base = game->getSavedGame()->getBases()->front();
+		if (!base->getSoldiers()->empty())
+		{
+			auto *gain = base->getSoldiers()->front()->getDailyDogfightExperienceCache();
+			gain->firing = 1;
+			gain->reactions = 2;
+		}
+		return new DogfightExperienceState();
+	}
+	case CalypsoHarnessScenario::F23Funding:
+		if (!prepareOperationsSave(getCurrentGame(), true)) return nullptr;
+		return new FundingState();
 	case CalypsoHarnessScenario::F17TargetInfo:
 	case CalypsoHarnessScenario::F17OverlappingTargets:
 	{
@@ -1699,8 +1847,7 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		}
 	case CalypsoHarnessScenario::F22TrainingFinished:
 		return new CraftErrorState(nullptr, "Training program has finished.");
-	case CalypsoHarnessScenario::F30NoExperience:
-		return new NoExperienceState();
+
 	case CalypsoHarnessScenario::F24ProductionComplete:
 		{
 			auto *game = getCurrentGame();

@@ -23,6 +23,10 @@ namespace OpenXcom
 {
 
 class TextButton;
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoStrategicList; }
+class TextList;
+#endif
 class Window;
 class Text;
 class BattlescapeState;
@@ -41,11 +45,17 @@ private:
 	Text *_txtTitle;
 	BattlescapeState *_parent;
 	SavedBattleGame* _save;
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+	TextList *_hdBody = nullptr;
+	std::vector<TextButton*> _routes;
+	void openDestination(Action *);
+#endif
 public:
 	/// Creates the ExtendedBattlescapeLinks state.
 	ExtendedBattlescapeLinksState(BattlescapeState* parent, SavedBattleGame* save);
 	/// Cleans up the ExtendedBattlescapeLinks state.
-	~ExtendedBattlescapeLinksState() = default;
+	~ExtendedBattlescapeLinksState();
 	/// Handlers for clicking the buttons.
 	void btnTouchClick(Action* action);
 	void btnNightVisionClick(Action* action);
@@ -56,6 +66,9 @@ public:
 	void btnNotesClick(Action* action);
 	void btnMusicClick(Action* action);
 	void btnKillAllClick(Action* action);
+#ifdef __EMSCRIPTEN__
+	void resize(int &dx, int &dy) override;
+#endif
 	void btnOkClick(Action* action);
 };
 

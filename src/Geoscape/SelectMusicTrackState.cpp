@@ -150,7 +150,7 @@ SelectMusicTrackState::SelectMusicTrackState(SelectMusicTrackOrigin origin) : _o
 	const State *underlay = _game->getTopState();
 	if (!Calypso::CalypsoHdUiOverlay::instance().hasRegisteredState(underlay)) underlay = nullptr;
 	_screen = !underlay;
-	_hdList = new Calypso::CalypsoStrategicList(this, underlay, _game->getMod(), _window, _txtTitle, _lstTracks, _btnCancel, _btnKeep);
+	_hdList = new Calypso::CalypsoStrategicList(this, underlay, _game->getMod(), _window, _txtTitle, _lstTracks, _btnCancel, Calypso::CalypsoStrategicList::Content::Tracks, _btnKeep);
 	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
 	_hdList->fitInput();
 #endif

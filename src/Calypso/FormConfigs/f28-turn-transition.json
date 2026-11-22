@@ -1,0 +1,42 @@
+{
+  "actions": [
+    {
+      "action": "cancel",
+      "id": "cancel",
+      "label": "Continue",
+      "tone": "safe"
+    },
+    {
+      "action": "keep",
+      "id": "keep",
+      "label": "Details",
+      "tone": "primary"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "mode": "list",
+    "selectionRole": "entry",
+    "columns": [
+      {
+        "id": "message",
+        "label": "Turn report"
+      }
+    ],
+    "items": [
+      {
+        "id": "side",
+        "values": [
+          "Player turn"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "familyId": 28,
+  "id": "f28-turn-transition",
+  "schema": 1,
+  "title": "Next turn",
+  "version": "hd.2026-08-29.1",
+  "state": "NextTurnState"
+}

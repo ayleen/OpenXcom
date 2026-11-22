@@ -22,6 +22,7 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoStrategicList; }
 class TextButton;
 class Window;
 class Text;
@@ -37,11 +38,17 @@ private:
 	Window *_window;
 	Text *_txtTitle, *_txtName, *_txtRank, *_txtBase;
 	TextList *_lstSoldiers;
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+#endif
 public:
 	/// Creates the Promotions state.
 	PromotionsState();
 	/// Cleans up the Promotions state.
 	~PromotionsState();
+#ifdef __EMSCRIPTEN__
+	void resize(int &dx, int &dy) override;
+#endif
 	/// Handler for clicking the OK button.
 	void btnOkClick(Action *action);
 };

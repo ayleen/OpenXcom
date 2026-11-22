@@ -1628,8 +1628,16 @@ def _validate_tabbed(config, template):
             "controls",
             "toolbar",
         },
-        {"detail", "visual", "toolbarChooser"},
+        {"detail", "visual", "toolbarChooser", "plotPreview"},
     )
+    if "plotPreview" in config:
+        plot = config["plotPreview"]
+        _strict(plot, {"months", "ticks", "hint"}, set(), "config.plotPreview")
+        if (template["generatorKind"] != "tabbed" or not isinstance(plot["months"], list)
+                or not isinstance(plot["ticks"], list) or len(plot["months"]) != 12
+                or len(plot["ticks"]) != 4 or not isinstance(plot["hint"], str)
+                or any(not isinstance(label, str) or not label for label in plot["months"] + plot["ticks"])):
+            raise ArchetypeError("config.plotPreview requires twelve months, four scale labels and a hint")
     if template["generatorKind"] == "operations":
         visual = config.get("visual")
         presentation = _operations_presentation(config, template)
@@ -2117,7 +2125,17 @@ def _weighted_rects(parent, columns, gap, roles):
         out.append(_make_rect(x, parent["y"], width, parent["height"], column["id"]))
         x += width + gap
     return out
-def _collection_column_rects(parent, columns, gap, roles):
+def _collection_column_rects(parent, columns, gap, roles, samples=()):
+    # Dense stat tables must leave room for the unit name. Allocate their
+    # width from the same semantic headers and examples used by the reference.
+    if roles is None and len(columns) > 8:
+        weighted = [dict(column, contentRole=column["id"]) for column in columns]
+        metrics = {
+            column["id"]: {"minWidth": 24, "weight": max(1, len(column["label"]),
+                *(len(sample["values"][index]) for sample in samples))}
+            for index, column in enumerate(columns)
+        }
+        return _weighted_rects(parent, weighted, gap, metrics)
     if roles is None:
         return _equal_rects(parent, len(columns), gap, [column["id"] for column in columns])
     return _weighted_rects(parent, columns, gap, roles)
@@ -2513,7 +2531,7 @@ def _build_collection_fragment(collection, authored, viewport, name,
         header = _make_rect(
             viewport["x"], viewport["y"], row_data_width, authored["headerHeight"]
         )
-        header_rects = _collection_column_rects(header, columns, 1, layout_roles)
+        header_rects = _collection_column_rects(header, columns, 1, layout_roles, collection["items"])
         header_cells = [
             _collection_column_cell(rect, column, layout_roles)
             for rect, column in zip(header_rects, columns)
@@ -2549,7 +2567,7 @@ def _build_collection_fragment(collection, authored, viewport, name,
             row_data = _make_rect(
                 row["x"], row["y"], row_data_width, row["height"]
             )
-            row_rects = _collection_column_rects(row_data, columns, 1, layout_roles)
+            row_rects = _collection_column_rects(row_data, columns, 1, layout_roles, collection["items"])
             cells = [
                 _collection_column_cell(rect, column, layout_roles)
                 for rect, column in zip(row_rects, columns)
@@ -3330,6 +3348,8 @@ def _build_tabbed(config, template, source_name, template_name):
     out = _base_contract(config, template, source_name, template_name, actions)
     out["form"]["tabs"] = copy.deepcopy(config["tabs"])
     out["form"]["selectedTab"] = config["selectedTab"]
+    if "plotPreview" in config:
+        out["form"]["plotPreview"] = copy.deepcopy(config["plotPreview"])
     out["form"]["summary"] = copy.deepcopy(config["summary"])
     out["form"]["collection"] = copy.deepcopy(config["collection"])
     out["form"]["controls"] = controls

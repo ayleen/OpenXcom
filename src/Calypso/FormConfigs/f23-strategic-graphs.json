@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "id": "f23-strategic-graphs",
+  "familyId": 23,
+  "version": "hd.2026-08-29.1",
+  "archetype": "tabbed-management",
+  "title": "Choir Activity in Seas",
+  "actions": [
+    {
+      "id": "less",
+      "label": "Zoom −",
+      "action": "less",
+      "tone": "normal"
+    },
+    {
+      "id": "more",
+      "label": "Zoom +",
+      "action": "more",
+      "tone": "normal"
+    },
+    {
+      "id": "done",
+      "label": "OK",
+      "action": "done",
+      "tone": "safe"
+    }
+  ],
+  "tabs": [
+    {
+      "id": "alien-region",
+      "label": "Choir seas"
+    },
+    {
+      "id": "alien-country",
+      "label": "Choir zones"
+    },
+    {
+      "id": "xcom-region",
+      "label": "Calypso sea"
+    },
+    {
+      "id": "xcom-country",
+      "label": "Calypso zone"
+    },
+    {
+      "id": "income",
+      "label": "Income"
+    },
+    {
+      "id": "finance",
+      "label": "Finance"
+    }
+  ],
+  "selectedTab": "alien-region",
+  "summary": [
+    {
+      "id": "range",
+      "label": "Period",
+      "value": "Feb 2039 – Jan 2040"
+    },
+    {
+      "id": "scale",
+      "label": "Scale",
+      "value": "0 – 90"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "inspect",
+    "columns": [
+      {
+        "id": "series",
+        "label": "Series"
+      },
+      {
+        "id": "value",
+        "label": "Current month"
+      }
+    ],
+    "items": [
+      {
+        "id": "total",
+        "values": [
+          "Total",
+          "0"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [
+    {
+      "id": "series",
+      "label": "Series",
+      "action": "series",
+      "tone": "primary"
+    },
+    {
+      "id": "all",
+      "label": "All",
+      "action": "all",
+      "tone": "normal"
+    },
+    {
+      "id": "none",
+      "label": "None",
+      "action": "none",
+      "tone": "normal"
+    }
+  ],
+  "plotPreview": {
+    "months": [
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+      "Jan"
+    ],
+    "ticks": [
+      "90",
+      "60",
+      "30",
+      "0"
+    ],
+    "hint": "Choose a series or select All to plot activity."
+  }
+}

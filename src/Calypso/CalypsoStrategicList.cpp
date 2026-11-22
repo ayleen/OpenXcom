@@ -6,6 +6,18 @@
 #include "CalypsoHdHarnessHostState.h"
 #include "Generated/CalypsoF16ExtendedLinks.generated.h"
 #include "Generated/CalypsoF16MusicSelector.generated.h"
+#include "Generated/CalypsoF30NoExperience.generated.h"
+#include "Generated/CalypsoF30TurnDiary.generated.h"
+#include "Generated/CalypsoF28TacticalLinks.generated.h"
+#include "Generated/CalypsoF28TurnTransition.generated.h"
+#include "Generated/CalypsoF27TargetBriefing.generated.h"
+#include "Generated/CalypsoF27MissionBriefing.generated.h"
+#include "Generated/CalypsoF30Promotions.generated.h"
+#include "Generated/CalypsoF30FallenCommendations.generated.h"
+#include "Generated/CalypsoF30Commendations.generated.h"
+#include "Generated/CalypsoF30ExperienceOverview.generated.h"
+#include "Generated/CalypsoHdTheme.generated.h"
+#include "../Engine/State.h"
 #include "../Engine/Font.h"
 #include "../Mod/Mod.h"
 #include "../Interface/Window.h"
@@ -56,6 +68,7 @@ void readTable(CalypsoScrollableCollectionModel &m, const Layout &g, const Slot 
 		const bool primary = std::string(buttons[b].id) == "keep";
 		CalypsoSmallConfirmationButton action;
 		action.widget = primary ? keep : cancel;
+		if (!action.widget || !action.widget->getVisible()) continue;
 		action.text = action.widget->getText();
 		action.tone = primary ? CalypsoActionTone::Primary : CalypsoActionTone::Safe;
 		action.restFill = buttons[b].fill;
@@ -63,7 +76,7 @@ void readTable(CalypsoScrollableCollectionModel &m, const Layout &g, const Slot 
 		action.textColor = buttons[b].text;
 		for (int j = 0; j < buttonCount; ++j)
 			if (std::string(buttons[b].id) == buttonRects[j].id) action.rect = rect(buttonRects[j].rect);
-		if (action.rect.w <= 0) CalypsoHdUiOverlay::instance().failHdRoute("F16 action geometry is missing");
+		if (action.rect.w <= 0) CalypsoHdUiOverlay::instance().failHdRoute("HD list action geometry is missing");
 		m.buttons.push_back(action);
 	}
 }
@@ -75,69 +88,15 @@ void place(Surface *widget, CalypsoLogicalRect r)
 	widget->setWidth(r.w);
 	widget->setHeight(r.h);
 }
-void music(CalypsoScrollableCollectionModel &m, bool wide, TextButton *cancel, TextButton *keep)
-{
-	namespace G = CalypsoF16MusicSelectorGen;
-	const auto *g = G::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
-	if (!g) CalypsoHdUiOverlay::instance().failHdRoute("F16 table layout is missing");
-	readTable(m, *g, wide ? G::kRowSlotsWide : G::kRowSlotsCompact,
-		wide ? G::kRowCellsWide : G::kRowCellsCompact, wide ? G::kColumnHeadersWide : G::kColumnHeadersCompact,
-		G::kColumns, G::kColumnCount, G::kButtons, wide ? G::kButtonRectsWide : G::kButtonRectsCompact,
-		G::kButtonCount, cancel, keep);
-	m.familyId = G::kFamilyId;
-	m.hasHeading = G::kHasCollectionHeading;
-	m.headingText = G::kCollectionHeading;
-	m.cutCornerPx = G::kCutCornerPx;
-	m.panelFillTop = G::kPanelFillTop;
-	m.panelFillBottom = G::kPanelFillBottom;
-	m.frameColor = G::kFrame;
-	m.dividerColor = G::kDivider;
-	m.footerDotColor = G::kDivider;
-	m.textColor = G::kText;
-	m.mutedTextColor = G::kMutedText;
-	m.selectionColor = G::kSelection;
-	m.scrollTrackColor = G::kScrollTrack;
-	m.scrollThumbColor = G::kScrollThumb;
-	m.motionDurationMs = G::kMotionDurationMs;
-	m.motionScaleFrom = G::kMotionScaleFrom;
-	m.visualScale = G::kPresentationScale;
-}
-void destinations(CalypsoScrollableCollectionModel &m, bool wide, TextButton *cancel, TextButton *keep)
-{
-	namespace G = CalypsoF16ExtendedLinksGen;
-	const auto *g = G::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
-	if (!g) CalypsoHdUiOverlay::instance().failHdRoute("F16 table layout is missing");
-	readTable(m, *g, wide ? G::kRowSlotsWide : G::kRowSlotsCompact,
-		wide ? G::kRowCellsWide : G::kRowCellsCompact, wide ? G::kColumnHeadersWide : G::kColumnHeadersCompact,
-		G::kColumns, G::kColumnCount, G::kButtons, wide ? G::kButtonRectsWide : G::kButtonRectsCompact,
-		G::kButtonCount, cancel, keep);
-	m.familyId = G::kFamilyId;
-	m.hasHeading = G::kHasCollectionHeading;
-	m.headingText = G::kCollectionHeading;
-	m.cutCornerPx = G::kCutCornerPx;
-	m.panelFillTop = G::kPanelFillTop;
-	m.panelFillBottom = G::kPanelFillBottom;
-	m.frameColor = G::kFrame;
-	m.dividerColor = G::kDivider;
-	m.footerDotColor = G::kDivider;
-	m.textColor = G::kText;
-	m.mutedTextColor = G::kMutedText;
-	m.selectionColor = G::kSelection;
-	m.scrollTrackColor = G::kScrollTrack;
-	m.scrollThumbColor = G::kScrollThumb;
-	m.motionDurationMs = G::kMotionDurationMs;
-	m.motionScaleFrom = G::kMotionScaleFrom;
-	m.visualScale = G::kPresentationScale;
-}
 } // namespace
 
 CalypsoStrategicList::CalypsoStrategicList(State *owner, const State *underlay, Mod *mod,
-	Window *window, Text *title, TextList *list, TextButton *cancel, TextButton *keep)
+	Window *window, Text *title, TextList *list, TextButton *cancel, Content content, TextButton *keep)
 	: _owner(owner), _underlay(underlay), _mod(mod), _window(window), _title(title),
-	  _list(list), _cancel(cancel), _keep(keep)
+	  _list(list), _cancel(cancel), _keep(keep), _content(content)
 {
 	if (!_owner || !_mod || !_window || !_title || !_list || !_cancel)
-		CalypsoHdUiOverlay::instance().failHdRoute("F16 table prerequisites are unavailable");
+		CalypsoHdUiOverlay::instance().failHdRoute("HD list prerequisites are unavailable");
 	_harnessGeneration = calypsoHarnessSession().generation;
 	layout();
 	CalypsoHdUiOverlay::instance().registerAdapter(this);
@@ -153,13 +112,63 @@ CalypsoStrategicList::~CalypsoStrategicList()
 void CalypsoStrategicList::layout()
 {
 	const auto &viewport = calypsoViewportRuntime();
-	if (!viewport.hasLayout()) CalypsoHdUiOverlay::instance().failHdRoute("F16 viewport is unavailable");
+	if (!viewport.hasLayout()) CalypsoHdUiOverlay::instance().failHdRoute("HD list viewport is unavailable");
 	const auto &v = viewport.current();
 	const bool wide = calypsoHarnessEffectiveLayout(calypsoHarnessSession(), {v.safeX, v.safeY, v.safeWidth, v.safeHeight}) == CalypsoLayoutClass::Wide;
 	_design = {};
 	_design.wide = wide;
-	if (_keep) music(_design, wide, _cancel, _keep);
-	else destinations(_design, wide, _cancel, _keep);
+	auto read = [&](const auto &... fields) { readTable(_design, fields..., _cancel, _keep); };
+	bool found = false;
+	switch (_content)
+	{
+	case Content::Tracks: found = CalypsoF16MusicSelectorGen::bindTable(wide, _design, read); break;
+	case Content::Destinations: found = CalypsoF16ExtendedLinksGen::bindTable(wide, _design, read); break;
+	case Content::ExperienceOverview:
+		found = CalypsoF30ExperienceOverviewGen::bindTable(wide, _design, read);
+		_design.columnLabels = {_owner->tr("STR_NAME"), _owner->tr("STR_BRAVERY_ABBREVIATION"),
+			_owner->tr("STR_REACTIONS_ABBREVIATION"), _owner->tr("STR_FIRING_ACCURACY_ABBREVIATION"),
+			_owner->tr("STR_THROWING_ACCURACY_ABBREVIATION"), _owner->tr("STR_PSIONIC_SKILL_ABBREVIATION"),
+			_owner->tr("STR_PSIONIC_STRENGTH_ABBREVIATION"), _owner->tr("STR_MELEE_ACCURACY_ABBREVIATION"),
+			_mod->isManaFeatureEnabled() && _mod->isManaTrainingPrimary() ? std::string(_owner->tr("STR_MANA_ABBREVIATION")) : ""};
+		break;
+	case Content::Commendations:
+		found = CalypsoF30CommendationsGen::bindTable(wide, _design, read);
+		_design.columnLabels = {_owner->tr("STR_MEDALS"), _owner->tr("STR_MEDAL_DECOR_LEVEL")};
+		break;
+	case Content::FallenCommendations:
+		found = CalypsoF30FallenCommendationsGen::bindTable(wide, _design, read);
+		_design.columnLabels = {_owner->tr("STR_NAME"), _owner->tr("STR_RANK"), _owner->tr("STR_STATISTICS")};
+		break;
+	case Content::Promotions:
+		found = CalypsoF30PromotionsGen::bindTable(wide, _design, read);
+		_design.columnLabels = {_owner->tr("STR_NAME"), _owner->tr("STR_NEW_RANK"), _owner->tr("STR_BASE")};
+		break;
+	case Content::MissionBriefing:
+		found = CalypsoF27MissionBriefingGen::bindTable(wide, _design, read);
+		if (found) _design.columnLabels.front() = _owner->tr("STR_BRIEFING");
+		break;
+	case Content::TargetBriefing:
+		found = CalypsoF27TargetBriefingGen::bindTable(wide, _design, read);
+		if (found) _design.columnLabels.front() = _owner->tr("STR_BRIEFING");
+		break;
+	case Content::TurnTransition:
+		found = CalypsoF28TurnTransitionGen::bindTable(wide, _design, read);
+		if (found) _design.columnLabels.front() = _owner->tr("STR_CAL_BATTLE_MESSAGE");
+		break;
+	case Content::TacticalLinks:
+		found = CalypsoF28TacticalLinksGen::bindTable(wide, _design, read);
+		_design.columnLabels = {_owner->tr("STR_EXTENDED_LINKS"), _owner->tr("STR_CAL_BATTLE_CONTEXT")};
+		break;
+	case Content::TurnDiary:
+		found = CalypsoF30TurnDiaryGen::bindTable(wide, _design, read);
+		if (found) _design.columnLabels.front() = _owner->tr("STR_HIT_LOG");
+		break;
+	case Content::ExperienceRoster:
+		found = CalypsoF30NoExperienceGen::bindTable(wide, _design, read);
+		if (found) _design.columnLabels.front() = _owner->tr("STR_NAME");
+		break;
+	}
+	if (!found) CalypsoHdUiOverlay::instance().failHdRoute("HD list layout is unavailable");
 	const auto &d = _design;
 	place(_window, d.window);
 	place(_title, d.title);
@@ -167,9 +176,17 @@ void CalypsoStrategicList::layout()
 	const int height = d.rowHeight * d.visibleRows;
 	place(_list, {d.viewport.x, d.rowSlots.front().y, d.viewport.w, height});
 	_list->rebaseNativeSize(d.viewport.w, height);
-	_list->setColumns(2, d.rowCells.front()[0].w, d.rowCells.front()[1].w);
+	std::vector<size_t> widths;
+	for (const auto &cell : d.rowCells.front()) widths.push_back(cell.w);
+	_list->setColumnWidths(widths);
 	auto *font = _mod->getFont("FONT_SMALL");
 	_list->setMinimumRowHeight(std::max(font->getHeight(), d.rowHeight - font->getSpacing()));
+}
+
+int CalypsoStrategicList::bodyFontSize() const
+{
+	const float scale = _design.wide ? CalypsoHdThemeGen::kBodyFontSizeScaleWide : CalypsoHdThemeGen::kBodyFontSizeScaleCompact;
+	return std::lround(CalypsoHdThemeGen::kBodyFontSizePx * scale);
 }
 
 void CalypsoStrategicList::fitInput()
@@ -208,7 +225,9 @@ void CalypsoStrategicList::collect(CalypsoHdFrameBuilder &builder) const
 		for (size_t c = 0; c < m.columnLabels.size(); ++c) m.rows.back().values.push_back(_list->getCellText(i,c));
 	}
 	m.selectedRow = _list->getSelectedRow();
-	m.hasSelection = m.selectedRow < m.rows.size();
+	const bool article = _articleIds && m.selectedRow < _articleIds->size() && !(*_articleIds)[m.selectedRow].empty();
+	m.hasSelection = m.selectedRow < m.rows.size() && (article || _content == Content::Tracks
+		|| _content == Content::Destinations || _content == Content::TacticalLinks || _content == Content::ExperienceOverview);
 	m.scrollOffset = _list->getScroll();
 	m.nativeTrack = rect(_list->getCalypsoHdTrackRect());
 	m.nativeThumb = rect(_list->getCalypsoHdThumbRect());

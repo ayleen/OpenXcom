@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "id": "f23-funding",
+  "familyId": 23,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "logistics-group"
+  },
+  "state": "FundingState",
+  "labelKeys": {
+    "title": "STR_INTERNATIONAL_RELATIONS",
+    "done": "STR_OK"
+  },
+  "title": "INTERNATIONAL RELATIONS",
+  "actions": [
+    {
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "tone": "primary",
+      "action": "done"
+    }
+  ],
+  "summary": [
+    {
+      "id": "total",
+      "label": "TOTAL",
+      "value": "12,000,000"
+    },
+    {
+      "id": "month",
+      "label": "MONTH",
+      "value": "July"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "country",
+    "columns": [
+      {
+        "id": "country",
+        "label": "COUNTRY",
+        "contentRole": "name"
+      },
+      {
+        "id": "funding",
+        "label": "FUNDING",
+        "contentRole": "count"
+      },
+      {
+        "id": "change",
+        "label": "CHANGE",
+        "contentRole": "count"
+      }
+    ],
+    "items": [
+      {
+        "id": "sample",
+        "values": [
+          "Country",
+          "450,000",
+          "+20,000"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": []
+}

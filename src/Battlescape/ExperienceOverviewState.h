@@ -27,6 +27,7 @@ class TextButton;
 class Window;
 class Text;
 class TextList;
+namespace Calypso { class CalypsoStrategicList; }
 class BattlescapeState;
 
 /**
@@ -43,11 +44,17 @@ private:
 
 	BattlescapeState* _parent;
 	std::vector<BattleUnit*> _soldiers;
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+#endif
 public:
 	/// Creates the Experience Overview state.
 	ExperienceOverviewState(BattlescapeState* parent);
 	/// Cleans up the Experience Overview state.
-	~ExperienceOverviewState() = default;
+	~ExperienceOverviewState();
+#ifdef __EMSCRIPTEN__
+	void resize(int &dx, int &dy) override;
+#endif
 	/// Handler for clicking the OK button.
 	void btnOkClick(Action* action);
 	/// Handler for clicking the Soldiers list.

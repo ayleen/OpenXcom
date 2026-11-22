@@ -18,10 +18,14 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "../Engine/State.h"
+#include "StrategicGraphHistory.h"
 
 namespace OpenXcom
 {
 
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoStrategicGraphs; }
+#endif
 class Surface;
 class InteractiveSurface;
 class Text;
@@ -38,6 +42,15 @@ struct GraphButInfo;
 class GraphsState : public State
 {
 private:
+	#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoStrategicGraphs;
+	Calypso::CalypsoStrategicGraphs *_hd = nullptr;
+	unsigned _hdRevision = 0;
+	void hdSetVisible(size_t index, bool visible);
+	std::string hdName(size_t index) const;
+	void hdClick(Action *action);
+	void resize(int &dX, int &dY) override;
+#endif
 	InteractiveSurface *_bg;
 	InteractiveSurface *_btnGeoscape;
 	InteractiveSurface *_btnXcomCountry, *_btnUfoCountry;
@@ -58,6 +71,8 @@ private:
 	//will be only between 0 and size()
 	size_t _butRegionsOffset, _butCountriesOffset;
 	int _zoom;
+	std::vector<StrategicGraphSeries> _series;
+	StrategicGraphAxis _axis;
 	//scroll and repaint buttons functions
 	void scrollButtons(std::vector<GraphButInfo *> &toggles, std::vector<ToggleTextButton *> &buttons, size_t &offset, int step);
 	void updateButton(GraphButInfo *from,ToggleTextButton *to);
@@ -97,12 +112,6 @@ public:
 	void updateScale(double lowerLimit, double upperLimit);
 	/// Decide which lines to draw
 	void drawLines();
-	/// Draw Region Lines.
-	void drawRegionLines();
-	/// Draw Country Lines.
-	void drawCountryLines();
-	/// Draw Finances Lines.
-	void drawFinanceLines();
 	/// Scroll button lists
 };
 

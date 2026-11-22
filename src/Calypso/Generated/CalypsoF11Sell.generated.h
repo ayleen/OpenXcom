@@ -226,4 +226,31 @@ inline const CalypsoF11SellGenLayout* layoutForDesign(int dw, int dh)
 			return &kLayouts[i];
 	return nullptr;
 }
+template<class Model, class Bind>
+inline bool bindTable(bool wide, Model &m, Bind bind)
+{
+	const auto *layout = layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
+	if (!layout) return false;
+	bind(*layout, wide ? kRowSlotsWide : kRowSlotsCompact,
+		wide ? kRowCellsWide : kRowCellsCompact, wide ? kColumnHeadersWide : kColumnHeadersCompact,
+		kColumns, kColumnCount, kButtons, wide ? kButtonRectsWide : kButtonRectsCompact, kButtonCount);
+	m.familyId = kFamilyId;
+	m.hasHeading = kHasCollectionHeading;
+	m.headingText = kCollectionHeading;
+	m.cutCornerPx = kCutCornerPx;
+	m.panelFillTop = kPanelFillTop;
+	m.panelFillBottom = kPanelFillBottom;
+	m.frameColor = kFrame;
+	m.dividerColor = kDivider;
+	m.footerDotColor = kDivider;
+	m.textColor = kText;
+	m.mutedTextColor = kMutedText;
+	m.selectionColor = kSelection;
+	m.scrollTrackColor = kScrollTrack;
+	m.scrollThumbColor = kScrollThumb;
+	m.motionDurationMs = kMotionDurationMs;
+	m.motionScaleFrom = kMotionScaleFrom;
+	m.visualScale = kPresentationScale;
+	return true;
+}
 } } }

@@ -1,0 +1,36 @@
+{
+  "actions": [
+    {
+      "action": "cancel",
+      "id": "cancel",
+      "label": "Begin mission",
+      "tone": "safe"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "mode": "list",
+    "selectionRole": "entry",
+    "columns": [
+      {
+        "id": "entry",
+        "label": "Briefing"
+      }
+    ],
+    "items": [
+      {
+        "id": "orders",
+        "values": [
+          "Mission orders"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "familyId": 27,
+  "id": "f27-mission-briefing",
+  "schema": 1,
+  "title": "Mission briefing",
+  "version": "hd.2026-08-29.1",
+  "state": "BriefingState"
+}

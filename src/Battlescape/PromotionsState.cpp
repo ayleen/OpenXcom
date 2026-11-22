@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "PromotionsState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#endif
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
 #include "../Engine/LocalizedText.h"
@@ -62,7 +65,9 @@ PromotionsState::PromotionsState()
 	centerAllSurfaces();
 
 	// Set up object
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "promotions");
+#endif
 
 	_btnOk->setText(tr("STR_OK"));
 	_btnOk->onMouseClick((ActionHandler)&PromotionsState::btnOkClick);
@@ -104,14 +109,31 @@ PromotionsState::PromotionsState()
 			}
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	for (Text *header : {_txtName, _txtRank, _txtBase}) header->setVisible(false);
+	_hdList = new Calypso::CalypsoStrategicList(this, nullptr, _game->getMod(), _window, _txtTitle,
+		_lstSoldiers, _btnOk, Calypso::CalypsoStrategicList::Content::Promotions);
+	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+#endif
 }
 
-/**
- *
- */
 PromotionsState::~PromotionsState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void PromotionsState::resize(int &dx, int &dy)
+{
+	if (!_hdList) { State::resize(dx, dy); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+}
+#endif
 
 /**
  * Returns to the previous screen.

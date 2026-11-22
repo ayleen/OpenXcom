@@ -1237,9 +1237,9 @@ void BattlescapeGame::checkForCasualties(const RuleDamageType *damageType, Battl
  */
 void BattlescapeGame::showInfoBoxQueue()
 {
-	for (auto* infoboxOKState : _infoboxQueue)
+	for (const auto &message : _infoboxQueue)
 	{
-		_parentState->getGame()->pushState(infoboxOKState);
+		_parentState->getGame()->pushState(new InfoboxOKState(message));
 	}
 
 	_infoboxQueue.clear();
@@ -1256,7 +1256,7 @@ void BattlescapeGame::missionComplete()
 		std::string missionComplete = game->getMod()->getDeployment(_save->getMissionType())->getObjectivePopup();
 		if (!missionComplete.empty())
 		{
-			_infoboxQueue.push_back(new InfoboxOKState(game->getLanguage()->getString(missionComplete)));
+			_infoboxQueue.push_back(game->getLanguage()->getString(missionComplete));
 		}
 	}
 }

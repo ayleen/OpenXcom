@@ -9,6 +9,9 @@ class GlobalAlienContainmentState;
 class ManageAlienContainmentState;
 class ContainmentReviewState;
 class BaseInfoState;
+class DogfightExperienceState;
+class FundingState;
+class MonthlyReportState;
 class CalypsoEconomyState;
 class CalypsoContractDeliverState;
 class TechTreeSelectState;
@@ -61,6 +64,9 @@ public:
 	explicit CalypsoBaseLedger(ProductionCompleteState &state);
 	CalypsoBaseLedger(State &state, Base *base, Text &title, TextList &possibilities,
 		TextButton &openDestination, TextButton &ok);
+	explicit CalypsoBaseLedger(DogfightExperienceState &state);
+	explicit CalypsoBaseLedger(FundingState &state);
+	explicit CalypsoBaseLedger(MonthlyReportState &state);
 	void refresh();
 private:
 	CalypsoHdOperationsChrome _chrome;

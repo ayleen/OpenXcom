@@ -6,15 +6,15 @@
   "archetype": "small-confirmation",
   "protocol": {
     "authority": "CALYPSO COMMAND",
-    "record": "TACTICAL TURN",
+    "record": "MISSION COMPLETION",
     "code": "TA-28-E",
     "revision": "1.0.21",
     "effectiveDate": "15.07.2061"
   },
-  "title": "END TURN?",
+  "title": "MISSION COMPLETE",
   "body": [
-    "End the current turn",
-    "and proceed?"
+    "0 of us are still fatally wounded.",
+    "End Mission?"
   ],
   "icon": {
     "kind": "question",
@@ -30,7 +30,7 @@
     },
     {
       "id": "confirm",
-      "label": "END TURN",
+      "label": "OK",
       "tone": "primary",
       "action": "confirm"
     }

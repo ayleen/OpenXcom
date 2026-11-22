@@ -24,6 +24,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoBaseLedger; }
+class TextList;
 class TextButton;
 class Window;
 class Text;
@@ -38,6 +40,14 @@ class Soldier;
 class MonthlyReportState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_ledger = nullptr;
+	TextList *_reportRows = nullptr;
+	int _reportWidth = 0;
+	bool _failureShown = false;
+	void prepareReportRows(int width, int fontSize);
+#endif
 	TextButton *_btnOk, *_btnBigOk;
 	Window *_window;
 	Text *_txtTitle, *_txtMonth, *_txtRating;
@@ -61,7 +71,7 @@ public:
 	void calculateChanges();
 #ifdef __EMSCRIPTEN__
 	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+	void resize(int &dX, int &dY) override;
 #endif
 };
 

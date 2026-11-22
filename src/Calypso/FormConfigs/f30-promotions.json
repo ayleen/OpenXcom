@@ -1,0 +1,46 @@
+{
+  "actions": [
+    {
+      "id": "ok",
+      "label": "OK",
+      "action": "ok",
+      "tone": "safe"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "mode": "table",
+    "selectionRole": "promotion",
+    "columns": [
+      {
+        "id": "name",
+        "label": "NAME"
+      },
+      {
+        "id": "rank",
+        "label": "NEW RANK"
+      },
+      {
+        "id": "base",
+        "label": "BASE"
+      }
+    ],
+    "items": [
+      {
+        "id": "promoted-diver",
+        "values": [
+          "Mahmoud Mustafa",
+          "Ensign",
+          "Batumi"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "familyId": 30,
+  "id": "f30-promotions",
+  "schema": 1,
+  "title": "PROMOTIONS",
+  "version": "hd.2026-08-29.1",
+  "state": "PromotionsState"
+}

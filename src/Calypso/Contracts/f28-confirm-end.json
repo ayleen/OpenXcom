@@ -25,7 +25,7 @@
       },
       {
         "id": "confirm",
-        "label": "END TURN",
+        "label": "OK",
         "tone": "primary",
         "action": "confirm",
         "style": {
@@ -41,11 +41,11 @@
     ]
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · TACTICAL TURN TA-28-E",
-    "title": "END TURN?",
+    "protocol": "CALYPSO COMMAND · MISSION COMPLETION TA-28-E",
+    "title": "MISSION COMPLETE",
     "message": [
-      "End the current turn",
-      "and proceed?"
+      "0 of us are still fatally wounded.",
+      "End Mission?"
     ]
   },
   "presentation": {
@@ -74,50 +74,50 @@
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 445,
+        "x": 416,
         "y": 230,
-        "width": 390,
+        "width": 448,
         "height": 236
       },
       "status": {
-        "x": 445,
+        "x": 416,
         "y": 230,
-        "width": 390,
+        "width": 448,
         "height": 38
       },
       "warning": {
-        "x": 477,
+        "x": 448,
         "y": 290,
         "width": 32,
         "height": 32
       },
       "title": {
-        "x": 525,
+        "x": 496,
         "y": 284,
-        "width": 278,
+        "width": 336,
         "height": 44
       },
       "message": {
-        "x": 477,
+        "x": 448,
         "y": 336,
-        "width": 326,
+        "width": 384,
         "height": 54
       },
       "footer": {
-        "x": 445,
+        "x": 416,
         "y": 404,
-        "width": 390,
+        "width": 448,
         "height": 62
       },
       "buttons": {
         "cancel": {
-          "x": 477,
+          "x": 506,
           "y": 413,
           "width": 158,
           "height": 44
         },
         "confirm": {
-          "x": 645,
+          "x": 674,
           "y": 413,
           "width": 158,
           "height": 44
@@ -128,50 +128,50 @@
       "designWidth": 740,
       "designHeight": 360,
       "window": {
-        "x": 188,
+        "x": 169,
         "y": 60,
-        "width": 364,
+        "width": 402,
         "height": 221
       },
       "status": {
-        "x": 188,
+        "x": 169,
         "y": 60,
-        "width": 364,
+        "width": 402,
         "height": 34
       },
       "warning": {
-        "x": 216,
+        "x": 197,
         "y": 111,
         "width": 28,
         "height": 28
       },
       "title": {
-        "x": 258,
+        "x": 239,
         "y": 106,
-        "width": 266,
+        "width": 304,
         "height": 38
       },
       "message": {
-        "x": 216,
+        "x": 197,
         "y": 150,
-        "width": 308,
+        "width": 346,
         "height": 48
       },
       "footer": {
-        "x": 188,
+        "x": 169,
         "y": 215,
-        "width": 364,
+        "width": 402,
         "height": 66
       },
       "buttons": {
         "cancel": {
-          "x": 216,
+          "x": 235,
           "y": 225,
           "width": 148,
           "height": 44
         },
         "confirm": {
-          "x": 376,
+          "x": 395,
           "y": 225,
           "width": 148,
           "height": 44

@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "CommendationLateState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#endif
 #include <sstream>
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
@@ -57,7 +60,9 @@ CommendationLateState::CommendationLateState(std::vector<Soldier*> soldiersMedal
 	centerAllSurfaces();
 
 	// Set up object
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "commendationsLate");
+#endif
 
 	_btnOk->setText(tr("STR_OK"));
 	_btnOk->onMouseClick((ActionHandler)&CommendationLateState::btnOkClick);
@@ -178,6 +183,13 @@ CommendationLateState::CommendationLateState(std::vector<Soldier*> soldiersMedal
 		_commendationsNames.push_back("");
 		row++;
 	} // END SOLDIER LOOP    
+#ifdef __EMSCRIPTEN__
+	_hdList = new Calypso::CalypsoStrategicList(this, nullptr, _game->getMod(), _window, _txtTitle,
+		_lstSoldiers, _btnOk, Calypso::CalypsoStrategicList::Content::FallenCommendations);
+	_hdList->setArticleRows(_commendationsNames);
+	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+#endif
 }
 
 /**
@@ -185,14 +197,29 @@ CommendationLateState::CommendationLateState(std::vector<Soldier*> soldiersMedal
  */
 CommendationLateState::~CommendationLateState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void CommendationLateState::resize(int &dx, int &dy)
+{
+	if (!_hdList) { State::resize(dx, dy); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+}
+#endif
 
 /*
 *
 */
 void CommendationLateState::lstSoldiersMouseClick(Action *)
 {
-	Ufopaedia::openArticle(_game, _commendationsNames[_lstSoldiers->getSelectedRow()]);
+	const auto row = _lstSoldiers->getSelectedRow();
+	if (row < _commendationsNames.size() && !_commendationsNames[row].empty())
+		Ufopaedia::openArticle(_game, _commendationsNames[row]);
 }
 
 /**

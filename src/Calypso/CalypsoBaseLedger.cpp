@@ -56,6 +56,13 @@
 #include "Generated/CalypsoF24Unlocks.generated.h"
 #include "../Basescape/ItemLocationsState.h"
 #include "../Engine/Game.h"
+#include "../Geoscape/FundingState.h"
+#include "../Geoscape/DogfightExperienceState.h"
+#include "Generated/CalypsoF19PilotExperience.generated.h"
+#include "../Geoscape/MonthlyReportState.h"
+#include "Generated/CalypsoF23MonthlyReport.generated.h"
+#include "../Savegame/GameTime.h"
+#include "Generated/CalypsoF23Funding.generated.h"
 #include "../Interface/ArrowButton.h"
 #include "../Interface/Text.h"
 #include "../Interface/TextEdit.h"
@@ -1011,6 +1018,94 @@ CalypsoBaseLedger::CalypsoBaseLedger(State &s, Base *base, Text &title, TextList
 			 {"done", &ok, ok.getText(), design(g.action_done)}},
 			"STR_CAL_NO_RECORDS", "STR_NONE", 24);
 		model.sectionLabel = title.getText();
+		model.headerArtId = Gen::kHeaderArt;
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+CalypsoBaseLedger::CalypsoBaseLedger(DogfightExperienceState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]() {
+		namespace Gen = CalypsoF19PilotExperienceGen;
+		const bool wide = wideLayout();
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		auto model = ledgerModel(s, s._txtTitle->getText(), *s._lstPilots, nullptr, g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"pilots", s.tr("STR_PILOTS"), std::to_string(s._lstPilots->getCellTextsSnapshot().size()), design(g.summary_pilots)}},
+			{{s._txtPilots->getText()}, {s._txtFiringAcc->getText()}, {s._txtReactions->getText()}, {s._txtBravery->getText()}},
+			{{"done", s._btnOk, s._btnOk->getText(), design(g.action_done)}},
+			"STR_DAILY_PILOT_EXPERIENCE", "STR_NONE", 19);
+		model.sectionLabel = s.tr("STR_DAILY_PILOT_EXPERIENCE");
+		model.headerArtId = Gen::kHeaderArt;
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+
+CalypsoBaseLedger::CalypsoBaseLedger(FundingState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]() {
+		namespace Gen = CalypsoF23FundingGen;
+		const bool wide = wideLayout();
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		auto *save = getCurrentGame()->getSavedGame();
+		auto label = [&](Text *heading, FundingCountrySort asc, FundingCountrySort desc) {
+			return heading->getText() + (s._fundingCountryOrder == asc ? " ↑" : s._fundingCountryOrder == desc ? " ↓" : "");
+		};
+		auto model = ledgerModel(s, s._txtTitle->getText(), *s._lstCountries, nullptr, g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"total", s.tr("STR_TOTAL_UC"), Unicode::formatFunding(save->getCountryFunding()), design(g.summary_total)},
+			 {"month", s.tr("STR_CAL_REPORT_MONTH"), s.tr(save->getTime()->getMonthString()), design(g.summary_month)}},
+			{{label(s._txtCountry, FC_NAME_ASC, FC_NAME_DESC), s._sortName},
+			 {label(s._txtFunding, FC_FUNDING_ASC, FC_FUNDING_DESC), s._sortFunding},
+			 {label(s._txtChange, FC_CHANGE_ASC, FC_CHANGE_DESC), s._sortChange}},
+			{{"done", s._btnOk, s._btnOk->getText(), design(g.action_done)}},
+			"STR_INTERNATIONAL_RELATIONS", "STR_FUNDING", 23);
+		model.sectionLabel = s.tr("STR_FUNDING");
+		model.headerArtId = Gen::kHeaderArt;
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+CalypsoBaseLedger::CalypsoBaseLedger(MonthlyReportState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]() {
+		namespace Gen = CalypsoF23MonthlyReportGen;
+		const bool wide = wideLayout();
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		const auto &type = wide ? Gen::kTypographyWide : Gen::kTypographyCompact;
+		s.prepareReportRows(table.columns[1].rect.w, type.body);
+		auto *save = getCurrentGame()->getSavedGame();
+		auto *ack = s._txtFailure->getVisible() ? s._btnBigOk : s._btnOk;
+		auto model = ledgerModel(s, s._txtTitle->getText(), *s._reportRows, nullptr, g, table,
+			Gen::kProfileStyle, type,
+			{{"score", s.tr("STR_SCORE"), std::to_string(s._ratingTotal), design(g.summary_score)},
+			 {"balance", s.tr("STR_BALANCE"), Unicode::formatFunding(save->getFunds()), design(g.summary_balance)}},
+			{{s.tr("STR_TYPE")}, {s.tr("STR_VALUE")}},
+			{{"done", ack, ack->getText(), design(g.action_done)}},
+			"STR_XCOM_PROJECT_MONTHLY_REPORT", "STR_CAL_NO_RECORDS", 23);
+		model.sectionLabel = s._txtTitle->getText();
 		model.headerArtId = Gen::kHeaderArt;
 		model.profileId = Gen::kProfileId;
 		model.profileVersion = Gen::kProfileVersion;

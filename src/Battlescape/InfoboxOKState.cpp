@@ -17,6 +17,12 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "InfoboxOKState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoContactNotice.h"
+#include "../Interface/Window.h"
+#include "../Interface/TextButton.h"
+#include "../Engine/Options.h"
+#endif
 #include "../Engine/Game.h"
 #include "../Interface/TextButton.h"
 #include "../Interface/Frame.h"
@@ -70,6 +76,15 @@ InfoboxOKState::InfoboxOKState(const std::string &msg)
 	_txtTitle->setText(msg);
 
 	_game->getCursor()->setVisible(true);
+#ifdef __EMSCRIPTEN__
+	_frame->setVisible(false);
+	_screen = true;
+	auto *window = new Window(this, 1, 1, 0, 0);
+	add(window, "messageWindowBorder", "battlescape");
+	_hdNotice = new Calypso::CalypsoContactNotice(Calypso::ContactNoticeType::TacticalAlert, this, nullptr,
+		_game->getMod(), window, _txtTitle, _btnOk, tr("STR_CAL_BATTLE_MESSAGE"));
+	enableUiScaling(_hdNotice->designWidth(), _hdNotice->designHeight(), 1.0f, false);
+#endif
 }
 
 /**
@@ -77,6 +92,9 @@ InfoboxOKState::InfoboxOKState(const std::string &msg)
  */
 InfoboxOKState::~InfoboxOKState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdNotice;
+#endif
 
 }
 
@@ -88,5 +106,14 @@ void InfoboxOKState::btnOkClick(Action *)
 {
 	_game->popState();
 }
+
+#ifdef __EMSCRIPTEN__
+void InfoboxOKState::resize(int &dx, int &dy)
+{
+	if (!_hdNotice) { State::resize(dx, dy); return; }
+	_hdNotice->layout();
+	recaptureUiScaling(_hdNotice->designWidth(), _hdNotice->designHeight(), 1.0f, false);
+}
+#endif
 
 }

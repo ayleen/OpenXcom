@@ -1,0 +1,46 @@
+{
+  "actions": [
+    {
+      "id": "ok",
+      "label": "OK",
+      "action": "ok",
+      "tone": "safe"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "mode": "table",
+    "selectionRole": "commendation",
+    "columns": [
+      {
+        "id": "name",
+        "label": "NAME"
+      },
+      {
+        "id": "rank",
+        "label": "RANK"
+      },
+      {
+        "id": "record",
+        "label": "RECORD"
+      }
+    ],
+    "items": [
+      {
+        "id": "sample-award",
+        "values": [
+          "Mahmoud Mustafa",
+          "Ensign",
+          "2 kills"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "familyId": 30,
+  "id": "f30-fallen-commendations",
+  "schema": 1,
+  "title": "LOST IN SERVICE",
+  "version": "hd.2026-08-29.1",
+  "state": "CommendationLateState"
+}
