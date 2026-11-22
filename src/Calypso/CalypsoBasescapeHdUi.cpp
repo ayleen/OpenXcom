@@ -745,7 +745,7 @@ void CalypsoBasescapeHdUi::feedPlacementModel()
 	placement.guidanceSelect = placement.isMove
 		? ps->tr("STR_CALYPSO_BUILD_MOVE_POSITION")
 		: ps->tr("STR_CALYPSO_BUILD_SELECT_POSITION");
-	placement.guidanceValid = ps->tr("STR_CALYPSO_BUILD_VALID_POSITION");
+	placement.guidanceValid = ps->tr(ps->usesStartingPlacement() ? "STR_CAL_START_PLACE_HINT" : "STR_CALYPSO_BUILD_VALID_POSITION");
 	placement.guidanceInvalid = ps->tr("STR_CALYPSO_BUILD_INVALID_POSITION");
 	placement.cancelLabel = textOf(ps->_btnCancel);
 	snapshot.placement = std::move(placement);

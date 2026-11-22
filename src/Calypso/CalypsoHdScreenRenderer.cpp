@@ -26,7 +26,6 @@
 #include "CommandCenter/CommandCenterRenderer.h"
 #include "../Basescape/BasescapeState.h"
 #include "../Basescape/PlaceFacilityState.h"
-#include "../Basescape/PlaceStartFacilityState.h"
 #include "CalypsoF21UiShared.h"
 #include "CalypsoHdFontSource.h"
 #include "CalypsoHdTheme.h"
@@ -662,7 +661,7 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 		if (gridX >= 0 && gridX < 6 && gridY >= 0 && gridY < 6)
 		{
 			placementCursor = true;
-			const bool isStart = dynamic_cast<const PlaceStartFacilityState*>(placing) != nullptr;
+			const bool isStart = placing->usesStartingPlacement();
 			placementValid = placing->_view->getPlacementError(
 				placing->_rule, placing->_origFac, isStart) == BPE_None;
 			const BaseGridCellRect cell = calypsoBaseDeckCellRect(deckX, deckY, deckSide,

@@ -152,6 +152,8 @@ ru:
   STR_CAL_REMOVED: "Списать"
   STR_CAL_STORES_OVER: "После списания склад переполнен"
   STR_CAL_PROCEEDS: "Выручка"
+  STR_CAL_FIRST_SITE_HINT: "Выберите место для первой базы."
+  STR_CAL_START_PLACE_HINT: "Выберите свободное место для размещения."
   STR_CAL_START_PLACED: "Размещено {0} / {1}"
   STR_CAL_START_REQUIREMENT: "{0}   {1} / {2}"
   STR_CAL_RESET_LAYOUT: "Сбросить планировку базы?"

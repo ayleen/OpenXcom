@@ -67,6 +67,7 @@ protected:
 	/// Emscripten only. Preserves the PlaceStartFacilityState overrides.
 	void pushPlacementError(const std::string &reason, const std::string &bg, int errorColor1, int errorColor2, bool popFirst);
 public:
+	virtual bool usesStartingPlacement() const { return false; }
 	/// Creates the Place Facility state.
 	PlaceFacilityState(Base *base, const RuleBaseFacility *rule, BaseFacility *origFac = 0);
 	/// Cleans up the Place Facility state.

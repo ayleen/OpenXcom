@@ -369,7 +369,7 @@ void CalypsoF21SiteUi::configure(BuildNewBaseState& state, bool allowPhysicalOve
 	state._hdSlot = new Text(1, 1, 0, 0);
 	state.add(state._hdSlot);
 	state._hdSlot->setText(state.tr("STR_CAL_F21_BASE_SLOT")
-		.arg((int)state._game->getSavedGame()->getBases()->size() + 1).arg(8));
+		.arg(state._first ? 1 : (int)state._game->getSavedGame()->getBases()->size() + 1).arg(8));
 
 	state._hdFunds = new Text(1, 1, 0, 0);
 	state.add(state._hdFunds);
@@ -397,7 +397,7 @@ void CalypsoF21SiteUi::configure(BuildNewBaseState& state, bool allowPhysicalOve
 
 	state._hdPreview = new Text(1, 1, 0, 0);
 	state.add(state._hdPreview);
-	state._hdPreview->setText(state.tr("STR_CAL_F21_SITE_PREVIEW"));
+	state._hdPreview->setText(state.tr(state._first ? "STR_CAL_FIRST_SITE_HINT" : "STR_CAL_F21_SITE_PREVIEW"));
 
 	// The clean harness compares deterministic fixture content. Populate the
 	// same candidate represented by the canonical DOM reference instead of

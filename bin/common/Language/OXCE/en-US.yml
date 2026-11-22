@@ -189,6 +189,8 @@ en-US:
   STR_CAL_REMOVED: "Remove"
   STR_CAL_STORES_OVER: "Over capacity after removal"
   STR_CAL_PROCEEDS: "Sale proceeds"
+  STR_CAL_FIRST_SITE_HINT: "Select a site for your first base."
+  STR_CAL_START_PLACE_HINT: "Click a free position to place it."
   STR_CAL_START_PLACED: "Placed {0} / {1}"
   STR_CAL_START_REQUIREMENT: "{0}   {1} / {2}"
   STR_CAL_RESET_LAYOUT: "Reset current base layout?"
