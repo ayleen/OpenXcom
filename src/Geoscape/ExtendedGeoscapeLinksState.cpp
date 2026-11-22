@@ -174,6 +174,7 @@ ExtendedGeoscapeLinksState::ExtendedGeoscapeLinksState(GeoscapeState* parent) : 
 	_destinations->onKeyboardPress((ActionHandler)&ExtendedGeoscapeLinksState::openDestination, Options::keyOk);
 	_hdList = new Calypso::CalypsoStrategicList(this, _parent, _game->getMod(), _window, _txtTitle, _destinations, _btnOk);
 	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
 #endif
 }
 
@@ -274,6 +275,7 @@ void ExtendedGeoscapeLinksState::resize(int &dX, int &dY)
 	if (!_hdList) { State::resize(dX, dY); return; }
 	_hdList->layout();
 	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
 }
 #endif
 

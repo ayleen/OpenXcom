@@ -1,5 +1,6 @@
 #ifdef __EMSCRIPTEN__
 #include "CalypsoStrategicList.h"
+#include "CalypsoFittedTableRows.h"
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoViewportRuntime.h"
 #include "CalypsoHdHarnessHostState.h"
@@ -169,7 +170,12 @@ void CalypsoStrategicList::layout()
 	_list->setColumns(2, d.rowCells.front()[0].w, d.rowCells.front()[1].w);
 	auto *font = _mod->getFont("FONT_SMALL");
 	_list->setMinimumRowHeight(std::max(font->getHeight(), d.rowHeight - font->getSpacing()));
-	_list->configureCalypsoHdSelectionList(d.scrollBarWidth, d.minThumbHeight, d.rowHeight, 0, height, d.visibleRows);
+}
+
+void CalypsoStrategicList::fitInput()
+{
+	const auto &d = _design;
+	calypsoFitTableHitRows(*_list, d.viewport.w, d.visibleRows, d.scrollBarWidth, d.minThumbHeight);
 }
 
 void CalypsoStrategicList::collect(CalypsoHdFrameBuilder &builder) const

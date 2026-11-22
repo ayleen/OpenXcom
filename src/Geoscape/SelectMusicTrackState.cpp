@@ -152,6 +152,7 @@ SelectMusicTrackState::SelectMusicTrackState(SelectMusicTrackOrigin origin) : _o
 	_screen = !underlay;
 	_hdList = new Calypso::CalypsoStrategicList(this, underlay, _game->getMod(), _window, _txtTitle, _lstTracks, _btnCancel, _btnKeep);
 	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
 #endif
 }
 
@@ -241,6 +242,7 @@ void SelectMusicTrackState::resize(int &dX, int &dY)
 	if (!_hdList) { State::resize(dX, dY); return; }
 	_hdList->layout();
 	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
 }
 #endif
 

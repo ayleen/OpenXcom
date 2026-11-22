@@ -14,6 +14,7 @@ public:
 		Text *title, TextList *list, TextButton *cancel, TextButton *keep = nullptr);
 	~CalypsoStrategicList() override;
 	void layout();
+	void fitInput();
 	int designWidth() const { return _design.designWidth; }
 	int designHeight() const { return _design.designHeight; }
 	const void *topState() const override { return _owner; }
