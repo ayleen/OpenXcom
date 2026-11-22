@@ -34,6 +34,8 @@
 #include "Generated/CalypsoF12ItemLocations.generated.h"
 #include "../Basescape/StoresState.h"
 #include "../Basescape/TransfersState.h"
+#include "../Geoscape/ItemsArrivingState.h"
+#include "Generated/CalypsoF24ItemsArriving.generated.h"
 #include "../Basescape/ItemLocationsState.h"
 #include "../Engine/Game.h"
 #include "../Interface/ArrowButton.h"
@@ -680,6 +682,32 @@ CalypsoBaseLedger::CalypsoBaseLedger(TechTreeSelectState &s)
 			for (auto &cell : row.cells) cell.state.selected = row.state.selected;
 			if (row.state.selected) collection.selectedIndex = i;
 		}
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+CalypsoBaseLedger::CalypsoBaseLedger(ItemsArrivingState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]() {
+		namespace Gen = CalypsoF24ItemsArrivingGen;
+		const bool wide = wideLayout();
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		auto model = ledgerModel(s, s._txtTitle->getText(), *s._lstTransfers, nullptr, g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"arrivals", s._txtTitle->getText(), std::to_string(s._destinations.size()), design(g.summary_arrivals)}},
+			{{s._txtItem->getText()}, {s._txtQuantity->getText()}, {s._txtDestination->getText()}},
+			{{"goto", s._btnGotoBase, s._btnGotoBase->getText(), design(g.action_goto)},
+			 {"done", s._btnOk, s._btnOk->getText(), design(g.action_done)}},
+			"STR_CAL_NO_RECORDS", "STR_ITEMS_ARRIVING", 24);
+		model.sectionLabel = s._txtTitle->getText();
+		model.headerArtId = Gen::kHeaderArt;
 		model.profileId = Gen::kProfileId;
 		model.profileVersion = Gen::kProfileVersion;
 		model.provenance = Gen::kProvenanceTemplate;

@@ -3,40 +3,81 @@
   "id": "f24-items-arriving",
   "familyId": 24,
   "version": "hd.2026-08-29.1",
-  "archetype": "small-confirmation",
-  "protocol": {
-    "authority": "CALYPSO COMMAND",
-    "record": "LOGISTICS NOTICE",
-    "code": "F24-IA-01",
-    "revision": "1.0.21",
-    "effectiveDate": "15.07.2061"
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "logistics-group"
+  },
+  "state": "ItemsArrivingState",
+  "labelKeys": {
+    "title": "STR_ITEMS_ARRIVING",
+    "goto": "STR_GO_TO_BASE",
+    "done": "STR_OK"
   },
   "title": "ITEMS ARRIVING",
-  "body": [
-    "Incoming transfer",
-    "at base:"
-  ],
-  "icon": {
-    "kind": "info",
-    "glyph": "i",
-    "tone": "primary"
-  },
-  "buttons": [
+  "actions": [
     {
-      "id": "cancel",
-      "label": "CANCEL",
-      "tone": "safe",
-      "action": "cancel"
+      "id": "goto",
+      "label": "GO TO BASE",
+      "labelKey": "STR_GO_TO_BASE",
+      "action": "goto",
+      "tone": "normal"
     },
     {
-      "id": "confirm",
-      "label": "CONFIRM",
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
       "tone": "primary",
-      "action": "confirm"
+      "action": "done"
     }
   ],
-  "visibleButtons": [
-    "cancel",
-    "confirm"
-  ]
+  "summary": [
+    {
+      "id": "arrivals",
+      "label": "ARRIVALS",
+      "value": "2"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "arrival",
+    "columns": [
+      {
+        "id": "item",
+        "label": "ITEM",
+        "contentRole": "name"
+      },
+      {
+        "id": "quantity",
+        "label": "QUANTITY",
+        "contentRole": "quantity"
+      },
+      {
+        "id": "destination",
+        "label": "DESTINATION",
+        "contentRole": "name"
+      }
+    ],
+    "items": [
+      {
+        "id": "first",
+        "values": [
+          "Flare",
+          "4",
+          "Batumi"
+        ]
+      },
+      {
+        "id": "second",
+        "values": [
+          "Flare",
+          "2",
+          "Garni"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": []
 }

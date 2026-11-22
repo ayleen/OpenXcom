@@ -17,6 +17,7 @@ class UfoTrackerState;
 class MultipleTargetsState;
 class StoresState;
 class TransfersState;
+class ItemsArrivingState;
 class ItemLocationsState;
 namespace Calypso
 {
@@ -37,6 +38,7 @@ public:
 	explicit CalypsoBaseLedger(MultipleTargetsState &state);
 	explicit CalypsoBaseLedger(TransfersState &state);
 	explicit CalypsoBaseLedger(ItemLocationsState &state);
+	explicit CalypsoBaseLedger(ItemsArrivingState &state);
 	void refresh();
 private:
 	CalypsoHdOperationsChrome _chrome;

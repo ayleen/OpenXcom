@@ -2016,11 +2016,20 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	case CalypsoHarnessScenario::F24ItemsArriving:
 	{
 		Game *game = getCurrentGame();
-		if (!game || !game->getMod() || !prepareOperationsSave(game)) return nullptr;
-		// ItemsArrivingState reads the campaign transfer queues during
-		// construction; the empty deterministic save is a valid no-arrivals
-		// fixture and keeps the native route available.
-		GeoscapeState *geoscape = new GeoscapeState();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		Base *first = nullptr, *second = nullptr;
+		ensureTransferFixture(game, first, second);
+		if (!first || !second || first->getStorageItems()->getContents()->empty()) return nullptr;
+		const auto *item = first->getStorageItems()->getContents()->begin()->first;
+		for (auto *destination : {first, second})
+		{
+			auto *arrival = new Transfer(0);
+			arrival->setItems(item, destination == first ? 4 : 2);
+			destination->getTransfers()->push_back(arrival);
+		}
+		auto *geoscape = new GeoscapeState();
+		game->pushState(geoscape);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), geoscape);
 		return new ItemsArrivingState(geoscape);
 	}
 	case CalypsoHarnessScenario::F09ResearchQueue:
