@@ -12,7 +12,7 @@
 #include "../Savegame/SavedGame.h"
 
 namespace OpenXcom {
-CalypsoTrainingBases::CalypsoTrainingBases(bool psi) : _psi(psi)
+CalypsoTrainingBases::CalypsoTrainingBases(bool psi) : _psi(psi), _allowPsiAssignment(psi || Options::anytimePsiTraining)
 {
 	setInterface("martialTraining");
 	_rows = new TextList(250, 100, 0, 0);
@@ -53,7 +53,9 @@ void CalypsoTrainingBases::populate()
 	{
 		const int capacity = _psi ? base->getAvailablePsiLabs() : base->getAvailableTraining();
 		const int used = _psi ? base->getUsedPsiLabs() : base->getUsedTraining();
-		const auto free = capacity ? std::to_string(std::max(0, capacity - used)) : std::string(tr("STR_CAL_NO_TRAINING_FACILITY"));
+		auto free = capacity ? std::to_string(std::max(0, capacity - used)) : std::string(tr("STR_CAL_NO_TRAINING_FACILITY"));
+		if (_psi && capacity && !_allowPsiAssignment)
+			free += " · " + std::string(tr("STR_CAL_ASSIGN_MONTH_END"));
 		_rows->addRow(4, base->getName().c_str(), std::to_string(used).c_str(), std::to_string(capacity).c_str(), free.c_str());
 		_capacity += capacity;
 		_used += used;
@@ -75,7 +77,7 @@ void CalypsoTrainingBases::openBase(Action *)
 	const auto &bases = *_game->getSavedGame()->getBases();
 	if (index >= bases.size()) return;
 	auto *base = bases[index];
-	if (_psi && base->getAvailablePsiLabs()) _game->pushState(new AllocatePsiTrainingState(base));
+	if (_psi && _allowPsiAssignment && base->getAvailablePsiLabs()) _game->pushState(new AllocatePsiTrainingState(base));
 	else if (!_psi && base->getAvailableTraining()) _game->pushState(new AllocateTrainingState(base));
 }
 

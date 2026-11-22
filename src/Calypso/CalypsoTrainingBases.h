@@ -24,6 +24,7 @@ private:
 	TextButton *_physical, *_psionic, *_done;
 	Calypso::CalypsoBaseLedger *_ledger = nullptr;
 	bool _psi;
+	const bool _allowPsiAssignment;
 	int _capacity = 0, _used = 0;
 };
 }

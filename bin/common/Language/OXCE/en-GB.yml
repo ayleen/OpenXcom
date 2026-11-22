@@ -1,4 +1,5 @@
 en-GB:
+  STR_CAL_ASSIGN_MONTH_END: "Assign at month end"
   STR_CAL_TRAIN_CURRENT: "Current"
   STR_CAL_TRAIN_EMPTY: "No divers"
   STR_CAL_TRAIN_ASSIGN: "Assign all"

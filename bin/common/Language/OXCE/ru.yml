@@ -1,4 +1,5 @@
 ru:
+  STR_CAL_ASSIGN_MONTH_END: "Назначение в конце месяца"
   STR_CAL_TRAIN_CURRENT: "Текущий"
   STR_CAL_TRAIN_EMPTY: "Нет бойцов"
   STR_CAL_TRAIN_ASSIGN: "Назначить всех"
