@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "CraftPatrolState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF18PatrolArrivalUi.h"
+#endif
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
 #include "../Engine/LocalizedText.h"
@@ -42,7 +45,13 @@ CraftPatrolState::CraftPatrolState(Craft *craft, Globe *globe) : _craft(craft), 
 	_screen = false;
 
 	// Create objects
-	_window = new Window(this, 224, 168, 16, 16, POPUP_BOTH);
+	_window = new Window(this, 224, 168, 16, 16,
+#ifdef __EMSCRIPTEN__
+		POPUP_NONE
+#else
+		POPUP_BOTH
+#endif
+	);
 	_btnOk = new TextButton(140, 12, 58, 144);
 	_btnRedirect = new TextButton(140, 12, 58, 160);
 	_txtDestination = new Text(224, 64, 16, 48);
@@ -58,14 +67,12 @@ CraftPatrolState::CraftPatrolState(Craft *craft, Globe *globe) : _craft(craft), 
 	add(_txtPatrolling, "text1", "craftPatrol");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
+
 
 	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "craftPatrol");
+#endif
 
 	_btnOk->setText(tr("STR_OK"));
 	_btnOk->onMouseClick((ActionHandler)&CraftPatrolState::btnOkClick);
@@ -85,6 +92,9 @@ CraftPatrolState::CraftPatrolState(Craft *craft, Globe *globe) : _craft(craft), 
 	_txtPatrolling->setBig();
 	_txtPatrolling->setAlign(ALIGN_CENTER);
 	_txtPatrolling->setText(tr("STR_NOW_PATROLLING"));
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF18PatrolArrivalUi::configure(*this);
+#endif
 }
 
 /**
@@ -92,8 +102,17 @@ CraftPatrolState::CraftPatrolState(Craft *craft, Globe *globe) : _craft(craft), 
  */
 CraftPatrolState::~CraftPatrolState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void CraftPatrolState::resize(int &dX, int &dY)
+{
+	if (!Calypso::CalypsoF18PatrolArrivalUi::resize(*this)) State::resize(dX, dY);
+}
+#endif
 
 /**
  * Closes the window.

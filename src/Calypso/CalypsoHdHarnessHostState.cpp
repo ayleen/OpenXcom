@@ -80,6 +80,8 @@
 #include "../Basescape/TransferConfirmState.h"
 #include "../Geoscape/CraftErrorState.h"
 #include "../Geoscape/LowFuelState.h"
+#include "../Geoscape/CraftPatrolState.h"
+#include "../Savegame/Waypoint.h"
 #include "../Geoscape/CraftNotEnoughPilotsState.h"
 #include "../Geoscape/DogfightErrorState.h"
 #include "../Geoscape/ConfirmLandingState.h"
@@ -1476,6 +1478,7 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new CraftErrorState(nullptr, "Dismiss soldier confirmation.");
 	case CalypsoHarnessScenario::F18CraftError:
 		return new CraftErrorState(nullptr, "Craft cannot complete the assigned operation.");
+	case CalypsoHarnessScenario::F18PatrolArrival:
 	case CalypsoHarnessScenario::F18LowFuel:
 	case CalypsoHarnessScenario::F18NotEnoughPilots:
 	{
@@ -1486,10 +1489,18 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		{
 			for (Craft *craft : *base->getCrafts())
 			{
-				if (!fuel && craft->getRules()->getPilots() <= 0) continue;
+				if (id == CalypsoHarnessScenario::F18NotEnoughPilots && craft->getRules()->getPilots() <= 0) continue;
 				auto *globe = new GeoscapeState();
 				game->pushState(globe);
 				calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+				if (id == CalypsoHarnessScenario::F18PatrolArrival)
+				{
+					auto *waypoint = new Waypoint();
+					waypoint->setId(18);
+					game->getSavedGame()->getWaypoints()->push_back(waypoint);
+					craft->setDestination(waypoint);
+					return new CraftPatrolState(craft, globe->getGlobe());
+				}
 				if (!fuel) return new CraftNotEnoughPilotsState(craft);
 				craft->setFuel(1);
 				craft->setLowFuel(true);

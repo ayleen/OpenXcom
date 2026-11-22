@@ -22,6 +22,9 @@
 namespace OpenXcom
 {
 
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoF18PatrolArrivalUi; }
+#endif
 class TextButton;
 class Window;
 class Text;
@@ -35,6 +38,12 @@ class Globe;
 class CraftPatrolState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF18PatrolArrivalUi;
+	Calypso::CalypsoF18PatrolArrivalUi *_hdAdapter = nullptr;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+#endif
 	Craft *_craft;
 	Globe *_globe;
 
@@ -51,8 +60,7 @@ public:
 	/// Handler for clicking the Redirect Craft button.
 	void btnRedirectClick(Action *action);
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+	void resize(int &dX, int &dY) override;
 #endif
 };
 
