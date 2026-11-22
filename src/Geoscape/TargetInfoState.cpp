@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "TargetInfoState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Interface/TextList.h"
+#endif
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
 #include "../Mod/AlienRace.h"
@@ -44,10 +48,20 @@ namespace OpenXcom
  */
 TargetInfoState::TargetInfoState(Target *target, Globe *globe) : _target(target), _globe(globe), _deploymentRule(0)
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+#else
 	_screen = false;
+#endif
 
 	// Create objects
-	_window = new Window(this, 192, 120, 32, 40, POPUP_BOTH);
+	_window = new Window(this, 192, 120, 32, 40,
+#ifdef __EMSCRIPTEN__
+		POPUP_NONE
+#else
+		POPUP_BOTH
+#endif
+	);
 	_btnIntercept = new TextButton(160, 12, 48, 124);
 	_btnInfo = new TextButton(77, 12, 48, 140);
 	_btnOk = new TextButton(77, 12, 131, 140);
@@ -69,11 +83,7 @@ TargetInfoState::TargetInfoState(Target *target, Globe *globe) : _target(target)
 	add(_txtPenalty, "text2", "targetInfo");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
+
 
 	// Set up objects
 	setWindowBackground(_window, "targetInfo");
@@ -136,6 +146,24 @@ TargetInfoState::TargetInfoState(Target *target, Globe *globe) : _target(target)
 		_txtPenalty->setAlign(ALIGN_CENTER);
 		_txtPenalty->setText(tr("STR_DESPAWN_PENALTY").arg(_deploymentRule->getDespawnPenalty()));
 	}
+#ifdef __EMSCRIPTEN__
+	_apply = new TextButton(72, 16);
+	add(_apply, "button", "targetInfo");
+	_apply->setText(tr("STR_CAL_APPLY_NAME"));
+	_apply->onMouseClick((ActionHandler)&TargetInfoState::applyName);
+	_facts = new TextList(182, 64);
+	add(_facts, "text2", "targetInfo");
+	_facts->setColumns(2, 80, 102);
+	_facts->setBackground(_window);
+	_facts->addRow(2, tr("STR_TYPE").c_str(), tr(_target->getType()).c_str());
+	_facts->addRow(2, tr("STR_CAL_CONTACT_FOLLOWERS").c_str(), std::to_string(_target->getFollowers()->size()).c_str());
+	for (const auto *follower : *_target->getFollowers())
+		_facts->addRow(2, tr("STR_TARGETTED_BY").c_str(), follower->getName(_game->getLanguage()).c_str());
+	if (!_txtPenalty->getText().empty())
+		_facts->addRow(2, tr("STR_CAL_CONTACT_PENALTY").c_str(), _txtPenalty->getText().c_str());
+	_edtTitle->setFocus(false);
+	_hdLedger = new Calypso::CalypsoBaseLedger(*this);
+#endif
 }
 
 /**
@@ -143,6 +171,9 @@ TargetInfoState::TargetInfoState(Target *target, Globe *globe) : _target(target)
  */
 TargetInfoState::~TargetInfoState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdLedger;
+#endif
 
 }
 
@@ -179,6 +210,10 @@ void TargetInfoState::btnInfoClick(Action *)
  */
 void TargetInfoState::edtTitleChange(Action *action)
 {
+#ifdef __EMSCRIPTEN__
+	(void)action;
+	if (_hdLedger) _hdLedger->refresh();
+#else
 	if (_edtTitle->getText() == _target->getDefaultName(_game->getLanguage()))
 	{
 		_target->setName("");
@@ -192,6 +227,24 @@ void TargetInfoState::edtTitleChange(Action *action)
 	{
 		_edtTitle->setText(_target->getName(_game->getLanguage()));
 	}
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void TargetInfoState::applyName(Action *)
+{
+	const auto draft = _edtTitle->getText();
+	_target->setName(draft == _target->getDefaultName(_game->getLanguage()) ? "" : draft);
+	_edtTitle->setText(_target->getName(_game->getLanguage()));
+	_edtTitle->setFocus(false);
+	_hdLedger->refresh();
+}
+
+void TargetInfoState::resize(int &dX, int &dY)
+{
+	if (_hdLedger) _hdLedger->refresh();
+	else State::resize(dX,dY);
+}
+#endif
 
 }

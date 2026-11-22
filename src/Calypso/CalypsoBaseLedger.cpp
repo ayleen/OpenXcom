@@ -2,6 +2,8 @@
 #include "CalypsoBaseLedger.h"
 #include "Generated/CalypsoF15TopicSelector.generated.h"
 #include "Generated/CalypsoF17ContactTracker.generated.h"
+#include "Generated/CalypsoF17TargetInfo.generated.h"
+#include "../Geoscape/TargetInfoState.h"
 #include "Generated/CalypsoF17OverlappingTargets.generated.h"
 #include "../Geoscape/MultipleTargetsState.h"
 #include "../Geoscape/UfoTrackerState.h"
@@ -458,6 +460,44 @@ CalypsoBaseLedger::CalypsoBaseLedger(ContainmentReviewState &s)
 	};
 	open();
 }
+CalypsoBaseLedger::CalypsoBaseLedger(TargetInfoState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]()
+	{
+		namespace Gen = CalypsoF17TargetInfoGen;
+		const bool wide = wideLayout();
+		const auto *g = Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
+		if (!g) CalypsoHdUiOverlay::instance().failHdRoute("Target information layout is unavailable");
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		auto *lang = getCurrentGame()->getLanguage();
+		const auto name = s._target->getName(lang);
+		const auto draft = s._edtTitle->getText();
+		const auto preview = draft.empty() ? s._target->getDefaultName(lang) : draft;
+		auto model = ledgerModel(s, s.tr("STR_CAL_TARGET_INFO"), *s._facts, nullptr, *g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"current", s.tr("STR_CAL_CURRENT_NAME"), name, design(g->summary_current)},
+			 {"preview", s.tr("STR_CAL_NAME_PREVIEW"), preview, design(g->summary_preview)}},
+			{{s.tr("STR_CAL_CONTACT_FIELD")}, {s.tr("STR_CAL_CONTACT_VALUE")}},
+			{{"name", s._edtTitle, draft.empty() ? std::string(s.tr("STR_NAME_UC")) : draft, design(g->toolbar_name), false, true},
+			 {"apply", s._apply, s._apply->getText(), design(g->toolbar_apply), false, true, draft == name},
+			 {"info", s._btnInfo, s._btnInfo->getText(), design(g->action_info)},
+			 {"intercept", s._btnIntercept, s._btnIntercept->getText(), design(g->action_intercept)},
+			 {"done", s._btnOk, s._btnOk->getText(), design(g->action_done)}},
+			"STR_CAL_NO_CONTACTS", "STR_CAL_CONTACTS_EMPTY", 17);
+		model.headerArtId = Gen::kHeaderArt;
+		model.sectionLabel = s.tr("STR_CAL_CONTACTS");
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		model.baseName = s.tr("STR_GEOSCAPE");
+		return model;
+	};
+	open();
+}
+
 CalypsoBaseLedger::CalypsoBaseLedger(UfoTrackerState &s)
 	: _chrome(s), _renderer(&s, {})
 {

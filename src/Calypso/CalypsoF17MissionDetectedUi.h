@@ -7,6 +7,7 @@ public:
     explicit CalypsoF17MissionDetectedUi(MissionDetectedState* s) : _state(s) {}
     ~CalypsoF17MissionDetectedUi() override;
     const void* topState() const override;
+    const void* physicalUnderlayState() const override;
     void collect(CalypsoHdFrameBuilder& b) const override;
     static void configure(MissionDetectedState& s, bool allow=true);
     static bool resize(MissionDetectedState& s);

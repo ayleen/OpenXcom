@@ -97,7 +97,10 @@
 #include "../Geoscape/ResearchCompleteState.h"
 #include "../Geoscape/UfoLostState.h"
 #include "../Geoscape/AlienBaseState.h"
+#include "../Geoscape/MissionDetectedState.h"
+#include "../Savegame/MissionSite.h"
 #include "../Geoscape/MultipleTargetsState.h"
+#include "../Geoscape/TargetInfoState.h"
 #include "../Geoscape/UfoTrackerState.h"
 #include "../Savegame/Waypoint.h"
 #include "../Savegame/AlienBase.h"
@@ -1541,6 +1544,7 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new CraftErrorState(nullptr, "Confirm end of mission?");
 	case CalypsoHarnessScenario::F17UfoLost:
 		return new UfoLostState("Contact 17");
+	case CalypsoHarnessScenario::F17TargetInfo:
 	case CalypsoHarnessScenario::F17OverlappingTargets:
 	{
 		auto *game = getCurrentGame();
@@ -1551,6 +1555,8 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		game->getSavedGame()->getWaypoints()->push_back(waypoint);
 		auto *globe = new GeoscapeState();
 		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		if (id == CalypsoHarnessScenario::F17TargetInfo) return new TargetInfoState(waypoint, globe->getGlobe());
 		return new MultipleTargetsState({fixture.base, waypoint}, {}, globe, false);
 	}
 	case CalypsoHarnessScenario::F17ContactTracker:
@@ -1567,6 +1573,7 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 			game->getSavedGame()->getAlienBases()->push_back(base);
 			auto *globe = new GeoscapeState();
 			game->pushState(globe);
+			calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
 			if (id == CalypsoHarnessScenario::F17ContactTracker) return new UfoTrackerState(globe, globe->getGlobe());
 			return new AlienBaseState(base, globe);
 		}
@@ -1620,7 +1627,25 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new UfoDetectedState(ufo, geoscape, true, false);
 	}
 	case CalypsoHarnessScenario::F17MissionDetected:
-		return new CraftErrorState(nullptr, "Alien mission detected nearby.");
+		{
+			auto *game = getCurrentGame();
+			if (!makeOperationsFixture(game, false, false).base) return nullptr;
+			auto *mod = game->getMod();
+			if (mod->getAlienMissionList().empty()) return nullptr;
+			for (const auto &key : mod->getDeploymentsList())
+			{
+				auto *rule = mod->getDeployment(key);
+				if (!rule || rule->getAlertMessage().empty() || rule->getAlertBackground().empty()) continue;
+				auto *site = new MissionSite(mod->getAlienMission(mod->getAlienMissionList().front()), rule, nullptr);
+				site->setDetected(true);
+				game->getSavedGame()->getMissionSites()->push_back(site);
+				auto *globe = new GeoscapeState();
+				game->pushState(globe);
+				calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+				return new MissionDetectedState(site, globe);
+			}
+			return nullptr;
+		}
 	case CalypsoHarnessScenario::F22TrainingFinished:
 		return new CraftErrorState(nullptr, "Training program has finished.");
 	case CalypsoHarnessScenario::F30NoExperience:
