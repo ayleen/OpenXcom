@@ -141,7 +141,8 @@ enum class CalypsoHarnessScenario
 	F17ContactTracker = 143,
 	F17OverlappingTargets = 144,
 	F17TargetInfo = 145,
-	F23Funding = 160
+	F23Funding = 160,
+	F23MonthlyReport = 161
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -235,7 +236,8 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F17ContactTracker)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F17OverlappingTargets)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F17TargetInfo)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F23Funding);
+		|| id == static_cast<int>(CalypsoHarnessScenario::F23Funding)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F23MonthlyReport);
 }
 
 struct CalypsoHarnessSwitchRequest

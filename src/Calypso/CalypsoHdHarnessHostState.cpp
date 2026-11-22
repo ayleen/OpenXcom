@@ -110,6 +110,8 @@
 #include "../Geoscape/UfoDetectedState.h"
 #include "../Geoscape/GeoscapeState.h"
 #include "../Geoscape/FundingState.h"
+#include "../Geoscape/MonthlyReportState.h"
+#include "../Savegame/GameTime.h"
 #include "../Geoscape/ExtendedGeoscapeLinksState.h"
 #include "../Geoscape/SelectMusicTrackState.h"
 #include "../Geoscape/Globe.h"
@@ -1562,6 +1564,19 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new CraftErrorState(nullptr, "Confirm end of mission?");
 	case CalypsoHarnessScenario::F17UfoLost:
 		return new UfoLostState("Contact 17");
+	case CalypsoHarnessScenario::F23MonthlyReport:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		auto *save = game->getSavedGame();
+		save->setTime(GameTime(2, 1, 2, 2040, 0, 0, 0));
+		save->addMonth();
+		save->monthlyFunding();
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		return new MonthlyReportState(globe->getGlobe());
+	}
 	case CalypsoHarnessScenario::F23Funding:
 		if (!prepareOperationsSave(getCurrentGame(), true)) return nullptr;
 		return new FundingState();

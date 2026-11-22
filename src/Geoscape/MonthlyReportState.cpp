@@ -44,6 +44,8 @@
 
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Calypso/CalypsoReportLines.h"
 #endif
 
 namespace OpenXcom
@@ -89,9 +91,10 @@ MonthlyReportState::MonthlyReportState(Globe *globe) : _gameOver(0), _ratingTota
 
 	centerAllSurfaces();
 #ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
+	_screen = true;
+	_reportRows = new TextList(260, 110);
+	add(_reportRows, "text2", "monthlyReport");
+	_reportRows->setColumns(2, 65, 195);
 #endif
 
 	// Set up objects
@@ -311,6 +314,7 @@ MonthlyReportState::MonthlyReportState(Globe *globe) : _gameOver(0), _ratingTota
 		}
 	}
 #ifdef __EMSCRIPTEN__
+	_ledger = new Calypso::CalypsoBaseLedger(*this);
 	CalypsoTutorial::get().fire(_game, "monthly.report");
 #endif
 }
@@ -320,7 +324,44 @@ MonthlyReportState::MonthlyReportState(Globe *globe) : _gameOver(0), _ratingTota
  */
 MonthlyReportState::~MonthlyReportState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _ledger;
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void MonthlyReportState::prepareReportRows(int width, int fontSize)
+{
+	const bool failure = _txtFailure->getVisible();
+	if (_reportWidth == width && _failureShown == failure) return;
+	const auto scroll = _failureShown == failure ? _reportRows->getScroll() : 0;
+	_reportWidth = width;
+	_failureShown = failure;
+	_reportRows->clearList();
+	for (Text *field : {_txtMonth, _txtRating, _txtIncome, _txtMaintenance, _txtBalance,
+		_txtBonus, _txtDesc, _txtFailure})
+	{
+		if (!field->getVisible()) continue;
+		const bool narrative = field == _txtDesc || field == _txtFailure;
+		std::string value = field->getText();
+		std::string caption = narrative ? std::string(tr("STR_SUMMARY")) : "";
+		const auto marker = narrative ? std::string::npos : value.find('>');
+		if (marker != std::string::npos)
+		{
+			caption = value.substr(0, marker);
+			value.erase(0, marker + 1);
+		}
+		Calypso::calypsoAppendReportText(*_reportRows, *_game->getMod(), caption, value, width, fontSize);
+	}
+	_reportRows->scrollTo(scroll);
+}
+
+void MonthlyReportState::resize(int &dx, int &dy)
+{
+	if (_ledger) _ledger->refresh();
+	else State::resize(dx, dy);
+}
+#endif
 
 /**
  * Returns to the previous screen.

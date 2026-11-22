@@ -9,6 +9,7 @@ class ManageAlienContainmentState;
 class ContainmentReviewState;
 class BaseInfoState;
 class FundingState;
+class MonthlyReportState;
 class CalypsoEconomyState;
 class CalypsoContractDeliverState;
 class TechTreeSelectState;
@@ -39,6 +40,7 @@ public:
 	explicit CalypsoBaseLedger(TransfersState &state);
 	explicit CalypsoBaseLedger(ItemLocationsState &state);
 	explicit CalypsoBaseLedger(FundingState &state);
+	explicit CalypsoBaseLedger(MonthlyReportState &state);
 	void refresh();
 private:
 	CalypsoHdOperationsChrome _chrome;

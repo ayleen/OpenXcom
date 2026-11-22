@@ -37,6 +37,8 @@
 #include "../Basescape/ItemLocationsState.h"
 #include "../Engine/Game.h"
 #include "../Geoscape/FundingState.h"
+#include "../Geoscape/MonthlyReportState.h"
+#include "Generated/CalypsoF23MonthlyReport.generated.h"
 #include "../Savegame/GameTime.h"
 #include "Generated/CalypsoF23Funding.generated.h"
 #include "../Interface/ArrowButton.h"
@@ -714,6 +716,36 @@ CalypsoBaseLedger::CalypsoBaseLedger(FundingState &s)
 			{{"done", s._btnOk, s._btnOk->getText(), design(g.action_done)}},
 			"STR_INTERNATIONAL_RELATIONS", "STR_FUNDING", 23);
 		model.sectionLabel = s.tr("STR_FUNDING");
+		model.headerArtId = Gen::kHeaderArt;
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+CalypsoBaseLedger::CalypsoBaseLedger(MonthlyReportState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]() {
+		namespace Gen = CalypsoF23MonthlyReportGen;
+		const bool wide = wideLayout();
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		const auto &type = wide ? Gen::kTypographyWide : Gen::kTypographyCompact;
+		s.prepareReportRows(table.columns[1].rect.w, type.body);
+		auto *save = getCurrentGame()->getSavedGame();
+		auto *ack = s._txtFailure->getVisible() ? s._btnBigOk : s._btnOk;
+		auto model = ledgerModel(s, s._txtTitle->getText(), *s._reportRows, nullptr, g, table,
+			Gen::kProfileStyle, type,
+			{{"score", s.tr("STR_SCORE"), std::to_string(s._ratingTotal), design(g.summary_score)},
+			 {"balance", s.tr("STR_BALANCE"), Unicode::formatFunding(save->getFunds()), design(g.summary_balance)}},
+			{{s.tr("STR_TYPE")}, {s.tr("STR_VALUE")}},
+			{{"done", ack, ack->getText(), design(g.action_done)}},
+			"STR_XCOM_PROJECT_MONTHLY_REPORT", "STR_CAL_NO_RECORDS", 23);
+		model.sectionLabel = s._txtTitle->getText();
 		model.headerArtId = Gen::kHeaderArt;
 		model.profileId = Gen::kProfileId;
 		model.profileVersion = Gen::kProfileVersion;

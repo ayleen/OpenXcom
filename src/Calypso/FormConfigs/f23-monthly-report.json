@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "id": "f23-monthly-report",
+  "familyId": 23,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "logistics-group"
+  },
+  "state": "MonthlyReportState",
+  "labelKeys": {
+    "title": "STR_XCOM_PROJECT_MONTHLY_REPORT",
+    "done": "STR_OK"
+  },
+  "title": "MONTHLY REPORT",
+  "actions": [
+    {
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "tone": "primary",
+      "action": "done"
+    }
+  ],
+  "summary": [
+    {
+      "id": "score",
+      "label": "SCORE",
+      "value": "642"
+    },
+    {
+      "id": "balance",
+      "label": "BALANCE",
+      "value": "4,126,000"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "report-line",
+    "columns": [
+      {
+        "id": "subject",
+        "label": "TYPE",
+        "contentRole": "category"
+      },
+      {
+        "id": "narrative",
+        "label": "VALUE",
+        "contentRole": "name"
+      }
+    ],
+    "items": [
+      {
+        "id": "first",
+        "values": [
+          "Council",
+          "Report"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": []
+}

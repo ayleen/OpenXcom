@@ -1080,6 +1080,25 @@
     {"id": "f17-contact-tracker", "contract": "f17-contact-tracker.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF17ContactTrackerGen", "prefix": "CalypsoF17ContactTracker", "output": "CalypsoF17ContactTracker.generated.h"}, "browser": {"global": "CalypsoF17ContactTracker", "output": "f17-contact-tracker.js"}, "rendererOwnership": "contact-table", "harnessScenarioIds": [143]},
     {"id": "f17-overlapping-targets", "contract": "f17-overlapping-targets.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF17OverlappingTargetsGen", "prefix": "CalypsoF17OverlappingTargets", "output": "CalypsoF17OverlappingTargets.generated.h"}, "browser": {"global": "CalypsoF17OverlappingTargets", "output": "f17-overlapping-targets.js"}, "rendererOwnership": "contact-table", "harnessScenarioIds": [144]},
     {"id": "f17-target-info", "contract": "f17-target-info.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF17TargetInfoGen", "prefix": "CalypsoF17TargetInfo", "output": "CalypsoF17TargetInfo.generated.h"}, "browser": {"global": "CalypsoF17TargetInfo", "output": "f17-target-info.js"}, "rendererOwnership": "contact-table", "harnessScenarioIds": [145]},
-    {"id": "f23-funding", "contract": "f23-funding.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF23FundingGen", "prefix": "CalypsoF23Funding", "output": "CalypsoF23Funding.generated.h"}, "browser": {"global": "CalypsoF23Funding", "output": "f23-funding.js"}, "rendererOwnership": "research-manufacture-operations", "harnessScenarioIds": [160]}
+    {"id": "f23-funding", "contract": "f23-funding.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF23FundingGen", "prefix": "CalypsoF23Funding", "output": "CalypsoF23Funding.generated.h"}, "browser": {"global": "CalypsoF23Funding", "output": "f23-funding.js"}, "rendererOwnership": "research-manufacture-operations", "harnessScenarioIds": [160]},
+    {
+      "id": "f23-monthly-report",
+      "contract": "f23-monthly-report.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {
+        "namespace": "CalypsoF23MonthlyReportGen",
+        "prefix": "CalypsoF23MonthlyReport",
+        "output": "CalypsoF23MonthlyReport.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF23MonthlyReport",
+        "output": "f23-monthly-report.js"
+      },
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [
+        161
+      ]
+    }
   ]
 }
