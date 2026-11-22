@@ -1007,6 +1007,9 @@
       "harnessScenarioIds": [
         102
       ]
-    }
+    },
+    {"id": "f18-craft-error", "contract": "f18-craft-error.json", "emitter": "family", "validationProfile": "small-confirmation", "native": {"namespace": "CalypsoF18CraftErrorGen", "prefix": "CalypsoF18CraftError", "output": "CalypsoF18CraftError.generated.h"}, "browser": {"global": "CalypsoF18CraftError", "output": "f18-craft-error.js"}, "rendererOwnership": "fleet-alert", "harnessScenarioIds": [62]},
+    {"id": "f18-low-fuel", "contract": "f18-low-fuel.json", "emitter": "family", "validationProfile": "small-confirmation", "native": {"namespace": "CalypsoF18LowFuelGen", "prefix": "CalypsoF18LowFuel", "output": "CalypsoF18LowFuel.generated.h"}, "browser": {"global": "CalypsoF18LowFuel", "output": "f18-low-fuel.js"}, "rendererOwnership": "fleet-alert", "harnessScenarioIds": [63]},
+    {"id": "f18-not-enough-pilots", "contract": "f18-not-enough-pilots.json", "emitter": "family", "validationProfile": "small-confirmation", "native": {"namespace": "CalypsoF18NotEnoughPilotsGen", "prefix": "CalypsoF18NotEnoughPilots", "output": "CalypsoF18NotEnoughPilots.generated.h"}, "browser": {"global": "CalypsoF18NotEnoughPilots", "output": "f18-not-enough-pilots.js"}, "rendererOwnership": "fleet-alert", "harnessScenarioIds": [64]}
   ]
 }

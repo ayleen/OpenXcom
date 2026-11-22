@@ -188,7 +188,7 @@ void restoreHarnessCursor(Game* game)
 	}
 	g_harnessCursorCaptured = false;
 }
-bool prepareOperationsSave(Game *game)
+bool prepareOperationsSave(Game *game, bool withGlobe = false)
 {
 	if (!game || !game->getMod()) return false;
 	// Fixture routes may only mutate a save owned by this harness.  Reusing a
@@ -202,7 +202,8 @@ bool prepareOperationsSave(Game *game)
 			return false;
 		else
 		{
-			g_harnessSaveLease.fixture = new SavedGame();
+			// A playable globe needs the mod's countries, regions and alien strategy.
+			g_harnessSaveLease.fixture = withGlobe ? game->getMod()->newSave(DIFF_BEGINNER) : new SavedGame();
 			game->setSavedGame(g_harnessSaveLease.fixture);
 		}
 		g_harnessSaveLease.active = true;
@@ -1476,9 +1477,28 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	case CalypsoHarnessScenario::F18CraftError:
 		return new CraftErrorState(nullptr, "Craft cannot complete the assigned operation.");
 	case CalypsoHarnessScenario::F18LowFuel:
-		return new CraftErrorState(nullptr, "Craft is low on fuel and returning to base.");
 	case CalypsoHarnessScenario::F18NotEnoughPilots:
-		return new CraftErrorState(nullptr, "Not enough pilots for this craft.");
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		const bool fuel = id == CalypsoHarnessScenario::F18LowFuel;
+		for (Base *base : *game->getSavedGame()->getBases())
+		{
+			for (Craft *craft : *base->getCrafts())
+			{
+				if (!fuel && craft->getRules()->getPilots() <= 0) continue;
+				auto *globe = new GeoscapeState();
+				game->pushState(globe);
+				calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+				if (!fuel) return new CraftNotEnoughPilotsState(craft);
+				craft->setFuel(1);
+				craft->setLowFuel(true);
+				craft->returnToBase();
+				return new LowFuelState(craft, globe);
+			}
+		}
+		return nullptr;
+	}
 	case CalypsoHarnessScenario::F19DogfightError:
 		return new CraftErrorState(nullptr, "Craft cannot engage the target now.");
 	case CalypsoHarnessScenario::F20ConfirmLanding:

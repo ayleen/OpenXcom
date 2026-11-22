@@ -1,4 +1,5 @@
 en-US:
+  STR_CAL_FLEET_WARNING: "Craft warning"
 #=================== Basescape ===================
 #BasescapeState.cpp
   STR_CANNOT_DISMANTLE_FACILITY_UPGRADING: "CANNOT DISMANTLE FACILITY!{SMALLLINE}Facility cannot be removed during upgrading."

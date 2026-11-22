@@ -7,11 +7,13 @@ public:
     explicit CalypsoF18LowFuelUi(LowFuelState* s) : _state(s) {}
     ~CalypsoF18LowFuelUi() override;
     const void* topState() const override;
+    const void* physicalUnderlayState() const override { return _underlay; }
     void collect(CalypsoHdFrameBuilder& b) const override;
     static void configure(LowFuelState& s, bool allow=true);
     static bool resize(LowFuelState& s);
 private:
     LowFuelState* _state=nullptr;
+    const void* _underlay=nullptr;
     mutable CalypsoSmallConfirmationMotion _motion;
 }; } }
 #endif
