@@ -72,6 +72,12 @@ class StoresState : public State
 private:
 #ifdef __EMSCRIPTEN__
 	friend class Calypso::CalypsoBaseLedger;
+	TextButton *_hdCategory = nullptr;
+	std::string _category;
+	std::vector<std::string> _availableCategories;
+	std::string hdStorageCapacity(bool over) const;
+	void nextCategory(Action *);
+	bool includeCategory(const RuleItem &rule);
 	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
 #endif
 	Base *_base;

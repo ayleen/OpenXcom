@@ -46,11 +46,17 @@ struct CalypsoF12ActiveTransfersGenLayout
 	CalypsoF12ActiveTransfersGenRect summary_next;
 	CalypsoF12ActiveTransfersGenRect tab_workspace_a;
 	CalypsoF12ActiveTransfersGenRect tab_workspace_b;
+	CalypsoF12ActiveTransfersGenRect toolbar_scope;
+	CalypsoF12ActiveTransfersGenRect toolbar_category;
+	CalypsoF12ActiveTransfersGenRect toolbar_sort;
+	CalypsoF12ActiveTransfersGenRect toolbar_search;
 	CalypsoF12ActiveTransfersGenRect collection_scroll_track;
 	CalypsoF12ActiveTransfersGenRect collection_scroll_thumb;
 	CalypsoF12ActiveTransfersGenRect collection_column_cargo;
 	CalypsoF12ActiveTransfersGenRect collection_column_quantity;
 	CalypsoF12ActiveTransfersGenRect collection_column_arrival;
+	CalypsoF12ActiveTransfersGenRect collection_column_destination;
+	CalypsoF12ActiveTransfersGenRect collection_column_capacity;
 	CalypsoF12ActiveTransfersGenRect collection_row_slot_1;
 	CalypsoF12ActiveTransfersGenRect collection_row_slot_2;
 	CalypsoF12ActiveTransfersGenRect action_done;
@@ -60,9 +66,9 @@ struct CalypsoF12ActiveTransfersGenLayout
 inline constexpr CalypsoF12ActiveTransfersGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 360, 78 }, { 130, 119, 480, 36 }, { 1000, 96, 256, 78 }, { 112, 190, 816, 44 }, { 112, 190, 1144, 456 }, { 112, 658, 1144, 44 }, { 1000, 96, 84, 78 }, { 1085, 96, 84, 78 }, { 1170, 96, 86, 78 }, { 92, 158, 414, 44 }, { 514, 158, 414, 44 }, { 1238, 226, 18, 308 }, { 1238, 226, 18, 308 }, { 112, 190, 744, 36 }, { 857, 190, 172, 36 }, { 1030, 190, 172, 36 }, { 112, 226, 1090, 44 }, { 112, 270, 1090, 44 }, { 1098, 658, 158, 44 }, { 44, 8, 0, 5, 240, { 112, 234, 1144, 412 } } },
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 360, 78 }, { 130, 119, 480, 36 }, { 1000, 96, 256, 78 }, { 112, 190, 816, 44 }, { 112, 234, 1144, 412 }, { 112, 658, 1144, 44 }, { 1000, 96, 84, 78 }, { 1085, 96, 84, 78 }, { 1170, 96, 86, 78 }, { 92, 158, 414, 44 }, { 514, 158, 414, 44 }, { 138, 190, 190, 44 }, { 338, 190, 190, 44 }, { 538, 190, 190, 44 }, { 738, 190, 190, 44 }, { 1238, 270, 18, 308 }, { 1238, 270, 18, 308 }, { 112, 234, 298, 36 }, { 411, 234, 97, 36 }, { 509, 234, 97, 36 }, { 607, 234, 297, 36 }, { 905, 234, 297, 36 }, { 112, 270, 1090, 44 }, { 112, 314, 1090, 44 }, { 1098, 658, 158, 44 }, { 44, 8, 0, 5, 240, { 112, 234, 1144, 412 } } },
 	// compact
-	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 420, 48, 100, 52 }, { 60, 61, 350, 26 }, { 520, 48, 212, 52 }, { 52, 108, 466, 44 }, { 52, 108, 680, 196 }, { 52, 312, 680, 44 }, { 520, 48, 70, 52 }, { 591, 48, 70, 52 }, { 662, 48, 70, 52 }, { 52, 102, 230, 44 }, { 288, 102, 230, 44 }, { 714, 136, 18, 88 }, { 714, 136, 18, 88 }, { 52, 108, 398, 28 }, { 451, 108, 114, 28 }, { 566, 108, 114, 28 }, { 52, 136, 628, 44 }, { 52, 180, 628, 44 }, { 612, 312, 120, 44 }, { 44, 8, 0, 5, 240, { 52, 52, 680, 260 } } },
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 420, 48, 100, 52 }, { 60, 61, 350, 26 }, { 520, 48, 212, 52 }, { 52, 108, 466, 44 }, { 52, 152, 680, 152 }, { 52, 312, 680, 44 }, { 520, 48, 70, 52 }, { 591, 48, 70, 52 }, { 662, 48, 70, 52 }, { 52, 102, 230, 44 }, { 288, 102, 230, 44 }, { 78, 108, 104, 44 }, { 190, 108, 104, 44 }, { 302, 108, 104, 44 }, { 414, 108, 104, 44 }, { 714, 180, 18, 88 }, { 714, 180, 18, 88 }, { 52, 152, 159, 28 }, { 212, 152, 75, 28 }, { 288, 152, 74, 28 }, { 363, 152, 158, 28 }, { 522, 152, 158, 28 }, { 52, 180, 628, 44 }, { 52, 224, 628, 44 }, { 612, 312, 120, 44 }, { 44, 8, 0, 5, 240, { 52, 52, 680, 260 } } },
 };
 inline constexpr int kLayoutCount = 2;
 
@@ -214,85 +220,107 @@ struct CalypsoF12ActiveTransfersGenCollectionLayout
 };
 
 inline constexpr CalypsoF12ActiveTransfersGenCollectionCell kCollectionColumnHeadersWide[] = {
-    { "cargo", { 112, 190, 744, 36 }, "name", "body", "left", 96, 6 },
-    { "quantity", { 857, 190, 172, 36 }, "count", "data", "right", 64, 1 },
-    { "arrival", { 1030, 190, 172, 36 }, "count", "data", "right", 64, 1 },
+    { "cargo", { 112, 234, 298, 36 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 411, 234, 97, 36 }, "count", "data", "right", 64, 1 },
+    { "arrival", { 509, 234, 97, 36 }, "count", "data", "right", 64, 1 },
+    { "destination", { 607, 234, 297, 36 }, "name", "body", "left", 96, 6 },
+    { "capacity", { 905, 234, 297, 36 }, "name", "body", "left", 96, 6 },
 };
 inline constexpr CalypsoF12ActiveTransfersGenCollectionCell kCollectionRowSlot1CellsWide[] = {
-    { "cargo", { 112, 226, 744, 44 }, "name", "body", "left", 96, 6 },
-    { "quantity", { 857, 226, 172, 44 }, "count", "data", "right", 64, 1 },
-    { "arrival", { 1030, 226, 172, 44 }, "count", "data", "right", 64, 1 },
+    { "cargo", { 112, 270, 298, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 411, 270, 97, 44 }, "count", "data", "right", 64, 1 },
+    { "arrival", { 509, 270, 97, 44 }, "count", "data", "right", 64, 1 },
+    { "destination", { 607, 270, 297, 44 }, "name", "body", "left", 96, 6 },
+    { "capacity", { 905, 270, 297, 44 }, "name", "body", "left", 96, 6 },
 };
 inline constexpr CalypsoF12ActiveTransfersGenCollectionCell kCollectionRowSlot2CellsWide[] = {
-    { "cargo", { 112, 270, 744, 44 }, "name", "body", "left", 96, 6 },
-    { "quantity", { 857, 270, 172, 44 }, "count", "data", "right", 64, 1 },
-    { "arrival", { 1030, 270, 172, 44 }, "count", "data", "right", 64, 1 },
+    { "cargo", { 112, 314, 298, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 411, 314, 97, 44 }, "count", "data", "right", 64, 1 },
+    { "arrival", { 509, 314, 97, 44 }, "count", "data", "right", 64, 1 },
+    { "destination", { 607, 314, 297, 44 }, "name", "body", "left", 96, 6 },
+    { "capacity", { 905, 314, 297, 44 }, "name", "body", "left", 96, 6 },
 };
 inline constexpr CalypsoF12ActiveTransfersGenCollectionCell kCollectionRowSlot3CellsWide[] = {
-    { "cargo", { 112, 314, 744, 44 }, "name", "body", "left", 96, 6 },
-    { "quantity", { 857, 314, 172, 44 }, "count", "data", "right", 64, 1 },
-    { "arrival", { 1030, 314, 172, 44 }, "count", "data", "right", 64, 1 },
+    { "cargo", { 112, 358, 298, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 411, 358, 97, 44 }, "count", "data", "right", 64, 1 },
+    { "arrival", { 509, 358, 97, 44 }, "count", "data", "right", 64, 1 },
+    { "destination", { 607, 358, 297, 44 }, "name", "body", "left", 96, 6 },
+    { "capacity", { 905, 358, 297, 44 }, "name", "body", "left", 96, 6 },
 };
 inline constexpr CalypsoF12ActiveTransfersGenCollectionCell kCollectionRowSlot4CellsWide[] = {
-    { "cargo", { 112, 358, 744, 44 }, "name", "body", "left", 96, 6 },
-    { "quantity", { 857, 358, 172, 44 }, "count", "data", "right", 64, 1 },
-    { "arrival", { 1030, 358, 172, 44 }, "count", "data", "right", 64, 1 },
+    { "cargo", { 112, 402, 298, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 411, 402, 97, 44 }, "count", "data", "right", 64, 1 },
+    { "arrival", { 509, 402, 97, 44 }, "count", "data", "right", 64, 1 },
+    { "destination", { 607, 402, 297, 44 }, "name", "body", "left", 96, 6 },
+    { "capacity", { 905, 402, 297, 44 }, "name", "body", "left", 96, 6 },
 };
 inline constexpr CalypsoF12ActiveTransfersGenCollectionCell kCollectionRowSlot5CellsWide[] = {
-    { "cargo", { 112, 402, 744, 44 }, "name", "body", "left", 96, 6 },
-    { "quantity", { 857, 402, 172, 44 }, "count", "data", "right", 64, 1 },
-    { "arrival", { 1030, 402, 172, 44 }, "count", "data", "right", 64, 1 },
+    { "cargo", { 112, 446, 298, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 411, 446, 97, 44 }, "count", "data", "right", 64, 1 },
+    { "arrival", { 509, 446, 97, 44 }, "count", "data", "right", 64, 1 },
+    { "destination", { 607, 446, 297, 44 }, "name", "body", "left", 96, 6 },
+    { "capacity", { 905, 446, 297, 44 }, "name", "body", "left", 96, 6 },
 };
 inline constexpr CalypsoF12ActiveTransfersGenCollectionCell kCollectionRowSlot6CellsWide[] = {
-    { "cargo", { 112, 446, 744, 44 }, "name", "body", "left", 96, 6 },
-    { "quantity", { 857, 446, 172, 44 }, "count", "data", "right", 64, 1 },
-    { "arrival", { 1030, 446, 172, 44 }, "count", "data", "right", 64, 1 },
+    { "cargo", { 112, 490, 298, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 411, 490, 97, 44 }, "count", "data", "right", 64, 1 },
+    { "arrival", { 509, 490, 97, 44 }, "count", "data", "right", 64, 1 },
+    { "destination", { 607, 490, 297, 44 }, "name", "body", "left", 96, 6 },
+    { "capacity", { 905, 490, 297, 44 }, "name", "body", "left", 96, 6 },
 };
 inline constexpr CalypsoF12ActiveTransfersGenCollectionCell kCollectionRowSlot7CellsWide[] = {
-    { "cargo", { 112, 490, 744, 44 }, "name", "body", "left", 96, 6 },
-    { "quantity", { 857, 490, 172, 44 }, "count", "data", "right", 64, 1 },
-    { "arrival", { 1030, 490, 172, 44 }, "count", "data", "right", 64, 1 },
+    { "cargo", { 112, 534, 298, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 411, 534, 97, 44 }, "count", "data", "right", 64, 1 },
+    { "arrival", { 509, 534, 97, 44 }, "count", "data", "right", 64, 1 },
+    { "destination", { 607, 534, 297, 44 }, "name", "body", "left", 96, 6 },
+    { "capacity", { 905, 534, 297, 44 }, "name", "body", "left", 96, 6 },
 };
 inline constexpr CalypsoF12ActiveTransfersGenCollectionRowSlot kCollectionRowSlotsWide[] = {
-    { "row-slot-1", { 112, 226, 1090, 44 }, kCollectionRowSlot1CellsWide, 3 },
-    { "row-slot-2", { 112, 270, 1090, 44 }, kCollectionRowSlot2CellsWide, 3 },
-    { "row-slot-3", { 112, 314, 1090, 44 }, kCollectionRowSlot3CellsWide, 3 },
-    { "row-slot-4", { 112, 358, 1090, 44 }, kCollectionRowSlot4CellsWide, 3 },
-    { "row-slot-5", { 112, 402, 1090, 44 }, kCollectionRowSlot5CellsWide, 3 },
-    { "row-slot-6", { 112, 446, 1090, 44 }, kCollectionRowSlot6CellsWide, 3 },
-    { "row-slot-7", { 112, 490, 1090, 44 }, kCollectionRowSlot7CellsWide, 3 },
+    { "row-slot-1", { 112, 270, 1090, 44 }, kCollectionRowSlot1CellsWide, 5 },
+    { "row-slot-2", { 112, 314, 1090, 44 }, kCollectionRowSlot2CellsWide, 5 },
+    { "row-slot-3", { 112, 358, 1090, 44 }, kCollectionRowSlot3CellsWide, 5 },
+    { "row-slot-4", { 112, 402, 1090, 44 }, kCollectionRowSlot4CellsWide, 5 },
+    { "row-slot-5", { 112, 446, 1090, 44 }, kCollectionRowSlot5CellsWide, 5 },
+    { "row-slot-6", { 112, 490, 1090, 44 }, kCollectionRowSlot6CellsWide, 5 },
+    { "row-slot-7", { 112, 534, 1090, 44 }, kCollectionRowSlot7CellsWide, 5 },
 };
 inline constexpr int kCollectionRowSlotWideCount = 7;
-inline constexpr CalypsoF12ActiveTransfersGenCollectionMetrics kCollectionMetricsWide = { 1, 7, 1, 7, 1, "record", false, 0, { 1238, 226, 18, 308 }, { 1238, 226, 18, 308 }, { 1212, 226, 44, 308 }, { 1212, 226, 44, 308 }, 0 };
+inline constexpr CalypsoF12ActiveTransfersGenCollectionMetrics kCollectionMetricsWide = { 1, 7, 1, 7, 1, "record", false, 0, { 1238, 270, 18, 308 }, { 1238, 270, 18, 308 }, { 1212, 270, 44, 308 }, { 1212, 270, 44, 308 }, 0 };
 
 inline constexpr CalypsoF12ActiveTransfersGenCollectionCell kCollectionColumnHeadersCompact[] = {
-    { "cargo", { 52, 108, 398, 28 }, "name", "body", "left", 96, 6 },
-    { "quantity", { 451, 108, 114, 28 }, "count", "data", "right", 64, 1 },
-    { "arrival", { 566, 108, 114, 28 }, "count", "data", "right", 64, 1 },
+    { "cargo", { 52, 152, 159, 28 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 212, 152, 75, 28 }, "count", "data", "right", 64, 1 },
+    { "arrival", { 288, 152, 74, 28 }, "count", "data", "right", 64, 1 },
+    { "destination", { 363, 152, 158, 28 }, "name", "body", "left", 96, 6 },
+    { "capacity", { 522, 152, 158, 28 }, "name", "body", "left", 96, 6 },
 };
 inline constexpr CalypsoF12ActiveTransfersGenCollectionCell kCollectionRowSlot1CellsCompact[] = {
-    { "cargo", { 52, 136, 398, 44 }, "name", "body", "left", 96, 6 },
-    { "quantity", { 451, 136, 114, 44 }, "count", "data", "right", 64, 1 },
-    { "arrival", { 566, 136, 114, 44 }, "count", "data", "right", 64, 1 },
+    { "cargo", { 52, 180, 159, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 212, 180, 75, 44 }, "count", "data", "right", 64, 1 },
+    { "arrival", { 288, 180, 74, 44 }, "count", "data", "right", 64, 1 },
+    { "destination", { 363, 180, 158, 44 }, "name", "body", "left", 96, 6 },
+    { "capacity", { 522, 180, 158, 44 }, "name", "body", "left", 96, 6 },
 };
 inline constexpr CalypsoF12ActiveTransfersGenCollectionCell kCollectionRowSlot2CellsCompact[] = {
-    { "cargo", { 52, 180, 398, 44 }, "name", "body", "left", 96, 6 },
-    { "quantity", { 451, 180, 114, 44 }, "count", "data", "right", 64, 1 },
-    { "arrival", { 566, 180, 114, 44 }, "count", "data", "right", 64, 1 },
+    { "cargo", { 52, 224, 159, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 212, 224, 75, 44 }, "count", "data", "right", 64, 1 },
+    { "arrival", { 288, 224, 74, 44 }, "count", "data", "right", 64, 1 },
+    { "destination", { 363, 224, 158, 44 }, "name", "body", "left", 96, 6 },
+    { "capacity", { 522, 224, 158, 44 }, "name", "body", "left", 96, 6 },
 };
 inline constexpr CalypsoF12ActiveTransfersGenCollectionRowSlot kCollectionRowSlotsCompact[] = {
-    { "row-slot-1", { 52, 136, 628, 44 }, kCollectionRowSlot1CellsCompact, 3 },
-    { "row-slot-2", { 52, 180, 628, 44 }, kCollectionRowSlot2CellsCompact, 3 },
+    { "row-slot-1", { 52, 180, 628, 44 }, kCollectionRowSlot1CellsCompact, 5 },
+    { "row-slot-2", { 52, 224, 628, 44 }, kCollectionRowSlot2CellsCompact, 5 },
 };
 inline constexpr int kCollectionRowSlotCompactCount = 2;
-inline constexpr CalypsoF12ActiveTransfersGenCollectionMetrics kCollectionMetricsCompact = { 1, 2, 1, 2, 1, "record", false, 0, { 714, 136, 18, 88 }, { 714, 136, 18, 88 }, { 688, 136, 44, 88 }, { 688, 136, 44, 88 }, 0 };
+inline constexpr CalypsoF12ActiveTransfersGenCollectionMetrics kCollectionMetricsCompact = { 1, 2, 1, 2, 1, "record", false, 0, { 714, 180, 18, 88 }, { 714, 180, 18, 88 }, { 688, 180, 44, 88 }, { 688, 180, 44, 88 }, 0 };
 
 inline constexpr CalypsoF12ActiveTransfersGenCollectionLayout kCollectionsWide[1] = {
-    { "collection", kCollectionColumnHeadersWide, 3, kCollectionRowSlotsWide, 7, 1, { 0, 0, 0, 0 }, kCollectionMetricsWide },
+    { "collection", kCollectionColumnHeadersWide, 5, kCollectionRowSlotsWide, 7, 1, { 0, 0, 0, 0 }, kCollectionMetricsWide },
 };
 inline constexpr int kCollectionLayoutWideCount = 1;
 inline constexpr CalypsoF12ActiveTransfersGenCollectionLayout kCollectionsCompact[1] = {
-    { "collection", kCollectionColumnHeadersCompact, 3, kCollectionRowSlotsCompact, 2, 1, { 0, 0, 0, 0 }, kCollectionMetricsCompact },
+    { "collection", kCollectionColumnHeadersCompact, 5, kCollectionRowSlotsCompact, 2, 1, { 0, 0, 0, 0 }, kCollectionMetricsCompact },
 };
 inline constexpr int kCollectionLayoutCompactCount = 1;
 

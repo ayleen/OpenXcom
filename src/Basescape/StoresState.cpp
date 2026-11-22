@@ -234,6 +234,9 @@ void StoresState::initList()
 
 	// clear everything
 	_itemList.clear();
+#ifdef __EMSCRIPTEN__
+	_availableCategories.clear();
+#endif
 
 	// find relevant items
 	for (auto& itemType : _game->getMod()->getItemsList())
@@ -264,6 +267,9 @@ void StoresState::initList()
 
 		if (qty > 0)
 		{
+#ifdef __EMSCRIPTEN__
+			if (!includeCategory(*rule)) continue;
+#endif
 			_itemList.push_back(StoredItem(rule, tr(itemType), qty, rule->getSize(), qty * rule->getSize()));
 		}
 	}

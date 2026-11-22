@@ -1,4 +1,12 @@
 ru:
+  STR_CAL_LEDGER_ALL_BASES: "Все базы"
+  STR_CAL_LEDGER_THIS_BASE: "Эта база"
+  STR_CAL_LEDGER_BASE_CAPACITY: "Склад базы"
+  STR_CAL_LEDGER_OVER: "Сверх лимита"
+  STR_CAL_LEDGER_CAPACITY: "Вместимость"
+  STR_CAL_LEDGER_ALL_CARGO: "Все грузы"
+  STR_CAL_LEDGER_EARLIEST: "Сначала ближайшие"
+  STR_CAL_LEDGER_LATEST: "Сначала поздние"
   STR_CAL_REPORT_MONTH: "Месяц"
   STR_CAL_MEDIA_TITLE: "Заставка"
   STR_CAL_MEDIA_PAUSE: "Пауза"

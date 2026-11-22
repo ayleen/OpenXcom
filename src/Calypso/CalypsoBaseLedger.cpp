@@ -291,6 +291,9 @@ void CalypsoBaseLedger::refresh()
 CalypsoBaseLedger::CalypsoBaseLedger(StoresState &s)
 	: _chrome(s), _renderer(&s, {})
 {
+	s._hdCategory = new TextButton(1,1,0,0);
+	s.add(s._hdCategory, "button", "storesInfo");
+	s._hdCategory->onMouseClick((ActionHandler)&StoresState::nextCategory);
 	_collect = [this, &s]()
 	{
 		namespace Gen = CalypsoF12StoresGen;
@@ -300,11 +303,13 @@ CalypsoBaseLedger::CalypsoBaseLedger(StoresState &s)
 		auto model = ledgerModel(s, s._txtTitle->getText(), *s._lstStores, s._base, *g, table,
 			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
 			{{"scope", s.tr("STR_CAL_SCOPE"), s._btnGrandTotal->getPressed() ? std::string(s.tr("STR_BASES")) : s._base->getName(), design(g->summary_scope)},
-			 {"items", s.tr("STR_CAL_STORE_TYPES"), std::to_string(s._itemList.size()), design(g->summary_items)}},
+			 {"capacity", s.tr("STR_CAL_LEDGER_BASE_CAPACITY"), s.hdStorageCapacity(false), design(g->summary_capacity)},
+			 {"over", s.tr("STR_CAL_LEDGER_OVER"), s.hdStorageCapacity(true), design(g->summary_over)}},
 			{{s._txtItem->getText(), s._sortName}, {s._txtQuantity->getText(), s._sortQuantity},
 			 {s._txtSize->getText(), s._sortSize}, {s._txtSpaceUsed->getText(), s._sortSpaceUsed}},
-			{{"quick-search", s._btnQuickSearch, s._btnQuickSearch->getText().empty() ? std::string(s.tr("STR_QUICK_SEARCH")) : s._btnQuickSearch->getText(), design(g->action_quick_search)},
-			 {"scope", s._btnGrandTotal, s._btnGrandTotal->getText(), design(g->action_scope), s._btnGrandTotal->getPressed()},
+			{{"category", s._hdCategory, s.tr(s._category.empty() ? "STR_ALL_ITEMS" : s._category), design(g->toolbar_category), false, true},
+			 {"quick-search", s._btnQuickSearch, s._btnQuickSearch->getText().empty() ? std::string(s.tr("STR_QUICK_SEARCH")) : s._btnQuickSearch->getText(), design(g->action_quick_search)},
+			 {"scope", s._btnGrandTotal, s.tr(s._btnGrandTotal->getPressed() ? "STR_CAL_LEDGER_THIS_BASE" : "STR_CAL_LEDGER_ALL_BASES"), design(g->action_scope), s._btnGrandTotal->getPressed()},
 			 {"done", s._btnOk, s._btnOk->getText(), design(g->action_done)}},
 			"STR_CAL_EMPTY_STORES", "STR_CAL_EMPTY_STORES_HINT", 12);
 		model.profileId = Gen::kProfileId;
@@ -328,11 +333,15 @@ CalypsoBaseLedger::CalypsoBaseLedger(TransfersState &s)
 		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
 		auto model = ledgerModel(s, s._txtTitle->getText(), *s._lstTransfers, s._base, *g, table,
 			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
-			{{"base", s.tr("STR_BASE"), s._base->getName(), design(g->summary_base)},
-			 {"inbound", s.tr("STR_CAL_SHIPMENTS"), std::to_string(s._base->getTransfers()->size()), design(g->summary_inbound)},
+			{{"base", s.tr("STR_BASE"), s._allBases ? std::string(s.tr("STR_CAL_LEDGER_ALL_BASES")) : s._base->getName(), design(g->summary_base)},
+			 {"inbound", s.tr("STR_CAL_SHIPMENTS"), std::to_string(s._lstTransfers->getTexts()), design(g->summary_inbound)},
 			 {"next", s.tr("STR_CAL_NEXT_ARRIVAL_HOURS"), s._nextArrivalHours < 0 ? "–" : std::to_string(s._nextArrivalHours), design(g->summary_next)}},
-			{{s._txtItem->getText()}, {s._txtQuantity->getText()}, {s._txtArrivalTime->getText()}},
-			{{"done", s._btnOk, s._btnOk->getText(), design(g->action_done)}},
+			{{s._txtItem->getText()}, {s._txtQuantity->getText()}, {s._txtArrivalTime->getText()}, {s.tr("STR_BASE")}, {s.tr("STR_CAL_LEDGER_CAPACITY")}},
+			{{"scope", s._hdScope, s._hdScope->getText(), design(g->toolbar_scope), s._allBases, true},
+			 {"category", s._hdCategory, s._hdCategory->getText(), design(g->toolbar_category), false, true},
+			 {"sort", s._hdSort, s._hdSort->getText(), design(g->toolbar_sort), false, true},
+			 {"search", s._hdSearch, s._hdSearch->getText().empty() ? std::string(s.tr("STR_QUICK_SEARCH")) : s._hdSearch->getText(), design(g->toolbar_search), false, true},
+			 {"done", s._btnOk, s._btnOk->getText(), design(g->action_done)}},
 			"STR_CAL_EMPTY_TRANSFERS", "STR_CAL_EMPTY_TRANSFERS_HINT", 12);
 		model.profileId = Gen::kProfileId;
 		model.profileVersion = Gen::kProfileVersion;

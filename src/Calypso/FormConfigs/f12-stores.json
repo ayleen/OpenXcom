@@ -25,8 +25,8 @@
     },
     {
       "id": "scope",
-      "label": "GRAND TOTAL",
-      "labelKey": "STR_GRAND_TOTAL",
+      "label": "ALL BASES",
+      "labelKey": "STR_CAL_LEDGER_ALL_BASES",
       "tone": "normal",
       "action": "scope"
     },
@@ -45,9 +45,14 @@
       "value": "Batumi"
     },
     {
-      "id": "items",
-      "label": "ITEM TYPES",
-      "value": "4"
+      "id": "capacity",
+      "label": "STORES",
+      "value": "580/515"
+    },
+    {
+      "id": "over",
+      "label": "OVER",
+      "value": "65"
     }
   ],
   "collection": {
@@ -88,5 +93,12 @@
     ]
   },
   "controls": [],
-  "toolbar": []
+  "toolbar": [
+    {
+      "id": "category",
+      "label": "All items",
+      "action": "category",
+      "tone": "normal"
+    }
+  ]
 }

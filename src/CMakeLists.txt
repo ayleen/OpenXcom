@@ -670,6 +670,7 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src
     Calypso/ContainmentReviewState.cpp
     Calypso/CalypsoBaseManagement.cpp
+    Calypso/CalypsoLogisticsFilters.cpp
     Calypso/CalypsoMissionBriefing.cpp
     Calypso/CalypsoFleetControls.cpp
     Calypso/CalypsoCampaignReports.cpp

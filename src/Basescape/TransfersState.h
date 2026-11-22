@@ -27,6 +27,7 @@ class Base;
 namespace Calypso { class CalypsoBaseLedger; }
 #endif
 class TextButton;
+class TextEdit;
 class Window;
 class Text;
 class TextList;
@@ -40,6 +41,12 @@ class TransfersState : public State
 private:
 #ifdef __EMSCRIPTEN__
 	friend class Calypso::CalypsoBaseLedger;
+	TextButton *_hdScope = nullptr, *_hdCategory = nullptr, *_hdSort = nullptr;
+	TextEdit *_hdSearch = nullptr;
+	bool _allBases = false, _latestFirst = false;
+	int _cargo = -1;
+	void refreshShipments(Action *action);
+	void configureShipmentFilters();
 	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
 #endif
 	Base *_base;

@@ -1,4 +1,12 @@
 en-GB:
+  STR_CAL_LEDGER_ALL_BASES: "All bases"
+  STR_CAL_LEDGER_THIS_BASE: "This base"
+  STR_CAL_LEDGER_BASE_CAPACITY: "Base stores"
+  STR_CAL_LEDGER_OVER: "Over capacity"
+  STR_CAL_LEDGER_CAPACITY: "Capacity"
+  STR_CAL_LEDGER_ALL_CARGO: "All cargo"
+  STR_CAL_LEDGER_EARLIEST: "Earliest first"
+  STR_CAL_LEDGER_LATEST: "Latest first"
   STR_CAL_REPORT_MONTH: "Month"
   STR_CAL_MEDIA_TITLE: "Cutscene"
   STR_CAL_MEDIA_PAUSE: "Pause"
