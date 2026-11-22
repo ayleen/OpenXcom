@@ -240,10 +240,13 @@ bool Economy::accept(int contractId)
 
 bool Economy::deliver(int contractId, Base* base, SavedGame* save, const EconomyRules& r)
 {
-	if (!base || !save) return false;
+	if (!base || !save || !r.enabled || !active() || save->getCalypsoEconomy() != this) return false;
+	const auto &bases = *save->getBases();
+	if (std::find(bases.begin(), bases.end(), base) == bases.end()) return false;
 	for (auto& c : _contracts)
 	{
 		if (c.id != contractId || c.status != Contract::Status::Accepted) continue;
+		if (c.qty <= 0 || c.deadlineMonth <= save->getMonthsPassed()) return false;
 		ItemContainer* store = base->getStorageItems();
 		if (store->getItem(c.itemId) < c.qty) return false;   // not enough in this base
 		store->removeItem(c.itemId, c.qty);

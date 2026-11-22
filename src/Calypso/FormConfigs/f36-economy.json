@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "id": "f36-economy",
+  "familyId": 36,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "logistics-group"
+  },
+  "state": "CalypsoEconomyState",
+  "labelKeys": {
+    "title": "STR_CAL_ECON_TITLE",
+    "done": "STR_OK"
+  },
+  "title": "ECONOMY",
+  "actions": [
+    {
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "action": "done",
+      "tone": "primary"
+    }
+  ],
+  "toolbar": [
+    {
+      "id": "grants",
+      "label": "GRANTS",
+      "labelKey": "STR_CAL_ECON_TAB_GRANTS",
+      "action": "grants",
+      "tone": "normal"
+    },
+    {
+      "id": "contracts",
+      "label": "CONTRACTS",
+      "labelKey": "STR_CAL_ECON_TAB_CONTRACTS",
+      "action": "contracts",
+      "tone": "normal"
+    },
+    {
+      "id": "standing",
+      "label": "STANDING",
+      "labelKey": "STR_CAL_ECON_TAB_STANDING",
+      "action": "standing",
+      "tone": "normal"
+    }
+  ],
+  "summary": [
+    {
+      "id": "funds",
+      "label": "FUNDS",
+      "value": "$100"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "economy-record",
+    "columns": [
+      {
+        "id": "record",
+        "label": "CONSORTIUM",
+        "contentRole": "name"
+      },
+      {
+        "id": "value",
+        "label": "GRANT",
+        "contentRole": "status"
+      },
+      {
+        "id": "detail",
+        "label": "MONTHS",
+        "contentRole": "count"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Consortium",
+          "100",
+          "2"
+        ]
+      }
+    ]
+  },
+  "controls": []
+}

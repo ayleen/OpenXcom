@@ -30,6 +30,7 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoBaseLedger; }
 class TextButton;
 class Window;
 class Text;
@@ -42,6 +43,8 @@ class TextList;
 class CalypsoEconomyState : public State
 {
 private:
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
 	Window *_window;
 	Text *_txtTitle;
 	TextButton *_btnOk;
@@ -61,7 +64,8 @@ public:
 	/// Creates the Calypso Economy state.
 	CalypsoEconomyState();
 	/// Cleans up the Calypso Economy state.
-	~CalypsoEconomyState() override = default;
+	~CalypsoEconomyState() override;
+	void resize(int &dX, int &dY) override;
 	/// Initialises the screen (repopulates the active tab).
 	void init() override;
 	/// Handler for clicking the OK button.

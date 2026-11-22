@@ -8,6 +8,8 @@
 #include "CalypsoHdRuntimeDiagnostics.h"
 #include "CalypsoPauseMenu.h"
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoEconomyState.h"
+#include "CalypsoContractDeliverState.h"
 #include "CalypsoHdOperationsChrome.h"
 #include "CalypsoErrorPopupUi.h"
 #include "../Menu/ErrorMessageState.h"
@@ -1434,6 +1436,18 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 			}
 		}
 		return new SellState(marketBase, nullptr);
+	}
+	case CalypsoHarnessScenario::F36Economy:
+	case CalypsoHarnessScenario::F37ContractDelivery:
+	{
+		auto *game = getCurrentGame();
+		if (!game || !game->getMod() || !prepareOperationsSave(game)) return nullptr;
+		if (id == CalypsoHarnessScenario::F36Economy) return new CalypsoEconomyState();
+		const auto *economy = game->getSavedGame()->getCalypsoEconomy();
+		if (economy)
+			for (const auto &c : economy->getContracts())
+				if (c.status == Contract::Status::Accepted) return new CalypsoContractDeliverState(c.id);
+		return new CalypsoContractDeliverState(-1);
 	}
 	case CalypsoHarnessScenario::F36Market:
 	{

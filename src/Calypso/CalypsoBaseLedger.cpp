@@ -1,5 +1,9 @@
 #ifdef __EMSCRIPTEN__
 #include "CalypsoBaseLedger.h"
+#include "CalypsoContractDeliverState.h"
+#include "Generated/CalypsoF37ContractDelivery.generated.h"
+#include "CalypsoEconomyState.h"
+#include "Generated/CalypsoF36Economy.generated.h"
 #include "CommandCenter/CommandCenterRenderer.h"
 #include "CalypsoHdOperationsFluid.h"
 #include "CalypsoHdOperationsLayout.h"
@@ -30,6 +34,7 @@
 #include "../Interface/ToggleTextButton.h"
 #include "../Interface/Window.h"
 #include "../Savegame/Base.h"
+#include "../Savegame/SavedGame.h"
 
 namespace OpenXcom { namespace Calypso {
 namespace
@@ -96,7 +101,7 @@ CalypsoHdOperationsModel ledgerModel(State &state, const std::string &title, Tex
 	model.headerArtId = familyId == 13 ? "base-research" : familyId == 2 ? "base-build" : "logistics-group";
 	model.presentation = "table-context";
 	model.title = CommandCenter::calypsoHdNormalizeTtfDisplayText(title);
-	model.sectionLabel = state.tr(familyId == 13 ? "STR_ALIEN_CONTAINMENT" : familyId == 2 ? "STR_BASE_INFORMATION" : "STR_CAL_INVENTORY_SECTION");
+	model.sectionLabel = state.tr(familyId == 36 || familyId == 37 ? "STR_CAL_ECON_TITLE" : familyId == 13 ? "STR_ALIEN_CONTAINMENT" : familyId == 2 ? "STR_BASE_INFORMATION" : "STR_CAL_INVENTORY_SECTION");
 	model.baseCaption = state.tr("STR_BASES");
 	if (base) model.baseName = base->getName();
 	model.readiness.contractReady = true;
@@ -442,6 +447,69 @@ CalypsoBaseLedger::CalypsoBaseLedger(ContainmentReviewState &s)
 			{{"confirm", s._confirm, s._confirm->getText(), design(g->action_confirm)},
 			 {"done", s._cancel, s._cancel->getText(), design(g->action_done)}},
 			"STR_CAL_NO_SPECIMENS", "STR_CAL_EMPTY_CELLS_HINT", 13);
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+CalypsoBaseLedger::CalypsoBaseLedger(CalypsoEconomyState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]()
+	{
+		namespace Gen = CalypsoF36EconomyGen;
+		const bool wide = wideLayout();
+		const auto *g = Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		const char *headers[][3] = {
+			{"STR_CAL_COUNTERPARTY", "STR_CAL_GRANT", "STR_CAL_MONTHS"},
+			{"STR_CAL_CONTRACT", "STR_CAL_REWARD", "STR_CAL_STATUS"},
+			{"STR_CAL_COUNTERPARTY", "STR_CAL_TIER", "STR_CAL_ECON_TAB_STANDING"}
+		};
+		const auto &col = headers[s._tab];
+		auto *save = getCurrentGame()->getSavedGame();
+		const auto *economy = save->getCalypsoEconomy();
+		const char *empty = economy && economy->active() ? "STR_CAL_NO_RECORDS" : "STR_CAL_ECON_UNAVAILABLE";
+		auto model = ledgerModel(s, s._txtTitle->getText(), *s._lstMain, nullptr, *g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"funds", s.tr("STR_CAL_FUNDS"), Unicode::formatFunding(save->getFunds()), design(g->summary_funds)}},
+			{{s.tr(col[0])}, {s.tr(col[1])}, {s.tr(col[2])}},
+			{{"grants", s._btnGrants, s._btnGrants->getText(), design(g->toolbar_grants), s._tab == 0, true},
+			 {"contracts", s._btnContracts, s._btnContracts->getText(), design(g->toolbar_contracts), s._tab == 1, true},
+			 {"standing", s._btnStanding, s._btnStanding->getText(), design(g->toolbar_standing), s._tab == 2, true},
+			 {"done", s._btnOk, s._btnOk->getText(), design(g->action_done)}},
+			empty, "STR_CAL_ECON_EMPTY_HINT", 36);
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+CalypsoBaseLedger::CalypsoBaseLedger(CalypsoContractDeliverState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]()
+	{
+		namespace Gen = CalypsoF37ContractDeliveryGen;
+		const bool wide = wideLayout();
+		const auto *g = Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		const bool review = s._selected != nullptr;
+		auto model = ledgerModel(s, s._txtTitle->getText(), *s._lstBases, nullptr, *g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"quantity", s.tr("STR_QUANTITY_UC"), std::to_string(s._quote.qty), design(g->summary_quantity)},
+			 {"reward", s.tr("STR_CAL_REWARD"), Unicode::formatFunding(s._quote.rewardTotal), design(g->summary_reward)}},
+			{{s.tr(review ? "STR_CAL_BASE_MEASURE" : "STR_BASE")}, {s.tr(review ? "STR_CAL_BEFORE" : "STR_CAL_HELD")}, {s.tr("STR_CAL_AFTER")}},
+			{{"deliver", s._btnDeliver, s._btnDeliver->getText(), design(g->action_deliver)},
+			 {"done", s._btnCancel, s._btnCancel->getText(), design(g->action_done)}},
+			s._notice.empty() ? "STR_CAL_ECON_DELIVER_NONE" : s._notice.c_str(), "STR_CAL_ECON_EMPTY_HINT", 37);
 		model.profileId = Gen::kProfileId;
 		model.profileVersion = Gen::kProfileVersion;
 		model.provenance = Gen::kProvenanceTemplate;
