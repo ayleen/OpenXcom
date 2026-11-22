@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "AlienBaseState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoContactNotice.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
 #include "../Engine/LocalizedText.h"
@@ -56,11 +60,7 @@ AlienBaseState::AlienBaseState(AlienBase *base, GeoscapeState *state) : _state(s
 	add(_txtTitle, "button", "alienBase");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
+
 
 
 	// Set up objects
@@ -115,6 +115,15 @@ AlienBaseState::AlienBaseState(AlienBase *base, GeoscapeState *state) : _state(s
 	{
 		_txtTitle->setText(tr("STR_XCOM_AGENTS_HAVE_LOCATED_AN_ALIEN_BASE_IN_REGION").arg(location));
 	}
+#ifdef __EMSCRIPTEN__
+	const State *underlay = _state;
+	if (!Calypso::CalypsoHdUiOverlay::instance().hasRegisteredState(underlay)) underlay = nullptr;
+	_screen = !underlay;
+	_btnOk->setText(tr("STR_CAL_CENTER_BASE"));
+	_notice = new Calypso::CalypsoContactNotice(Calypso::ContactNoticeType::BaseDiscovered,
+		this, underlay, _game->getMod(), _window, _txtTitle, _btnOk, tr("STR_CAL_DISCOVERED_BASE"));
+	enableUiScaling(_notice->designWidth(), _notice->designHeight(), 1.0f, false);
+#endif
 }
 
 /**
@@ -122,6 +131,9 @@ AlienBaseState::AlienBaseState(AlienBase *base, GeoscapeState *state) : _state(s
  */
 AlienBaseState::~AlienBaseState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _notice;
+#endif
 
 }
 
@@ -137,3 +149,14 @@ void AlienBaseState::btnOkClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void AlienBaseState::resize(int &dX, int &dY)
+{
+	if (!_notice) { State::resize(dX, dY); return; }
+	_notice->layout();
+	recaptureUiScaling(_notice->designWidth(), _notice->designHeight(), 1.0f, false);
+}
+}
+#endif

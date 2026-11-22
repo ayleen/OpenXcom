@@ -781,3 +781,5 @@ en-US:
   STR_FOR_DIFFICULTY: "for difficulty: {0}"
 #UfopaediaSelectState.cpp
   STR_NOT_AWARDED_YET: "Not awarded yet"
+  STR_CAL_CENTER_BASE: "Center Base"
+  STR_CAL_DISCOVERED_BASE: "Base discovered"

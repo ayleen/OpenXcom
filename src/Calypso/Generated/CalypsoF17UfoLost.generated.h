@@ -4,11 +4,15 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF17UfoLostGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kFormId = "f17-ufo-lost";
 inline constexpr int kFamilyId = 17;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f17-ufo-lost.json";
+inline constexpr const char* kProtocol = "TACTICAL NOTICE F17-UFO-LOST";
+inline constexpr const char* kTitle = "TRACKING LOST";
+inline constexpr const char* kMessage[] = { "Contact has been lost." };
+inline constexpr int kMessageCount = 1;
 
 inline constexpr const char* kDensityProfile = "brief-acknowledgement";
 inline constexpr int kPresentationScaleNumerator = 2;
@@ -17,7 +21,7 @@ inline constexpr float kPresentationScale = 0.666667f;
 
 struct CalypsoF17UfoLostGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
 inline constexpr CalypsoF17UfoLostGenButton kButtons[] = {
-    { "ok", "OK", "safe", "ok", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
+    { "ok", "ACKNOWLEDGE", "safe", "ok", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
 };
 inline constexpr int kButtonCount = 1;
 
@@ -31,18 +35,22 @@ inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
 inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
 inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
 inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
+inline constexpr std::uint32_t kDestructiveFill = 0xF25F5CFFu;
+inline constexpr std::uint32_t kDestructiveText = 0x071013FFu;
+inline constexpr std::uint32_t kSafeBorder = 0x74FFB0CCu;
+inline constexpr std::uint32_t kSafeFill = 0x051417B8u;
 
 struct CalypsoF17UfoLostGenRect { int x; int y; int w; int h; };
 struct CalypsoF17UfoLostGenLayout { int designWidth; int designHeight; CalypsoF17UfoLostGenRect window; CalypsoF17UfoLostGenRect status; CalypsoF17UfoLostGenRect warning; CalypsoF17UfoLostGenRect title; CalypsoF17UfoLostGenRect message; CalypsoF17UfoLostGenRect footer;
 };
 inline constexpr CalypsoF17UfoLostGenLayout kLayouts[] = {
-    { 1280, 720, { 544, 269, 192, 158 }, { 544, 269, 192, 25 }, { 565, 309, 22, 21 }, { 597, 305, 118, 29 }, { 565, 338, 150, 40 }, { 544, 379, 192, 48 } }, // wide
-    { 740, 360, { 284, 97, 172, 147 }, { 284, 97, 172, 23 }, { 303, 131, 18, 19 }, { 331, 128, 106, 25 }, { 303, 153, 134, 40 }, { 284, 196, 172, 48 } }, // compact
+    { 1280, 720, { 511, 269, 258, 158 }, { 511, 269, 258, 25 }, { 532, 309, 22, 21 }, { 564, 305, 184, 29 }, { 532, 338, 216, 40 }, { 511, 379, 258, 48 } }, // wide
+    { 740, 360, { 254, 97, 232, 147 }, { 254, 97, 232, 23 }, { 273, 131, 18, 19 }, { 301, 128, 166, 25 }, { 273, 153, 194, 40 }, { 254, 196, 232, 48 } }, // compact
 };
 struct CalypsoF17UfoLostGenButtonRect { const char* id; CalypsoF17UfoLostGenRect rect; };
 inline constexpr CalypsoF17UfoLostGenButtonRect kButtonRects[][ 1 ] = {
-    { { "ok", { 609, 388, 106, 29 } } }, // wide
-    { { "ok", { 339, 205, 98, 29 } } }, // compact
+    { { "ok", { 643, 388, 105, 29 } } }, // wide
+    { { "ok", { 369, 205, 98, 29 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

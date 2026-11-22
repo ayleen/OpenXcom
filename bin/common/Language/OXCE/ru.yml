@@ -663,3 +663,5 @@ ru:
   STR_RACE_BONUS: "Бонус при преслед."
   STR_FOR_DIFFICULTY: "для ур-ня сложности: {0}"
   STR_NOT_AWARDED_YET: "Еще не вручались"
+  STR_CAL_CENTER_BASE: "Показать базу"
+  STR_CAL_DISCOVERED_BASE: "Обнаружена база"

@@ -96,6 +96,9 @@
 #include "../Geoscape/ResearchRequiredState.h"
 #include "../Geoscape/ResearchCompleteState.h"
 #include "../Geoscape/UfoLostState.h"
+#include "../Geoscape/AlienBaseState.h"
+#include "../Savegame/AlienBase.h"
+#include "../Mod/AlienDeployment.h"
 #include "../Geoscape/UfoDetectedState.h"
 #include "../Geoscape/GeoscapeState.h"
 #include "../Geoscape/Globe.h"
@@ -1534,7 +1537,24 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	case CalypsoHarnessScenario::F28ConfirmEnd:
 		return new CraftErrorState(nullptr, "Confirm end of mission?");
 	case CalypsoHarnessScenario::F17UfoLost:
-		return new CraftErrorState(nullptr, "Contact with UFO has been lost.");
+		return new UfoLostState("Contact 17");
+	case CalypsoHarnessScenario::F17AlienBase:
+	{
+		Game *game = getCurrentGame();
+		if (!makeOperationsFixture(game, false, false).base) return nullptr;
+		for (const auto &id : game->getMod()->getDeploymentsList())
+		{
+			auto *deployment = game->getMod()->getDeployment(id);
+			if (!deployment || !deployment->isAlienBase()) continue;
+			auto *base = new AlienBase(deployment, 0);
+			base->setDiscovered(true);
+			game->getSavedGame()->getAlienBases()->push_back(base);
+			auto *globe = new GeoscapeState();
+			game->pushState(globe);
+			return new AlienBaseState(base, globe);
+		}
+		return nullptr;
+	}
 	case CalypsoHarnessScenario::F17UfoDetected:
 	{
 		// The S01 board renders real contact data, so this fixture builds a

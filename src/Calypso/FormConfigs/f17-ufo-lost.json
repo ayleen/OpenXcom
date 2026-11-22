@@ -11,10 +11,9 @@
     "revision": "1.0.21",
     "effectiveDate": "15.07.2061"
   },
-  "title": "UFO LOST",
+  "title": "TRACKING LOST",
   "body": [
-    "Contact with UFO",
-    "has been lost."
+    "Contact has been lost."
   ],
   "icon": {
     "kind": "warning",
@@ -24,7 +23,7 @@
   "buttons": [
     {
       "id": "ok",
-      "label": "OK",
+      "label": "ACKNOWLEDGE",
       "tone": "safe",
       "action": "ok"
     }
