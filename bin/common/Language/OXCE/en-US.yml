@@ -1,4 +1,11 @@
 en-US:
+  STR_CAL_PRE_FLIGHT: "Pre-flight"
+  STR_CAL_BASE_TRANSFER: "Transfer base"
+  STR_CAL_CONFIRM_COURSE: "Confirm course"
+  STR_CAL_LEAD_SUBMARINE: "Lead submarine"
+  STR_CAL_FLEET_MAX_SPEED: "Maximum speed"
+  STR_CAL_FLEET_ETA: "ETA"
+  STR_CAL_ASSIGNED_PILOTS: "Pilots assigned / required"
   STR_CAL_FLEET_MAP: "Geoscape"
   STR_CAL_FLEET_TARGET: "Target"
   STR_CAL_FLEET_FUEL: "Fuel"

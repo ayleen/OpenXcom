@@ -19,6 +19,7 @@
 #include "InterceptState.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoHdOperationsRenderer.h"
+#include "../Calypso/CalypsoHdOperationsChrome.h"
 #include "../Calypso/CalypsoHdUiOverlay.h"
 #endif
 #include <sstream>
@@ -426,6 +427,7 @@ InterceptState::InterceptState(Globe *globe, bool useCustomSound, Base *base, Ta
 	_fleetView = new Calypso::CalypsoHdOperationsRenderer(this, fleetModel());
 	_fleetView->setModelProvider([this] { return fleetModel(); });
 	Calypso::CalypsoHdUiOverlay::instance().registerAdapter(_fleetView);
+	Calypso::calypsoHdOperationsPublishHarnessVisibility();
 #endif
 
 }

@@ -125,7 +125,8 @@ enum class CalypsoHarnessScenario
 	F05TransformationList = 127,
 	F05TransformationReview = 128,
 	F18PatrolArrival = 146,
-	F18InterceptFleet = 147
+	F18InterceptFleet = 147,
+	F18CourseConfirm = 148
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -141,6 +142,7 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F03Dismantle)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F04SackSoldier)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F18CraftError)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F18CourseConfirm)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F18InterceptFleet)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F18PatrolArrival)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F18LowFuel)
