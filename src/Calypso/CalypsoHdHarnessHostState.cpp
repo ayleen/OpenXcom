@@ -2030,6 +2030,7 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		if (!makeOperationsFixture(game, false, false).base) return nullptr;
 		auto *globe = new GeoscapeState();
 		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
 		if (id == CalypsoHarnessScenario::F16ExtendedLinks)
 			return new ExtendedGeoscapeLinksState(globe);
 		return new SelectMusicTrackState(SMT_GEOSCAPE);
@@ -2041,6 +2042,7 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		if (!fixture.research) return nullptr;
 		auto *viewer = new TechTreeViewerState(fixture.research);
 		game->pushState(viewer);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), viewer);
 		return new TechTreeSelectState(viewer);
 	}
 	case CalypsoHarnessScenario::F15TechTree:
