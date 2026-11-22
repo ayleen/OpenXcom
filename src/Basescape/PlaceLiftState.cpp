@@ -192,6 +192,10 @@ void PlaceLiftState::finishPlacement(Base *base, Globe *globe, bool first, const
 		_game->getMod()->getSound("GEO.CAT", fac->getRules()->getPlaceSound())->play();
 	}
 	_game->popState();
+#ifdef __EMSCRIPTEN__
+	if (first && _game->getMod()->getCustomBaseFacilities(_game->getSavedGame()->getDifficulty()).empty())
+		return;
+#endif
 	BasescapeState *bState = new BasescapeState(base, globe);
 	_game->getSavedGame()->setSelectedBase(_game->getSavedGame()->getBases()->size() - 1);
 	_game->pushState(bState);
