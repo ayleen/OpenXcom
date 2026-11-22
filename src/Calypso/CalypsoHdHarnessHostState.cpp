@@ -122,6 +122,8 @@
 #include "../Geoscape/TrainingFinishedState.h"
 #include "../Geoscape/ProductionCompleteState.h"
 #include "../Geoscape/ItemsArrivingState.h"
+#include "../Geoscape/GeoscapeEventState.h"
+#include "../Mod/RuleEvent.h"
 #include "../Geoscape/ResearchRequiredState.h"
 #include "../Geoscape/NewPossibleCraftState.h"
 #include "../Geoscape/NewPossibleFacilityState.h"
@@ -2077,6 +2079,24 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 			}
 		}
 		return nullptr;
+	}
+	case CalypsoHarnessScenario::F24StrategicEvent:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		const auto *events = game->getMod()->getEventList();
+		if (!events->empty()) return new GeoscapeEventState(*game->getMod()->getEvent(events->front(), true));
+		// The stock campaign has no scripted events. A read-only preview
+		// rule supplies translatable narrative and uses the standard event artwork.
+		static const RuleEvent preview = [] {
+			RuleEvent rule("STR_BARRACUDA");
+			rule.load(YAML::YamlRootNodeReader(YAML::YamlString{"description: STR_BARRACUDA_UFOPEDIA"}, "HD event preview"));
+			return rule;
+		}();
+		return new GeoscapeEventState(preview);
 	}
 	case CalypsoHarnessScenario::F24ItemsArriving:
 	{

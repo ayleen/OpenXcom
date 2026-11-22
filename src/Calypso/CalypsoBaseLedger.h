@@ -19,6 +19,7 @@ class MultipleTargetsState;
 class StoresState;
 class TransfersState;
 class ItemsArrivingState;
+class GeoscapeEventState;
 class ProductionCompleteState;
 class Base;
 class TextList;
@@ -48,6 +49,7 @@ public:
 	explicit CalypsoBaseLedger(TransfersState &state);
 	explicit CalypsoBaseLedger(ItemLocationsState &state);
 	explicit CalypsoBaseLedger(ItemsArrivingState &state);
+	explicit CalypsoBaseLedger(GeoscapeEventState &state);
 	explicit CalypsoBaseLedger(ProductionCompleteState &state);
 	CalypsoBaseLedger(State &state, Base *base, Text &title, TextList &possibilities,
 		TextButton &openDestination, TextButton &ok);

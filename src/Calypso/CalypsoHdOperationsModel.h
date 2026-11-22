@@ -479,6 +479,7 @@ struct CalypsoHdOperationsModel
 	CalypsoHdOperationsCollection collection;
 	std::string visualShell;
 	std::string headerArtId;
+	std::string headerImageSource;
 	std::string baseCaption;
 	std::string baseName;
 	std::string sectionLabel;

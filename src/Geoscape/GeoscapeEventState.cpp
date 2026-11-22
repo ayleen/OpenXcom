@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "GeoscapeEventState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
 #include "GeoscapeState.h"
 #include <map>
 #include "../Basescape/SellState.h"
@@ -55,10 +59,13 @@ namespace OpenXcom
  */
 GeoscapeEventState::GeoscapeEventState(const RuleEvent& eventRule) : _eventRule(eventRule)
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_window = new Window(this, 256, 176, 32, 12);
+#else
 	_screen = false;
-
-	// Create objects
 	_window = new Window(this, 256, 176, 32, 12, POPUP_BOTH);
+#endif
 	_txtTitle = new Text(236, 32, 42, 23);
 	_txtMessage = new Text(236, 96, 42, 58);
 	_btnOk = new TextButton(108, 18, 48, 158);
@@ -80,11 +87,7 @@ GeoscapeEventState::GeoscapeEventState(const RuleEvent& eventRule) : _eventRule(
 	add(_lstTransfers, "list", "geoscapeEvent");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
+
 
 	// Set up objects
 	_window->setBackground(_game->getMod()->getSurface(_eventRule.getBackground()));
@@ -119,6 +122,11 @@ GeoscapeEventState::GeoscapeEventState(const RuleEvent& eventRule) : _eventRule(
 	_lstTransfers->setBackground(_window);
 	_lstTransfers->setMargin(2);
 
+#ifdef __EMSCRIPTEN__
+	const auto *bases = _game->getSavedGame()->getBases();
+	if (bases->empty() || !bases->front())
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Strategic event requires a destination base");
+#endif
 	eventLogic();
 
 	_txtItem->setVisible(false);
@@ -134,6 +142,14 @@ GeoscapeEventState::GeoscapeEventState(const RuleEvent& eventRule) : _eventRule(
 		_btnOk->setX((_btnOk->getX() + _btnItemsArriving->getX()) / 2);
 		_btnItemsArriving->setVisible(false);
 	}
+#ifdef __EMSCRIPTEN__
+	_narrative = new TextList(216, 80, 42, 69);
+	add(_narrative, "list", "geoscapeEvent");
+	_narrative->setColumns(2, 40, 170);
+	_narrative->setSelectable(true);
+	if (_lstTransfers->getTexts() == 0) _btnItemsArriving->setVisible(false);
+	_ledger = new Calypso::CalypsoBaseLedger(*this);
+#endif
 }
 
 /**
@@ -524,7 +540,9 @@ void GeoscapeEventState::eventLogic()
  */
 GeoscapeEventState::~GeoscapeEventState()
 {
-	// Empty by design
+#ifdef __EMSCRIPTEN__
+	delete _ledger;
+#endif
 }
 
 /**
@@ -601,6 +619,18 @@ void GeoscapeEventState::btnItemsArrivingClick(Action *)
 
 		_txtMessage->setVisible(true);
 	}
+#ifdef __EMSCRIPTEN__
+	_narrative->setVisible(!_lstTransfers->getVisible());
+	_ledger->refresh();
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void GeoscapeEventState::resize(int &dX, int &dY)
+{
+	if (_ledger) _ledger->refresh();
+	else State::resize(dX, dY);
+}
+#endif
 
 }

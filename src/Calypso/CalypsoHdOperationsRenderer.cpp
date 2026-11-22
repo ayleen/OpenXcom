@@ -729,7 +729,7 @@ void collectOperationsShell(CalypsoHdFrameBuilder& builder,
 	addPanel(builder, model, "screen-header", order++, g.screenHeader,
 		model.style.regionFill, model.style.regionFill);
 	addImage(builder, model, "screen-header-art", order++, g.headerArt,
-		operationsArtSource(model.headerArtId), 0.9f);
+		model.headerImageSource.empty() ? operationsArtSource(model.headerArtId) : model.headerImageSource, 0.9f);
 	const CalypsoHdOperationsRect breadcrumb{
 		g.title.x, g.screenHeader.y + (wide ? 8 : 3), g.title.w, wide ? 14 : 9};
 	addText(builder, model, model.monoFont, typography.labelPx, "breadcrumb", order++,

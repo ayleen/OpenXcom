@@ -23,6 +23,7 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoBaseLedger; }
 class TextButton;
 class TextList;
 class ToggleTextButton;
@@ -62,8 +63,12 @@ public:
 	/// Handler for clicking the ItemsArriving button.
 	void btnItemsArrivingClick(Action *action);
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+	void resize(int &dX, int &dY) override;
+private:
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_ledger = nullptr;
+	TextList *_narrative = nullptr;
+	int _narrativeWidth = 0, _narrativeFont = 0, _narrativeMinimumRows = 0;
 #endif
 };
 

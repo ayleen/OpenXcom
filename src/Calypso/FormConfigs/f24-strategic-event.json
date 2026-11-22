@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "id": "f24-strategic-event",
+  "familyId": 24,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "logistics-group"
+  },
+  "state": "GeoscapeEventState",
+  "labelKeys": {
+    "title": "STR_CAL_EVENT_REPORT",
+    "summary": "STR_SUMMARY",
+    "done": "STR_OK"
+  },
+  "title": "STRATEGIC EVENT",
+  "actions": [
+    {
+      "id": "summary",
+      "label": "SUMMARY",
+      "labelKey": "STR_SUMMARY",
+      "action": "summary",
+      "tone": "normal"
+    },
+    {
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "tone": "primary",
+      "action": "done"
+    }
+  ],
+  "summary": [
+    {
+      "id": "base",
+      "label": "BASE",
+      "value": "Batumi"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "event-line",
+    "columns": [
+      {
+        "id": "item",
+        "label": "ITEM",
+        "contentRole": "category"
+      },
+      {
+        "id": "value",
+        "label": "VALUE",
+        "contentRole": "name"
+      }
+    ],
+    "items": [
+      {
+        "id": "report",
+        "values": [
+          "Report",
+          "Activity at the listening post."
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": []
+}

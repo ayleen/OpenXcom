@@ -35,6 +35,10 @@
 #include "../Basescape/StoresState.h"
 #include "../Basescape/TransfersState.h"
 #include "../Geoscape/ItemsArrivingState.h"
+#include "../Geoscape/GeoscapeEventState.h"
+#include "../Mod/RuleEvent.h"
+#include "../Interface/ToggleTextButton.h"
+#include "Generated/CalypsoF24StrategicEvent.generated.h"
 #include "../Geoscape/ProductionCompleteState.h"
 #include "CalypsoReportLines.h"
 #include "Generated/CalypsoF24ProductionComplete.generated.h"
@@ -752,6 +756,49 @@ CalypsoBaseLedger::CalypsoBaseLedger(ProductionCompleteState &s)
 			"STR_CAL_NO_RECORDS", "STR_RANDOM_PRODUCTION_SUMMARY", 24);
 		model.sectionLabel = s.tr("STR_PRODUCTION_OVERVIEW");
 		model.headerArtId = Gen::kHeaderArt;
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+
+CalypsoBaseLedger::CalypsoBaseLedger(GeoscapeEventState &s)
+	: _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s]() {
+		namespace Gen = CalypsoF24StrategicEventGen;
+		const bool wide = wideLayout();
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		const auto &type = wide ? Gen::kTypographyWide : Gen::kTypographyCompact;
+		const bool summary = s._lstTransfers->getVisible();
+		const int width = table.columns[1].rect.w;
+		const auto frame = CalypsoHdOperationsFluidFrame::forReference(g.designWidth, g.designHeight, g.footer.x, g.footer.w);
+		const int minRows = s._eventRule.alignBottom() ? frame.selectionListGeometry(design(g.collectionViewport),
+			design(g.collection_row_slot_1), design(g.collection_scroll_track)).visibleRows : 0;
+		if (!summary && (width != s._narrativeWidth || type.body != s._narrativeFont || minRows != s._narrativeMinimumRows))
+		{
+			s._narrative->clearList();
+			calypsoAppendReportText(*s._narrative, *getCurrentGame()->getMod(), "", s._txtMessage->getText(), width, type.body, minRows);
+			s._narrativeMinimumRows = minRows;
+			s._narrativeWidth = width;
+			s._narrativeFont = type.body;
+		}
+		auto *base = getCurrentGame()->getSavedGame()->getBases()->front();
+		auto model = ledgerModel(s, s._txtTitle->getText(), *(summary ? s._lstTransfers : s._narrative),
+			base, g, table, Gen::kProfileStyle, type,
+			{{"base", s.tr("STR_BASE"), base->getName(), design(g.summary_base)}},
+			{{s.tr(summary ? "STR_ITEM" : "STR_TYPE")}, {s.tr(summary ? "STR_QUANTITY_UC" : "STR_CAL_EVENT_REPORT")}},
+			{{"summary", s._btnItemsArriving, s._btnItemsArriving->getText(), design(g.action_summary), summary},
+			 {"done", s._btnOk, s._btnOk->getText(), design(g.action_done)}},
+			"STR_CAL_NO_RECORDS", "STR_CAL_EVENT_REPORT", 24);
+		model.sectionLabel = s.tr("STR_CAL_EVENT_REPORT");
+		model.headerArtId = Gen::kHeaderArt;
+		model.headerImageSource = "ruleset-art:" + s._eventRule.getBackground();
 		model.profileId = Gen::kProfileId;
 		model.profileVersion = Gen::kProfileVersion;
 		model.provenance = Gen::kProvenanceTemplate;

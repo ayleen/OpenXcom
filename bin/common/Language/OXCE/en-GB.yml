@@ -189,6 +189,7 @@ en-GB:
   STR_CAL_REMOVED: "Remove"
   STR_CAL_STORES_OVER: "Over capacity after removal"
   STR_CAL_PROCEEDS: "Sale proceeds"
+  STR_CAL_EVENT_REPORT: "Event report"
   STR_CAL_RESULT: "Result"
   STR_CAL_CONTAINMENT_LESS: "Decrease"
   STR_CAL_CONTAINMENT_MORE: "Increase"

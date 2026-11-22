@@ -1142,6 +1142,25 @@
       "harnessScenarioIds": [
         77
       ]
+    },
+    {
+      "id": "f24-strategic-event",
+      "contract": "f24-strategic-event.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {
+        "namespace": "CalypsoF24StrategicEventGen",
+        "prefix": "CalypsoF24StrategicEvent",
+        "output": "CalypsoF24StrategicEvent.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF24StrategicEvent",
+        "output": "f24-strategic-event.js"
+      },
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [
+        180
+      ]
     }
   ]
 }
