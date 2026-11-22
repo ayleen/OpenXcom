@@ -1,5 +1,6 @@
 #ifdef __EMSCRIPTEN__
 #include "CalypsoResearchNotice.h"
+#include <algorithm>
 #include "CalypsoHdHarnessHostState.h"
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoViewportRuntime.h"
@@ -142,6 +143,8 @@ void CalypsoResearchNotice::collect(CalypsoHdFrameBuilder &builder) const
 			int(std::lround(r.w * scale)), int(std::lround(r.h * scale))};
 	};
 	for (auto *r : {&m.window, &m.status, &m.warning, &m.title, &m.message, &m.footer}) project(*r);
+	m.buttons.erase(std::remove_if(m.buttons.begin(), m.buttons.end(),
+		[](const auto &button) { return !button.widget->getVisible(); }), m.buttons.end());
 	for (auto &button : m.buttons) project(button.rect);
 	m.protocolText = _context;
 	m.instance = _owner;

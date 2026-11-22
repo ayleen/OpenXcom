@@ -2646,7 +2646,13 @@ void GeoscapeState::time1Day()
 			saveGame->getAvailableResearchProjects(after, mod, xbase);
 			std::vector<RuleResearch *> newPossibleResearch;
 			saveGame->getNewlyAvailableResearchProjects(before, after, newPossibleResearch);
-			popup(new NewPossibleResearchState(xbase, newPossibleResearch));
+#ifdef __EMSCRIPTEN__
+			if (std::any_of(newPossibleResearch.begin(), newPossibleResearch.end(),
+				[saveGame](const RuleResearch *rule) { return NewPossibleResearchState::eligible(*saveGame, rule); }))
+#endif
+			{
+				popup(new NewPossibleResearchState(xbase, newPossibleResearch));
+			}
 			// 3i. inform about new possible manufacture, purchase, craft and facilities
 			std::vector<RuleManufacture *> newPossibleManufacture;
 			saveGame->getDependableManufacture(newPossibleManufacture, research, mod, xbase);

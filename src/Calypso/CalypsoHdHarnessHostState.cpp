@@ -95,8 +95,6 @@
 #include "../Geoscape/DogfightErrorState.h"
 #include "../Geoscape/ConfirmLandingState.h"
 #include "../Geoscape/ConfirmCydoniaState.h"
-#include "../Geoscape/ResearchRequiredState.h"
-#include "../Geoscape/ResearchCompleteState.h"
 #include "../Geoscape/UfoLostState.h"
 #include "../Geoscape/AlienBaseState.h"
 #include "../Geoscape/MissionDetectedState.h"
@@ -125,6 +123,11 @@
 #include "../Geoscape/ProductionCompleteState.h"
 #include "../Geoscape/ItemsArrivingState.h"
 #include "../Geoscape/ResearchRequiredState.h"
+#include "../Geoscape/NewPossibleCraftState.h"
+#include "../Geoscape/NewPossibleFacilityState.h"
+#include "../Geoscape/NewPossibleManufactureState.h"
+#include "../Geoscape/NewPossiblePurchaseState.h"
+#include "../Geoscape/NewPossibleResearchState.h"
 #include "../Geoscape/ResearchCompleteState.h"
 #include "../Battlescape/AbortMissionState.h"
 #include "../Battlescape/ConfirmEndMissionState.h"
@@ -2032,6 +2035,38 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		game->pushState(state);
 		state->increaseByValue(1);
 		return new ContainmentReviewState(*state, ContainmentAction::Remove);
+	}
+	case CalypsoHarnessScenario::F24UnlockCraft:
+	case CalypsoHarnessScenario::F24UnlockFacility:
+	case CalypsoHarnessScenario::F24UnlockManufacture:
+	case CalypsoHarnessScenario::F24UnlockPurchase:
+	case CalypsoHarnessScenario::F24UnlockResearch:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		auto *base = game->getSavedGame()->getBases()->front();
+		auto *mod = game->getMod();
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		if (id == CalypsoHarnessScenario::F24UnlockCraft && !mod->getCraftsList().empty())
+			return new NewPossibleCraftState(base, {mod->getCraft(mod->getCraftsList().front(), true)});
+		if (id == CalypsoHarnessScenario::F24UnlockFacility && !mod->getBaseFacilitiesList().empty())
+			return new NewPossibleFacilityState(base, globe->getGlobe(), {mod->getBaseFacility(mod->getBaseFacilitiesList().front(), true)});
+		if (id == CalypsoHarnessScenario::F24UnlockManufacture && !mod->getManufactureList().empty())
+			return new NewPossibleManufactureState(base, {mod->getManufacture(mod->getManufactureList().front(), true)});
+		if (id == CalypsoHarnessScenario::F24UnlockPurchase && !mod->getItemsList().empty())
+			return new NewPossiblePurchaseState(base, {mod->getItem(mod->getItemsList().front(), true)});
+		if (id == CalypsoHarnessScenario::F24UnlockResearch)
+		{
+			for (const auto &name : mod->getResearchList())
+			{
+				auto *rule = mod->getResearch(name);
+				if (NewPossibleResearchState::eligible(*game->getSavedGame(), rule))
+					return new NewPossibleResearchState(base, {rule});
+			}
+		}
+		return nullptr;
 	}
 	case CalypsoHarnessScenario::F24ItemsArriving:
 	{

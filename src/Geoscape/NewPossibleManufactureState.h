@@ -23,6 +23,7 @@ namespace OpenXcom
 {
 
 class Game;
+namespace Calypso { class CalypsoBaseLedger; }
 class Window;
 class TextButton;
 class Text;
@@ -37,6 +38,9 @@ class RuleManufacture;
 class NewPossibleManufactureState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoBaseLedger *_ledger = nullptr;
+#endif
 	Window *_window;
 	Text *_txtTitle;
 	TextList * _lstPossibilities;
@@ -51,8 +55,8 @@ public:
 	/// Handler for clicking the Allocate Manufacture button.
 	void btnManufactureClick(Action *action);
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+	~NewPossibleManufactureState() override;
+	void resize(int &dX, int &dY) override;
 #endif
 };
 

@@ -1098,6 +1098,29 @@
       "harnessScenarioIds": [
         83
       ]
+    },
+    {
+      "id": "f24-unlocks",
+      "contract": "f24-unlocks.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {
+        "namespace": "CalypsoF24UnlocksGen",
+        "prefix": "CalypsoF24Unlocks",
+        "output": "CalypsoF24Unlocks.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF24Unlocks",
+        "output": "f24-unlocks.js"
+      },
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [
+        175,
+        176,
+        177,
+        178,
+        179
+      ]
     }
   ]
 }

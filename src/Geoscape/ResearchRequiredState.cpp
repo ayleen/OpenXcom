@@ -57,6 +57,10 @@ ResearchRequiredState::ResearchRequiredState(RuleItem *item)
 	centerAllSurfaces();
 
 
+#ifdef __EMSCRIPTEN__
+	if (!item || item->getPrimaryCompatibleAmmo()->empty())
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Research dependency has no compatible ammunition");
+#endif
 	std::string weapon = item->getType();
 	std::string clip = item->getPrimaryCompatibleAmmo()->front()->getType();
 

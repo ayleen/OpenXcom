@@ -23,6 +23,7 @@ namespace OpenXcom
 {
 
 class Game;
+namespace Calypso { class CalypsoBaseLedger; }
 class Window;
 class TextButton;
 class Text;
@@ -38,6 +39,9 @@ class RuleBaseFacility;
 class NewPossibleFacilityState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoBaseLedger *_ledger = nullptr;
+#endif
 	Window *_window;
 	Text *_txtTitle;
 	TextList * _lstPossibilities;
@@ -53,8 +57,8 @@ public:
 	/// Handler for clicking the Open button.
 	void btnOpenClick(Action *action);
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+	~NewPossibleFacilityState() override;
+	void resize(int &dX, int &dY) override;
 #endif
 };
 

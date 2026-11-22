@@ -36,6 +36,7 @@
 #include "../Basescape/TransfersState.h"
 #include "../Geoscape/ItemsArrivingState.h"
 #include "Generated/CalypsoF24ItemsArriving.generated.h"
+#include "Generated/CalypsoF24Unlocks.generated.h"
 #include "../Basescape/ItemLocationsState.h"
 #include "../Engine/Game.h"
 #include "../Interface/ArrowButton.h"
@@ -45,6 +46,7 @@
 #include "../Interface/ToggleTextButton.h"
 #include "../Interface/Window.h"
 #include "../Savegame/Base.h"
+#include "../Mod/Mod.h"
 #include "../Savegame/SavedGame.h"
 
 namespace OpenXcom { namespace Calypso {
@@ -707,6 +709,45 @@ CalypsoBaseLedger::CalypsoBaseLedger(ItemsArrivingState &s)
 			 {"done", s._btnOk, s._btnOk->getText(), design(g.action_done)}},
 			"STR_CAL_NO_RECORDS", "STR_ITEMS_ARRIVING", 24);
 		model.sectionLabel = s._txtTitle->getText();
+		model.headerArtId = Gen::kHeaderArt;
+		model.profileId = Gen::kProfileId;
+		model.profileVersion = Gen::kProfileVersion;
+		model.provenance = Gen::kProvenanceTemplate;
+		_chrome.applyGeometry();
+		_chrome.populateModel(model);
+		return model;
+	};
+	open();
+}
+void calypsoAddUnlockRow(State &state, TextList &list, const std::string &label,
+	RuleBaseFacilityFunctions required)
+{
+	std::string services;
+	for (const auto &key : getCurrentGame()->getMod()->getBaseFunctionNames(required))
+	{
+		if (!services.empty()) services += ", ";
+		services += state.tr(key);
+	}
+	if (services.empty()) services = state.tr("STR_NONE");
+	list.addRow(2, label.c_str(), services.c_str());
+}
+
+CalypsoBaseLedger::CalypsoBaseLedger(State &s, Base *base, Text &title, TextList &rows,
+	TextButton &openDestination, TextButton &ok) : _chrome(s), _renderer(&s, {})
+{
+	_collect = [this, &s, base, &title, &rows, &openDestination, &ok]() {
+		namespace Gen = CalypsoF24UnlocksGen;
+		const bool wide = wideLayout();
+		const auto &g = Gen::kLayouts[wide ? 0 : 1];
+		const auto &table = wide ? Gen::kCollectionsWide[0] : Gen::kCollectionsCompact[0];
+		auto model = ledgerModel(s, title.getText(), rows, base, g, table,
+			Gen::kProfileStyle, wide ? Gen::kTypographyWide : Gen::kTypographyCompact,
+			{{"base", s.tr("STR_BASE"), base->getName(), design(g.summary_base)}},
+			{{s.tr("STR_NAME")}, {s.tr("STR_SERVICES_REQUIRED")}},
+			{{"open", &openDestination, openDestination.getText(), design(g.action_open)},
+			 {"done", &ok, ok.getText(), design(g.action_done)}},
+			"STR_CAL_NO_RECORDS", "STR_NONE", 24);
+		model.sectionLabel = title.getText();
 		model.headerArtId = Gen::kHeaderArt;
 		model.profileId = Gen::kProfileId;
 		model.profileVersion = Gen::kProfileVersion;

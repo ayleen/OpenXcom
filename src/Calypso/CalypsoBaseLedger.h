@@ -1,6 +1,7 @@
 #pragma once
 #ifdef __EMSCRIPTEN__
 #include "CalypsoHdOperationsChrome.h"
+#include "../Mod/RuleBaseFacilityFunctions.h"
 #include "CalypsoHdOperationsRenderer.h"
 namespace OpenXcom
 {
@@ -18,9 +19,16 @@ class MultipleTargetsState;
 class StoresState;
 class TransfersState;
 class ItemsArrivingState;
+class Base;
+class TextList;
+class Text;
+class TextButton;
 class ItemLocationsState;
 namespace Calypso
 {
+void calypsoAddUnlockRow(State &state, TextList &list, const std::string &label,
+	RuleBaseFacilityFunctions required);
+
 class CalypsoBaseLedger
 {
 public:
@@ -39,6 +47,8 @@ public:
 	explicit CalypsoBaseLedger(TransfersState &state);
 	explicit CalypsoBaseLedger(ItemLocationsState &state);
 	explicit CalypsoBaseLedger(ItemsArrivingState &state);
+	CalypsoBaseLedger(State &state, Base *base, Text &title, TextList &possibilities,
+		TextButton &openDestination, TextButton &ok);
 	void refresh();
 private:
 	CalypsoHdOperationsChrome _chrome;

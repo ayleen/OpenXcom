@@ -96,6 +96,11 @@ ResearchCompleteState::ResearchCompleteState(const RuleResearch *newResearch, co
 	const auto *underlay = dynamic_cast<GeoscapeState *>(_game->getTopState());
 	if (!Calypso::CalypsoHdUiOverlay::instance().hasRegisteredState(underlay)) underlay = nullptr;
 	_screen = !underlay;
+	if (!_research && !_bonus)
+	{
+		_btnReport->setVisible(false);
+		_btnOk->onKeyboardPress((ActionHandler)&ResearchCompleteState::btnOkClick, Options::keyOk);
+	}
 	_window->finishPopupForHd();
 	_notice = new Calypso::CalypsoResearchNotice(this, underlay, _game->getMod(), _window,
 		_txtResearch, _txtTitle->getText(),

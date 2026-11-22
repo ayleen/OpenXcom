@@ -23,11 +23,13 @@ namespace OpenXcom
 {
 
 class Game;
+namespace Calypso { class CalypsoBaseLedger; }
 class Window;
 class TextButton;
 class Text;
 class Base;
 class TextList;
+class SavedGame;
 class RuleResearch;
 
 /**
@@ -37,6 +39,11 @@ class RuleResearch;
 class NewPossibleResearchState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoBaseLedger *_ledger = nullptr;
+	std::vector<RuleResearch *> _pending;
+	bool _opened = false;
+#endif
 	Window *_window;
 	Text *_txtTitle;
 	TextList * _lstPossibilities;
@@ -50,8 +57,10 @@ public:
 	/// Handler for clicking the Allocate Research button.
 	void btnResearchClick(Action *action);
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+	~NewPossibleResearchState() override;
+	void resize(int &dX, int &dY) override;
+	static bool eligible(SavedGame &save, const RuleResearch *rule);
+	void init() override;
 #endif
 };
 

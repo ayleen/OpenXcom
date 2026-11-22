@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "NewPossibleCraftState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#endif
 #include "../Engine/Game.h"
 #include "../Engine/LocalizedText.h"
 #include "../Mod/Mod.h"
@@ -37,7 +40,11 @@ namespace OpenXcom
  */
 NewPossibleCraftState::NewPossibleCraftState(Base * base, const std::vector<RuleCraft *> & possibilities) : _base(base)
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+#else
 	_screen = false;
+#endif
 
 	// Create objects
 	_window = new Window(this, 288, 180, 16, 10);
@@ -58,11 +65,7 @@ NewPossibleCraftState::NewPossibleCraftState(Base * base, const std::vector<Rule
 	add(_txtCaveat, "text1", "geoNewCraft");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
+
 
 	// Set up objects
 	setWindowBackground(_window, "geoNewCraft");
@@ -77,6 +80,7 @@ NewPossibleCraftState::NewPossibleCraftState(Base * base, const std::vector<Rule
 	_txtTitle->setAlign(ALIGN_CENTER);
 	_txtTitle->setText(tr("STR_WE_CAN_NOW_RENT"));
 
+#ifndef __EMSCRIPTEN__
 	// Caveat
 	{
 		RuleBaseFacilityFunctions requiredServices;
@@ -99,15 +103,27 @@ NewPossibleCraftState::NewPossibleCraftState(Base * base, const std::vector<Rule
 		_txtCaveat->setText(tr("STR_REQUIRED_BASE_SERVICES").arg(argument));
 		_txtCaveat->setVisible(requiredServices.any());
 	}
+#endif
 
+#ifdef __EMSCRIPTEN__
+	_lstPossibilities->setColumns(2, 130, 120);
+#else
 	_lstPossibilities->setColumns(1, 250);
+#endif
 	_lstPossibilities->setBig();
 	_lstPossibilities->setAlign(ALIGN_CENTER);
 	_lstPossibilities->setScrolling(true, 0);
 	for (const auto* ruleCraft : possibilities)
 	{
+#ifdef __EMSCRIPTEN__
+		Calypso::calypsoAddUnlockRow(*this, *_lstPossibilities, tr(ruleCraft->getType()), ruleCraft->getRequiresBuyBaseFunc());
+#else
 		_lstPossibilities->addRow (1, tr(ruleCraft->getType()).c_str());
+#endif
 	}
+#ifdef __EMSCRIPTEN__
+	_ledger = new Calypso::CalypsoBaseLedger(*this, _base, *_txtTitle, *_lstPossibilities, *_btnPurchase, *_btnOk);
+#endif
 }
 
 /**
@@ -128,5 +144,18 @@ void NewPossibleCraftState::btnPurchaseClick(Action *)
 	_game->popState();
 	_game->pushState(new PurchaseState(_base));
 }
+
+#ifdef __EMSCRIPTEN__
+NewPossibleCraftState::~NewPossibleCraftState()
+{
+	delete _ledger;
+}
+
+void NewPossibleCraftState::resize(int &dx, int &dy)
+{
+	if (_ledger) _ledger->refresh();
+	else State::resize(dx, dy);
+}
+#endif
 
 }
