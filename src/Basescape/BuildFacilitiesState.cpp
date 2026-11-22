@@ -90,10 +90,8 @@ BuildFacilitiesState::BuildFacilitiesState(Base *base, State *state) : _base(bas
 	// The close action keeps its native handler; the HD shell carries the
 	// Cancel semantic while the hidden native button stays input owner.
 	_btnOk->setText(tr("STR_CANCEL_UC"));
-	// Configure only after semantic text and behavior widgets are complete so
-	// the physical adapter captures the canonical copy and action labels.
-	// Concrete subclasses (SelectStartFacilityState) re-configure after their
-	// own widgets; configure() replaces any adapter built here.
+	// The adapter reads live row and button labels. Derived choosers reuse
+	// these input owners and their already projected geometry.
 	Calypso::CalypsoF03BuildFacilitiesUi::configure(*this);
 #endif
 
