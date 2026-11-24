@@ -804,7 +804,7 @@ void BattlescapeGenerator::nextStage()
 /**
  * Starts the generator; it fills up the battlescape savegame with data.
  */
-void BattlescapeGenerator::run()
+void BattlescapeGenerator::run(const ItemContainer *availableCargo)
 {
 	bool isPreview = _save->isPreview();
 
@@ -936,7 +936,7 @@ void BattlescapeGenerator::run()
 	{
 		enviro = _game->getMod()->getEnviroEffects(_terrain->getEnviroEffects());
 	}
-	deployXCOM(isPreview ? nullptr : startingCondition, isPreview ? nullptr : enviro);
+	deployXCOM(isPreview ? nullptr : startingCondition, isPreview ? nullptr : enviro, availableCargo);
 
 	int civilianSpawnNodeRank = ruleDeploy->getCivilianSpawnNodeRank();
 	bool markCiviliansAsVIP = ruleDeploy->getMarkCiviliansAsVIP();
@@ -1024,7 +1024,7 @@ void BattlescapeGenerator::run()
 /**
  * Deploys all the X-COM units and equipment based on the Geoscape base / craft.
  */
-void BattlescapeGenerator::deployXCOM(const RuleStartingCondition* startingCondition, const RuleEnviroEffects* enviro)
+void BattlescapeGenerator::deployXCOM(const RuleStartingCondition* startingCondition, const RuleEnviroEffects* enviro, const ItemContainer *availableCargo)
 {
 	bool isPreview = _save->isPreview();
 
@@ -1290,7 +1290,8 @@ void BattlescapeGenerator::deployXCOM(const RuleStartingCondition* startingCondi
 	if (_craft != 0)
 	{
 		// add items that are in the craft
-		for (const auto& pair : *_craft->getItems()->getContents())
+		const auto *cargo = availableCargo ? availableCargo : _craft->getItems();
+		for (const auto& pair : *cargo->getContents())
 		{
 			if (startingCondition != 0 && !startingCondition->isItemPermitted(pair.first->getType(), _game->getMod(), _craft))
 			{

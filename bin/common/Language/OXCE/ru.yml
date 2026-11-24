@@ -91,6 +91,7 @@ ru:
   STR_CAL_DROP_RACE: "Раса пришельцев"
   STR_CAL_DROP_HOME: "На базе"
   STR_CAL_DROP_ELSEWHERE: "Другая подлодка"
+  STR_CAL_DROP_CONSUMES: "Спишется {0}"
   STR_CAL_DROP_SHADE: "Уровень тени"
   STR_CAL_DROP_UNDERWATER: "Подводный вариант"
   STR_CAL_ASSIGN_MONTH_END: "Назначение в конце месяца"

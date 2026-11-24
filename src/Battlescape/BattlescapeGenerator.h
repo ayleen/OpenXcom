@@ -46,6 +46,7 @@ class MissionSite;
 class AlienBase;
 class BattleUnit;
 class Texture;
+class ItemContainer;
 class Position;
 
 /**
@@ -129,7 +130,7 @@ private:
 	void explodePowerSources();
 	void explodeOtherJunk();
 	/// Deploys the XCOM units on the mission.
-	void deployXCOM(const RuleStartingCondition* startingCondition, const RuleEnviroEffects* enviro);
+	void deployXCOM(const RuleStartingCondition* startingCondition, const RuleEnviroEffects* enviro, const ItemContainer *availableCargo = nullptr);
 	/// Runs necessary checks before physically setting the position.
 	bool canPlaceXCOMUnit(Tile *tile);
 	/// Deploys the aliens, according to the alien deployment rules.
@@ -200,7 +201,7 @@ public:
 	/// Sets the terrain.
 	void setTerrain(RuleTerrain *terrain);
 	/// Runs the generator.
-	void run();
+	void run(const ItemContainer *availableCargo = nullptr);
 	/// Gets craft position.
 	SDL_Rect getCraftPos() const { return _craftPos; }
 	/// Gets craft elevation.

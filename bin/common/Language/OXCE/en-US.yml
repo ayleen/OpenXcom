@@ -91,6 +91,7 @@ en-US:
   STR_CAL_DROP_RACE: "Alien race"
   STR_CAL_DROP_HOME: "At base"
   STR_CAL_DROP_ELSEWHERE: "Assigned elsewhere"
+  STR_CAL_DROP_CONSUMES: "Consumes {0}"
   STR_CAL_DROP_SHADE: "World shade"
   STR_CAL_DROP_UNDERWATER: "Underwater variant"
   STR_CAL_ASSIGN_MONTH_END: "Assign at month end"

@@ -7,6 +7,7 @@
 #include "../Interface/Window.h"
 #include "../Mod/AlienDeployment.h"
 #include "../Mod/Mod.h"
+#include "../Mod/RuleStartingCondition.h"
 #include "../Mod/Texture.h"
 #include "../Savegame/AlienBase.h"
 #include "../Savegame/Craft.h"
@@ -34,6 +35,14 @@ void CalypsoF20ConfirmLandingUi::configure(ConfirmLandingState &s, bool allow)
 	facts.emplace_back(s.tr("STR_CAL_DROP_SHADE"), std::to_string(s._shade));
 	if (s._missionTexture && s._missionTexture->isFakeUnderwater())
 		facts.emplace_back(s.tr("STR_CAL_DROP_UNDERWATER"), s.tr("STR_YES"));
+	const auto *condition = s.landingStartingCondition();
+	if (condition && condition->getDestroyRequiredItems())
+	{
+		for (const auto &item : condition->getRequiredItems())
+		{
+			facts.emplace_back(s.tr(item.first), s.tr("STR_CAL_DROP_CONSUMES").arg(item.second));
+		}
+	}
 	auto *patrol = new TextButton(1, 1);
 	s.add(patrol, "button", "confirmLanding");
 	patrol->setText(s.tr("STR_PATROL"));
