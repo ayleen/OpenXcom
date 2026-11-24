@@ -39,6 +39,7 @@ set ( basescape_src
   Basescape/GlobalManufactureState.cpp
   Basescape/GlobalResearchDiaryState.cpp
   Basescape/GlobalResearchState.cpp
+  Basescape/InventoryLocations.cpp
   Basescape/ItemLocationsState.cpp
   Basescape/ManageAlienContainmentState.cpp
   Basescape/ManufactureDependenciesTreeState.cpp
@@ -614,6 +615,8 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoF03DismantleUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF03BuildFacilitiesUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF11MarketUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoInventoryLedger.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoLogisticsFilters.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF12TransferUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoLogisticsWorkspace.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF36MarketUi.cpp)
@@ -1094,6 +1097,7 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdInteractionStateTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdHarnessHostModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdDiagnosticsTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoInventoryLocationsTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoSelectionListScrollTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdOperationsModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/ResearchInfoTransactionTest.cpp

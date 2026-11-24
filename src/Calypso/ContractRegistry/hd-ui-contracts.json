@@ -1007,6 +1007,63 @@
       "harnessScenarioIds": [
         102
       ]
+    },
+    {
+      "id": "f12-stores",
+      "contract": "f12-stores.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {
+        "namespace": "CalypsoF12StoresGen",
+        "prefix": "CalypsoF12Stores",
+        "output": "CalypsoF12Stores.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF12Stores",
+        "output": "f12-stores.js"
+      },
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [
+        129
+      ]
+    },
+    {
+      "id": "f12-active-transfers",
+      "contract": "f12-active-transfers.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {
+        "namespace": "CalypsoF12ActiveTransfersGen",
+        "prefix": "CalypsoF12ActiveTransfers",
+        "output": "CalypsoF12ActiveTransfers.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF12ActiveTransfers",
+        "output": "f12-active-transfers.js"
+      },
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [
+        130
+      ]
+    },
+    {
+      "id": "f12-item-locations",
+      "contract": "f12-item-locations.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {
+        "namespace": "CalypsoF12ItemLocationsGen",
+        "prefix": "CalypsoF12ItemLocations",
+        "output": "CalypsoF12ItemLocations.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF12ItemLocations",
+        "output": "f12-item-locations.js"
+      },
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [
+        131
+      ]
     }
   ]
 }

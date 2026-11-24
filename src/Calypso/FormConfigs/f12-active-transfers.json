@@ -1,0 +1,114 @@
+{
+  "schema": 1,
+  "id": "f12-active-transfers",
+  "familyId": 12,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "logistics-group"
+  },
+  "state": "TransfersState",
+  "labelKeys": {
+    "title": "STR_TRANSFERS",
+    "done": "STR_OK"
+  },
+  "title": "ACTIVE TRANSFERS",
+  "actions": [
+    {
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "tone": "primary",
+      "action": "done"
+    }
+  ],
+  "summary": [
+    {
+      "id": "base",
+      "label": "BASE",
+      "value": "Batumi"
+    },
+    {
+      "id": "inbound",
+      "label": "SHIPMENTS",
+      "value": "1"
+    },
+    {
+      "id": "next",
+      "label": "NEXT (H)",
+      "value": "12"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "inventory-record",
+    "columns": [
+      {
+        "id": "cargo",
+        "label": "CARGO",
+        "contentRole": "name"
+      },
+      {
+        "id": "destination",
+        "label": "DESTINATION",
+        "contentRole": "name"
+      },
+      {
+        "id": "capacity",
+        "label": "CAPACITY",
+        "contentRole": "name"
+      },
+      {
+        "id": "quantity",
+        "label": "QUANTITY",
+        "contentRole": "count"
+      },
+      {
+        "id": "arrival",
+        "label": "HOURS",
+        "contentRole": "count"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Chemical Flare",
+          "Batumi",
+          "Stores 580 / 515",
+          "1",
+          "12"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [
+    {
+      "id": "scope",
+      "label": "Base",
+      "action": "scope",
+      "tone": "normal"
+    },
+    {
+      "id": "category",
+      "label": "All cargo",
+      "action": "category",
+      "tone": "normal"
+    },
+    {
+      "id": "sort",
+      "label": "Arrival \u2191",
+      "action": "sort",
+      "tone": "normal"
+    },
+    {
+      "id": "search",
+      "label": "Search",
+      "action": "search",
+      "tone": "normal"
+    }
+  ]
+}

@@ -18,13 +18,19 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "../Engine/State.h"
+#include <functional>
+#include <vector>
 
 namespace OpenXcom
 {
 
 class Window;
 class Text;
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoInventoryLedger; }
+#endif
 class TextButton;
+class ToggleTextButton;
 class TextList;
 class RuleItem;
 
@@ -34,16 +40,32 @@ class RuleItem;
 class ItemLocationsState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoInventoryLedger;
+	Calypso::CalypsoInventoryLedger *_hdLedger = nullptr;
+#endif
 	Window *_window;
 	Text *_txtTitle;
 	Text *_txtBase, *_txtQuantity;
 	TextList *_lstLocations;
 	TextButton *_btnOk;
+	ToggleTextButton *_btnScope;
+	const RuleItem *_item;
+	int _scopeTotal = 0;
+	int _scopeInbound = 0;
+	std::vector<std::function<void()>> _openLocation;
+	void updateList();
+	void lstLocationClick(Action *action);
+	void btnScopeClick(Action *);
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 	/// Creates the ItemLocationsState state.
-	ItemLocationsState(const RuleItem* selectedItem);
+	explicit ItemLocationsState(const RuleItem* selectedItem, bool allLocations = false);
 	/// Cleans up the ItemLocationsState state
-	~ItemLocationsState() = default;
+	~ItemLocationsState();
+	void init() override;
 	/// Handler for clicking the OK button.
 	void btnOkClick(Action* action);
 };

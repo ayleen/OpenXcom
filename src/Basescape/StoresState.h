@@ -25,6 +25,9 @@ namespace OpenXcom
 
 class Base;
 class RuleItem;
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoInventoryLedger; }
+#endif
 class TextButton;
 class ToggleTextButton;
 class Window;
@@ -67,6 +70,16 @@ struct StoredItem
 class StoresState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoInventoryLedger;
+	TextButton *_hdCategory = nullptr;
+	std::string _category;
+	std::vector<std::string> _availableCategories;
+	std::string hdStorageCapacity(bool over) const;
+	void nextCategory(Action *);
+	bool includeCategory(const RuleItem &rule);
+	Calypso::CalypsoInventoryLedger *_hdLedger = nullptr;
+#endif
 	Base *_base;
 
 	TextButton *_btnOk;
@@ -82,6 +95,9 @@ private:
 	ItemSort _itemOrder;
 	void updateArrows();
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 	/// Creates the Stores state.
 	StoresState(Base *base);
 	/// Cleans up the Stores state.
