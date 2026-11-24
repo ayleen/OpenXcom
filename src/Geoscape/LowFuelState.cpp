@@ -43,7 +43,13 @@ LowFuelState::LowFuelState(Craft *craft, GeoscapeState *state) : _craft(craft), 
 	_screen = false;
 
 	// Create objects
-	_window = new Window(this, 224, 120, 16, 40, POPUP_BOTH);
+	_window = new Window(this, 224, 120, 16, 40,
+#ifdef __EMSCRIPTEN__
+		POPUP_NONE
+#else
+		POPUP_BOTH
+#endif
+	);
 	_btnOk = new TextButton(90, 18, 30, 120);
 	_btnOk5Secs = new TextButton(90, 18, 136, 120);
 	_txtTitle = new Text(214, 17, 21, 60);
@@ -59,17 +65,12 @@ LowFuelState::LowFuelState(Craft *craft, GeoscapeState *state) : _craft(craft), 
 	add(_txtMessage, "text", "lowFuel");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF18LowFuelUi::configure(*this);
-#endif
+
 
 	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "lowFuel");
+#endif
 
 	_btnOk->setText(tr("STR_OK"));
 	_btnOk->onMouseClick((ActionHandler)&LowFuelState::btnOkClick);
@@ -87,6 +88,9 @@ LowFuelState::LowFuelState(Craft *craft, GeoscapeState *state) : _craft(craft), 
 	_txtMessage->setText(tr("STR_IS_LOW_ON_FUEL_RETURNING_TO_BASE"));
 
 
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF18LowFuelUi::configure(*this);
+#endif
 }
 
 /**

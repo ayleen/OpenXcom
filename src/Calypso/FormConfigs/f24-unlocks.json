@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "id": "f24-unlocks",
+  "familyId": 24,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "logistics-group"
+  },
+  "state": "NewPossibleResearchState",
+  "labelKeys": {
+    "title": "STR_WE_CAN_NOW_RESEARCH",
+    "open": "STR_ALLOCATE_RESEARCH",
+    "done": "STR_OK"
+  },
+  "title": "NEW CAPABILITIES",
+  "actions": [
+    {
+      "id": "open",
+      "label": "OPEN",
+      "labelKey": "STR_ALLOCATE_RESEARCH",
+      "action": "open",
+      "tone": "normal"
+    },
+    {
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "tone": "primary",
+      "action": "done"
+    }
+  ],
+  "summary": [
+    {
+      "id": "base",
+      "label": "BASE",
+      "value": "Batumi"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "capability",
+    "columns": [
+      {
+        "id": "capability",
+        "label": "NAME",
+        "contentRole": "name"
+      },
+      {
+        "id": "services",
+        "label": "SERVICES REQUIRED",
+        "contentRole": "status"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Submarine",
+          "Dock"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": []
+}

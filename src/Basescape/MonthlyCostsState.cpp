@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "MonthlyCostsState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Interface/TextList.h"
+#endif
 #include <sstream>
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
@@ -109,7 +113,12 @@ MonthlyCostsState::MonthlyCostsState(Base *base) : _base(base)
 	_txtMaintenance->setText(ss2.str());
 
 	_lstCrafts->setColumns(4, 125, 70, 44, 50);
-	_lstCrafts->setDot(true);
+#ifdef __EMSCRIPTEN__
+	constexpr bool dotLeaders = false;
+#else
+	constexpr bool dotLeaders = true;
+#endif
+	_lstCrafts->setDot(dotLeaders);
 
 	for (auto& craftType : _game->getMod()->getCraftsList())
 	{
@@ -127,7 +136,7 @@ MonthlyCostsState::MonthlyCostsState(Base *base) : _base(base)
 	}
 
 	_lstSalaries->setColumns(4, 125, 70, 44, 50);
-	_lstSalaries->setDot(true);
+	_lstSalaries->setDot(dotLeaders);
 
 	auto& soldierTypes = _game->getMod()->getSoldiersList();
 
@@ -193,14 +202,17 @@ MonthlyCostsState::MonthlyCostsState(Base *base) : _base(base)
 	_lstSalaries->addRow(4, tr("STR_OTHER_EMPLOYEES").c_str(), "", ss6b.str().c_str(), Unicode::formatFunding(totalOtherCost).c_str());
 
 	_lstMaintenance->setColumns(2, 239, 60);
-	_lstMaintenance->setDot(true);
+	_lstMaintenance->setDot(dotLeaders);
 	std::ostringstream ss7;
 	ss7 << Unicode::TOK_COLOR_FLIP << Unicode::formatFunding(_base->getFacilityMaintenance());
 	_lstMaintenance->addRow(2, tr("STR_BASE_MAINTENANCE").c_str(), ss7.str().c_str());
 
 	_lstTotal->setColumns(2, 44, 55);
-	_lstTotal->setDot(true);
+	_lstTotal->setDot(dotLeaders);
 	_lstTotal->addRow(2, tr("STR_TOTAL").c_str(), Unicode::formatFunding(_base->getMonthlyMaintenace()).c_str());
+#ifdef __EMSCRIPTEN__
+	openCostLedger();
+#endif
 }
 
 /**
@@ -208,6 +220,9 @@ MonthlyCostsState::MonthlyCostsState(Base *base) : _base(base)
  */
 MonthlyCostsState::~MonthlyCostsState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdLedger;
+#endif
 
 }
 
@@ -219,5 +234,13 @@ void MonthlyCostsState::btnOkClick(Action *)
 {
 	_game->popState();
 }
+
+#ifdef __EMSCRIPTEN__
+void MonthlyCostsState::resize(int &dX, int &dY)
+{
+	if (_hdLedger) _hdLedger->refresh();
+	else State::resize(dX, dY);
+}
+#endif
 
 }

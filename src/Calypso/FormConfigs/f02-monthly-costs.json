@@ -1,0 +1,109 @@
+{
+  "schema": 1,
+  "id": "f02-monthly-costs",
+  "familyId": 2,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "state": "MonthlyCostsState",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-build"
+  },
+  "labelKeys": {
+    "title": "STR_MONTHLY_COSTS",
+    "done": "STR_OK"
+  },
+  "title": "MONTHLY COSTS",
+  "actions": [
+    {
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "action": "done",
+      "tone": "primary"
+    }
+  ],
+  "summary": [
+    {
+      "id": "base",
+      "label": "BASE",
+      "value": "Batumi"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "base-record",
+    "columns": [
+      {
+        "id": "item",
+        "label": "COST",
+        "contentRole": "name"
+      },
+      {
+        "id": "unit",
+        "label": "UNIT COST",
+        "contentRole": "status"
+      },
+      {
+        "id": "quantity",
+        "label": "QUANTITY",
+        "contentRole": "count"
+      },
+      {
+        "id": "total",
+        "label": "TOTAL",
+        "contentRole": "count"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Technicians",
+          "$25,000",
+          "96",
+          "$2,400,000"
+        ]
+      },
+      {
+        "id": "base",
+        "values": [
+          "BASE COST",
+          "\u2013",
+          "\u2013",
+          "$7,886,000"
+        ]
+      },
+      {
+        "id": "income",
+        "values": [
+          "INCOME",
+          "\u2013",
+          "\u2013",
+          "$10,972,000"
+        ]
+      },
+      {
+        "id": "expenses",
+        "values": [
+          "EXPENSES",
+          "\u2013",
+          "\u2013",
+          "$14,639,000"
+        ]
+      },
+      {
+        "id": "balance",
+        "values": [
+          "BALANCE",
+          "\u2013",
+          "\u2013",
+          "-$3,667,000"
+        ]
+      }
+    ]
+  },
+  "toolbar": [],
+  "controls": []
+}

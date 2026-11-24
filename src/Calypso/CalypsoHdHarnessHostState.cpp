@@ -8,6 +8,8 @@
 #include "CalypsoHdRuntimeDiagnostics.h"
 #include "CalypsoPauseMenu.h"
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoEconomyState.h"
+#include "CalypsoContractDeliverState.h"
 #include "CalypsoHdOperationsChrome.h"
 #include "CalypsoErrorPopupUi.h"
 #include "../Menu/ErrorMessageState.h"
@@ -32,6 +34,8 @@
 #include "../Menu/AbandonGameState.h"
 #include "../Basescape/BaseView.h"
 #include "../Basescape/ManageAlienContainmentState.h"
+#include "../Basescape/GlobalAlienContainmentState.h"
+#include "ContainmentReviewState.h"
 #include "../Basescape/BuildFacilitiesState.h"
 #include "../Basescape/DismantleFacilityState.h"
 #include "../Basescape/PlaceFacilityState.h"
@@ -73,8 +77,11 @@
 #include "../Basescape/GlobalResearchDiaryState.h"
 #include "../Basescape/GlobalManufactureState.h"
 #include "../Basescape/TechTreeViewerState.h"
+#include "../Basescape/TechTreeSelectState.h"
 #include "../Ufopaedia/ArticleStateCraftWeapon.h"
 #include "../Basescape/BasescapeState.h"
+#include "../Basescape/BaseInfoState.h"
+#include "../Basescape/MonthlyCostsState.h"
 #include "../Basescape/StoresState.h"
 #include "../Basescape/TransfersState.h"
 #include "../Basescape/ItemLocationsState.h"
@@ -84,15 +91,38 @@
 #include "../Basescape/TransferConfirmState.h"
 #include "../Geoscape/CraftErrorState.h"
 #include "../Geoscape/LowFuelState.h"
+#include "../Geoscape/ConfirmDestinationState.h"
+#include "../Geoscape/SelectDestinationState.h"
+#include "../Geoscape/GeoscapeCraftState.h"
+#include "../Geoscape/InterceptState.h"
+#include "../Geoscape/CraftPatrolState.h"
+#include "../Savegame/Waypoint.h"
 #include "../Geoscape/CraftNotEnoughPilotsState.h"
 #include "../Geoscape/DogfightErrorState.h"
 #include "../Geoscape/ConfirmLandingState.h"
 #include "../Geoscape/ConfirmCydoniaState.h"
-#include "../Geoscape/ResearchRequiredState.h"
-#include "../Geoscape/ResearchCompleteState.h"
 #include "../Geoscape/UfoLostState.h"
+#include "../Geoscape/AlienBaseState.h"
+#include "../Geoscape/MissionDetectedState.h"
+#include "../Savegame/MissionSite.h"
+#include "../Geoscape/MultipleTargetsState.h"
+#include "../Geoscape/TargetInfoState.h"
+#include "../Geoscape/UfoTrackerState.h"
+#include "../Savegame/Waypoint.h"
+#include "../Savegame/AlienBase.h"
+#include "../Mod/AlienDeployment.h"
 #include "../Geoscape/UfoDetectedState.h"
 #include "../Geoscape/GeoscapeState.h"
+#include "../Geoscape/GraphsState.h"
+#include "../Geoscape/FundingState.h"
+#include "../Geoscape/DogfightExperienceState.h"
+#include "../Geoscape/MonthlyReportState.h"
+#include "../Savegame/GameTime.h"
+#include "../Geoscape/ConfirmLandingState.h"
+#include "../Geoscape/ConfirmCydoniaState.h"
+#include "../Geoscape/SelectDestinationState.h"
+#include "../Geoscape/ExtendedGeoscapeLinksState.h"
+#include "../Geoscape/SelectMusicTrackState.h"
 #include "../Geoscape/Globe.h"
 #include "../Mod/RuleResearch.h"
 #include "../Mod/RuleManufacture.h"
@@ -104,11 +134,64 @@
 #include "../Savegame/AlienMission.h"
 #include "../Mod/UfoTrajectory.h"
 #include "../Geoscape/TrainingFinishedState.h"
+#include "../Geoscape/PsiTrainingState.h"
+#include "../Geoscape/TrainingState.h"
+#include "../Geoscape/AllocateTrainingState.h"
+#include "../Geoscape/AllocatePsiTrainingState.h"
 #include "../Geoscape/ProductionCompleteState.h"
 #include "../Geoscape/ItemsArrivingState.h"
+#include "../Geoscape/GeoscapeEventState.h"
+#include "../Ufopaedia/UfopaediaStartState.h"
+#include "../Ufopaedia/ArticleStateText.h"
+#include "../Ufopaedia/StatsForNerdsState.h"
+#include "../Ufopaedia/ArticleStateTFTD.h"
+#include "../Mod/ArticleDefinition.h"
+#include "../Ufopaedia/UfopaediaSelectState.h"
+#include "../Mod/RuleEvent.h"
+#include "../Geoscape/ResearchRequiredState.h"
+#include "../Geoscape/NewPossibleCraftState.h"
+#include "../Geoscape/NewPossibleFacilityState.h"
+#include "../Geoscape/NewPossibleManufactureState.h"
+#include "../Geoscape/NewPossiblePurchaseState.h"
+#include "../Geoscape/NewPossibleResearchState.h"
+#include "../Geoscape/ResearchCompleteState.h"
+#include "../Battlescape/InventoryState.h"
+#include "../Battlescape/AlienInventoryState.h"
+#include "../Battlescape/InventoryLoadState.h"
+#include "../Battlescape/InventorySaveState.h"
+#include "../Battlescape/InventoryPersonalState.h"
+#include "../Battlescape/ExtendedInventoryLinksState.h"
+#include "../Battlescape/CannotReequipState.h"
 #include "../Battlescape/AbortMissionState.h"
+#include "../Battlescape/BattlescapeState.h"
+#include "../Battlescape/BattlescapeGame.h"
+#include "../Battlescape/BattlescapeGenerator.h"
+#include "../Savegame/SavedBattleGame.h"
 #include "../Battlescape/ConfirmEndMissionState.h"
-#include "../Battlescape/NoExperienceState.h" 
+#include "../Battlescape/NoExperienceState.h"
+#include "../Battlescape/TurnDiaryState.h"
+#include "../Battlescape/AliensCrashState.h"
+#include "../Battlescape/DebriefingState.h"
+#include "../Battlescape/InfoboxOKState.h"
+#include "../Battlescape/InfoboxState.h"
+#include "../Battlescape/ExtendedBattlescapeLinksState.h"
+#include "../Battlescape/NextTurnState.h"
+#include "../Battlescape/BriefingState.h"
+#include "../Battlescape/BriefingLightState.h"
+#include "../Battlescape/ActionMenuState.h"
+#include "../Battlescape/PrimeGrenadeState.h"
+#include "../Battlescape/UnitInfoState.h"
+#include "../Battlescape/MedikitState.h"
+#include "../Battlescape/MiniMapState.h"
+#include "../Battlescape/Map.h"
+#include "../Battlescape/ScannerState.h"
+#include "../Battlescape/SkillMenuState.h"
+#include "../Savegame/BattleUnit.h"
+#include "../Savegame/BattleItem.h"
+#include "../Battlescape/ExperienceOverviewState.h"
+#include "../Battlescape/PromotionsState.h"
+#include "../Battlescape/CommendationLateState.h"
+#include "../Battlescape/CommendationState.h"
 #include "../Mod/Mod.h"
 #include "../Mod/RuleInterface.h"
 #include "../Mod/RuleBaseFacility.h"
@@ -120,6 +203,7 @@
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/Soldier.h"
 #include "../Savegame/SoldierDiary.h"
+#include "../Mod/RuleCommendations.h"
 
 #include "CalypsoAbandonPopupUi.h" // calypsoHdHarnessSetSideBySide (F33 comparison shift)
 #include "CalypsoHdOperationsRenderer.h"
@@ -192,7 +276,7 @@ void restoreHarnessCursor(Game* game)
 	}
 	g_harnessCursorCaptured = false;
 }
-bool prepareOperationsSave(Game *game)
+bool prepareOperationsSave(Game *game, bool withGlobe = false)
 {
 	if (!game || !game->getMod()) return false;
 	// Fixture routes may only mutate a save owned by this harness.  Reusing a
@@ -206,7 +290,8 @@ bool prepareOperationsSave(Game *game)
 			return false;
 		else
 		{
-			g_harnessSaveLease.fixture = new SavedGame();
+			// A playable globe needs the mod's countries, regions and alien strategy.
+			g_harnessSaveLease.fixture = withGlobe ? game->getMod()->newSave(DIFF_BEGINNER) : new SavedGame();
 			game->setSavedGame(g_harnessSaveLease.fixture);
 		}
 		g_harnessSaveLease.active = true;
@@ -223,6 +308,41 @@ bool prepareOperationsSave(Game *game)
 		&& !save->getDebugMode())
 		save->setDebugMode();
 	return true;
+}
+
+// The preview owns the campaign and its mission. Never attach a form to a player's battle.
+SavedBattleGame *prepareTacticalBattleData(Game *game)
+{
+	if (!prepareOperationsSave(game, true)) return nullptr;
+	auto *save = game->getSavedGame();
+	if (save->getSavedBattle()) return save->getSavedBattle();
+	if (save->getBases()->empty()) return nullptr;
+	auto &fleet = *save->getBases()->front()->getCrafts();
+	const auto transport = std::find_if(fleet.begin(), fleet.end(), [](Craft *craft) {
+		return craft && craft->getNumTotalUnits() > 0;
+	});
+	auto *mod = game->getMod();
+	if (transport == fleet.end() || !mod->getDeployment("STR_PORT_TERROR") || !mod->getAlienRace("STR_AQUATOID")) return nullptr;
+	auto *battle = new SavedBattleGame(mod, game->getLanguage());
+	save->setBattleGame(battle);
+	battle->setMissionType("STR_PORT_TERROR");
+	BattlescapeGenerator generator(game);
+	generator.setCraft(*transport);
+	generator.setAlienRace("STR_AQUATOID");
+	generator.run();
+	return battle;
+}
+
+BattlescapeState *prepareTacticalPreview(Game *game)
+{
+	auto *battle = prepareTacticalBattleData(game);
+	if (!battle) return nullptr;
+	if (battle->getBattleState()) return battle->getBattleState();
+	auto *state = new BattlescapeState();
+	battle->setBattleState(state);
+	game->pushState(state);
+	calypsoHarnessNavigationDestination(calypsoHarnessSession(), state);
+	return state;
 }
 
 RuleResearch *firstResearchRule(Mod *mod)
@@ -1431,6 +1551,18 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		}
 		return new SellState(marketBase, nullptr);
 	}
+	case CalypsoHarnessScenario::F36Economy:
+	case CalypsoHarnessScenario::F37ContractDelivery:
+	{
+		auto *game = getCurrentGame();
+		if (!game || !game->getMod() || !prepareOperationsSave(game)) return nullptr;
+		if (id == CalypsoHarnessScenario::F36Economy) return new CalypsoEconomyState();
+		const auto *economy = game->getSavedGame()->getCalypsoEconomy();
+		if (economy)
+			for (const auto &c : economy->getContracts())
+				if (c.status == Contract::Status::Accepted) return new CalypsoContractDeliverState(c.id);
+		return new CalypsoContractDeliverState(-1);
+	}
 	case CalypsoHarnessScenario::F36Market:
 	{
 		Game* game = getCurrentGame();
@@ -1456,6 +1588,17 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		Base* marketBase = new Base(game->getMod());
 		g_harnessSaveLease.fixtureBases.push_back(marketBase);
 		return new CalypsoMarketState(marketBase, false);
+	}
+	case CalypsoHarnessScenario::F02BaseInformation:
+	case CalypsoHarnessScenario::F02MonthlyCosts:
+	{
+		Game *game = getCurrentGame();
+		Base *source = nullptr, *destination = nullptr;
+		ensureTransferFixture(game, source, destination);
+		if (!source || !destination) return nullptr;
+		if (id == CalypsoHarnessScenario::F02MonthlyCosts)
+			return new MonthlyCostsState(source);
+		return new BaseInfoState(source, nullptr);
 	}
 	case CalypsoHarnessScenario::F12Stores:
 	case CalypsoHarnessScenario::F12ActiveTransfers:
@@ -1499,26 +1642,378 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new CraftErrorState(nullptr, "Dismiss soldier confirmation.");
 	case CalypsoHarnessScenario::F18CraftError:
 		return new CraftErrorState(nullptr, "Craft cannot complete the assigned operation.");
+	case CalypsoHarnessScenario::F18InterceptFleet:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		return new InterceptState(globe->getGlobe(), false);
+	}
+	case CalypsoHarnessScenario::F18CraftNavigation:
+	case CalypsoHarnessScenario::F18CourseMap:
+	case CalypsoHarnessScenario::F18CourseConfirm:
+	case CalypsoHarnessScenario::F18PatrolArrival:
 	case CalypsoHarnessScenario::F18LowFuel:
-		return new CraftErrorState(nullptr, "Craft is low on fuel and returning to base.");
 	case CalypsoHarnessScenario::F18NotEnoughPilots:
-		return new CraftErrorState(nullptr, "Not enough pilots for this craft.");
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		const bool fuel = id == CalypsoHarnessScenario::F18LowFuel;
+		for (Base *base : *game->getSavedGame()->getBases())
+		{
+			for (Craft *craft : *base->getCrafts())
+			{
+				if (id == CalypsoHarnessScenario::F18NotEnoughPilots && craft->getRules()->getPilots() <= 0) continue;
+				auto *globe = new GeoscapeState();
+				game->pushState(globe);
+				calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+				if (id == CalypsoHarnessScenario::F18CraftNavigation)
+				{
+					craft->setDestination(base);
+					craft->setStatus("STR_OUT");
+					return new GeoscapeCraftState(craft, globe->getGlobe(), nullptr, false);
+				}
+				if (id == CalypsoHarnessScenario::F18CourseMap)
+					return new SelectDestinationState({craft}, globe->getGlobe());
+				if (id == CalypsoHarnessScenario::F18CourseConfirm)
+				{
+					game->pushState(new SelectDestinationState({craft}, globe->getGlobe()));
+					return new ConfirmDestinationState({craft}, base);
+				}
+				if (id == CalypsoHarnessScenario::F18PatrolArrival)
+				{
+					auto *waypoint = new Waypoint();
+					waypoint->setId(18);
+					game->getSavedGame()->getWaypoints()->push_back(waypoint);
+					craft->setDestination(waypoint);
+					return new CraftPatrolState(craft, globe->getGlobe());
+				}
+				if (!fuel) return new CraftNotEnoughPilotsState(craft);
+				craft->setFuel(1);
+				craft->setLowFuel(true);
+				craft->returnToBase();
+				return new LowFuelState(craft, globe);
+			}
+		}
+		return nullptr;
+	}
 	case CalypsoHarnessScenario::F19DogfightError:
-		return new CraftErrorState(nullptr, "Craft cannot engage the target now.");
+	{
+		Game *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		const auto &craft = *game->getSavedGame()->getBases()->front()->getCrafts();
+		if (craft.empty()) return nullptr;
+		return new DogfightErrorState(craft.front(), game->getLanguage()->getString("STR_UNABLE_TO_ENGAGE_DEPTH"));
+	}
 	case CalypsoHarnessScenario::F20ConfirmLanding:
-		return new CraftErrorState(nullptr, "Confirm landing at selected site?");
 	case CalypsoHarnessScenario::F20ConfirmCydonia:
-		return new CraftErrorState(nullptr, "Confirm final mission?");
+		{
+			auto *game = getCurrentGame();
+			if (!prepareOperationsSave(game, true)) return nullptr;
+			auto *mod = game->getMod();
+			for (auto *base : *game->getSavedGame()->getBases())
+			{
+				if (!base || base->getCrafts()->empty()) continue;
+				auto *craft = base->getCrafts()->front();
+				if (id == CalypsoHarnessScenario::F20ConfirmCydonia)
+				{
+					auto *globe = new GeoscapeState();
+					game->pushState(globe);
+					calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+					game->pushState(new SelectDestinationState({craft}, globe->getGlobe()));
+					return new ConfirmCydoniaState(craft);
+				}
+				if (mod->getAlienMissionList().empty() || mod->getAlienRacesList().empty()) return nullptr;
+				for (const auto &name : mod->getDeploymentsList())
+				{
+					auto *rule = mod->getDeployment(name);
+					if (!rule || rule->getAlertMessage().empty() || rule->getAlertBackground().empty()) continue;
+					auto *site = new MissionSite(mod->getAlienMission(mod->getAlienMissionList().front()), rule, nullptr);
+					site->setDetected(true);
+					site->setId(1);
+					site->setAlienRace(mod->getAlienRacesList().front());
+					game->getSavedGame()->getMissionSites()->push_back(site);
+					craft->setDestination(site);
+					auto *globe = new GeoscapeState();
+					game->pushState(globe);
+					calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+					return new ConfirmLandingState(craft, nullptr, nullptr, 0);
+				}
+			}
+			return nullptr;
+		}
 	case CalypsoHarnessScenario::F24ResearchRequired:
-		return new CraftErrorState(nullptr, "Additional research required.");
 	case CalypsoHarnessScenario::F24ResearchComplete:
-		return new CraftErrorState(nullptr, "Research completed successfully.");
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		if (id == CalypsoHarnessScenario::F24ResearchComplete)
+		{
+			auto *research = firstResearchRule(game->getMod());
+			if (!research) return nullptr;
+			return new ResearchCompleteState(research, nullptr, research, game->getSavedGame()->getBases()->front());
+		}
+		for (const auto &name : game->getMod()->getItemsList())
+		{
+			auto *item = game->getMod()->getItem(name);
+			const auto *ammo = item->getPrimaryCompatibleAmmo();
+			if (ammo && !ammo->empty()) return new ResearchRequiredState(item);
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F29AutomaticRecovery:
+	case CalypsoHarnessScenario::F29Debriefing:
+	{
+		Game *game = getCurrentGame();
+		if (!prepareTacticalBattleData(game)) return nullptr;
+		if (id == CalypsoHarnessScenario::F29AutomaticRecovery) return new AliensCrashState();
+		return new DebriefingState();
+	}
+	case CalypsoHarnessScenario::F26Inspection:
+	case CalypsoHarnessScenario::F26Inventory:
+	case CalypsoHarnessScenario::F26InventoryLinks:
+	case CalypsoHarnessScenario::F26LoadTemplate:
+	case CalypsoHarnessScenario::F26SaveTemplate:
+	{
+		auto *game = getCurrentGame();
+		auto *state = prepareTacticalPreview(game);
+		if (!state) return nullptr;
+		auto *battle = game->getSavedGame()->getSavedBattle();
+		if (id == CalypsoHarnessScenario::F26Inspection)
+		{
+			for (auto *unit : *battle->getUnits())
+				if (unit && unit->getOriginalFaction() == FACTION_HOSTILE) return new AlienInventoryState(unit);
+			return nullptr;
+		}
+		if (id == CalypsoHarnessScenario::F26Inventory) return new InventoryState(true,state,nullptr);
+		auto *inventory = new InventoryState(false, state, nullptr);
+		game->pushState(inventory);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), inventory);
+		if (id == CalypsoHarnessScenario::F26LoadTemplate) return new InventoryLoadState(inventory);
+		if (id == CalypsoHarnessScenario::F26SaveTemplate) return new InventorySaveState(inventory);
+		return new ExtendedInventoryLinksState(inventory, battle, false, true);
+	}
+	case CalypsoHarnessScenario::F26PersonalTemplate:
+	case CalypsoHarnessScenario::F26Shortages:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		auto *base = game->getSavedGame()->getBases()->front();
+		if (id == CalypsoHarnessScenario::F26PersonalTemplate)
+			return base->getSoldiers()->empty() ? nullptr : new InventoryPersonalState(base->getSoldiers()->front());
+		const auto &stock = *base->getStorageItems()->getContents();
+		auto item = std::find_if(stock.begin(), stock.end(), [](const auto &entry) {
+			return entry.first && entry.second > 0 && entry.first->getBuyCost() > 0;
+		});
+		if (item == stock.end() || base->getCrafts()->empty()) return nullptr;
+		std::vector<ReequipStat> shortages;
+		for (auto *craft : *base->getCrafts())
+		{
+			shortages.push_back({item->first->getType(), int(shortages.size()) + 2,
+				craft->getName(game->getLanguage()), item->first->getListOrder()});
+			if (shortages.size() == 2) break;
+		}
+		return new CannotReequipState(shortages, base);
+	}
+	case CalypsoHarnessScenario::F27MissionBriefing:
+	{
+		Game *game = getCurrentGame();
+		if (!prepareTacticalPreview(game)) return nullptr;
+		return new BriefingState(nullptr, nullptr, true);
+	}
+	case CalypsoHarnessScenario::F27TargetBriefing:
+	{
+		Game *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		auto *deployment = game->getMod()->getDeployment("STR_PORT_TERROR", false);
+		return deployment ? new BriefingLightState(deployment) : nullptr;
+	}
 	case CalypsoHarnessScenario::F28AbortMission:
-		return new AbortMissionState(nullptr, nullptr);
 	case CalypsoHarnessScenario::F28ConfirmEnd:
-		return new CraftErrorState(nullptr, "Confirm end of mission?");
+	case CalypsoHarnessScenario::F28TurnTransition:
+	case CalypsoHarnessScenario::F28TacticalLinks:
+	case CalypsoHarnessScenario::F28TacticalNotice:
+	case CalypsoHarnessScenario::F28TacticalAlert:
+	case CalypsoHarnessScenario::F30NoExperience:
+	case CalypsoHarnessScenario::F25Actions:
+	case CalypsoHarnessScenario::F25Timer:
+	case CalypsoHarnessScenario::F25UnitInfo:
+	case CalypsoHarnessScenario::F25Medikit:
+	case CalypsoHarnessScenario::F25Minimap:
+	case CalypsoHarnessScenario::F25Scanner:
+	case CalypsoHarnessScenario::F25Skills:
+	case CalypsoHarnessScenario::F30TurnDiary:
+	case CalypsoHarnessScenario::F30ExperienceOverview:
+	{
+		auto *game = getCurrentGame();
+		auto *state = prepareTacticalPreview(game);
+		if (!state) return nullptr;
+		auto *battle = game->getSavedGame()->getSavedBattle();
+		if (id == CalypsoHarnessScenario::F28AbortMission) return new AbortMissionState(battle, state);
+		if (id == CalypsoHarnessScenario::F28ConfirmEnd) return new ConfirmEndMissionState(battle, 0, state->getBattleGame());
+		if (id == CalypsoHarnessScenario::F28TurnTransition) return new NextTurnState(battle, state);
+		if (id == CalypsoHarnessScenario::F28TacticalLinks) return new ExtendedBattlescapeLinksState(state, battle);
+		if (id == CalypsoHarnessScenario::F28TacticalNotice) return new InfoboxState(game->getLanguage()->getString("STR_THIS_FEATURE_IS_DISABLED_4"));
+		if (id == CalypsoHarnessScenario::F28TacticalAlert) return new InfoboxOKState(game->getLanguage()->getString("STR_MISSION_OVER"));
+		if (id == CalypsoHarnessScenario::F25Minimap)
+			return new MiniMapState(state->getMap()->getCamera(),battle);
+		if (id == CalypsoHarnessScenario::F25Scanner)
+		{
+			if (!battle->getSelectedUnit()) return nullptr;
+			auto *action = state->getBattleGame()->getCurrentAction();
+			action->actor = battle->getSelectedUnit();
+			return new ScannerState(action);
+		}
+		if (id == CalypsoHarnessScenario::F25Medikit)
+		{
+			auto *unit = battle->getSelectedUnit();
+			if (!unit || !unit->getTile()) return nullptr;
+			for (const auto &name : game->getMod()->getItemsList())
+			{
+				auto *rule = game->getMod()->getItem(name);
+				if (rule->getBattleType() != BT_MEDIKIT || rule->getMediKitType() != BMT_NORMAL) continue;
+				auto *kit = battle->createItemForTile(rule, unit->getTile());
+				if (!kit) return nullptr;
+				auto *action = state->getBattleGame()->getCurrentAction();
+				action->actor = unit;
+				action->weapon = kit;
+				action->type = BA_USE;
+				action->updateTU();
+				return new MedikitState(unit, action, battle->getTileEngine());
+			}
+			return nullptr;
+		}
+		if (id == CalypsoHarnessScenario::F25UnitInfo)
+			return battle->getSelectedUnit() ? new UnitInfoState(battle->getSelectedUnit(), state, false, false) : nullptr;
+		if (id == CalypsoHarnessScenario::F25Timer)
+		{
+			for (auto *item : *battle->getItems())
+				if (item && item->getRules()->getFuseTimerType() == BFT_SET)
+					return new PrimeGrenadeState(nullptr, true, item);
+			return nullptr;
+		}
+		if (id == CalypsoHarnessScenario::F25Actions || id == CalypsoHarnessScenario::F25Skills)
+		{
+			auto *unit = battle->getSelectedUnit();
+			if (!unit) return nullptr;
+			auto *action = state->getBattleGame()->getCurrentAction();
+			action->actor = unit;
+			if (id == CalypsoHarnessScenario::F25Skills)
+				return unit->getGeoscapeSoldier() ? new SkillMenuState(action, 0, 0) : nullptr;
+			action->weapon = unit->getMainHandWeapon();
+			if (!action->weapon && !unit->getInventory()->empty()) action->weapon = unit->getInventory()->front();
+			return action->weapon ? new ActionMenuState(action, 0, 0, state->getBattleGame()) : nullptr;
+		}
+		if (id == CalypsoHarnessScenario::F30TurnDiary) return new TurnDiaryState(battle->getHitLog());
+		if (id == CalypsoHarnessScenario::F30ExperienceOverview) return new ExperienceOverviewState(state);
+		return new NoExperienceState();
+	}
 	case CalypsoHarnessScenario::F17UfoLost:
-		return new CraftErrorState(nullptr, "Contact with UFO has been lost.");
+		return new UfoLostState("Contact 17");
+	case CalypsoHarnessScenario::F23MonthlyReport:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		auto *save = game->getSavedGame();
+		save->setTime(GameTime(2, 1, 2, 2040, 0, 0, 0));
+		save->addMonth();
+		save->monthlyFunding();
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		return new MonthlyReportState(globe->getGlobe());
+	}
+	case CalypsoHarnessScenario::F23Graphs:
+		if (!prepareOperationsSave(getCurrentGame(), true)) return nullptr;
+		return new GraphsState();
+	case CalypsoHarnessScenario::F30Commendations:
+	case CalypsoHarnessScenario::F30FallenCommendations:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		const auto &soldiers = *game->getSavedGame()->getBases()->front()->getSoldiers();
+		const auto &rules = game->getMod()->getCommendationsList();
+		const auto award = std::find_if(rules.begin(), rules.end(), [](const auto &rule) {
+			return rule.second && !rule.second->getCriteria()->empty();
+		});
+		if (soldiers.empty()) return nullptr;
+		auto *soldier = soldiers.front();
+		if (award != rules.end())
+			soldier->getDiary()->getSoldierCommendations()->push_back(
+				new SoldierCommendations(award->first, "noNoun", game->getMod()));
+		if (id == CalypsoHarnessScenario::F30FallenCommendations) return new CommendationLateState({soldier});
+		return new CommendationState({soldier});
+	}
+	case CalypsoHarnessScenario::F30Promotions:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		auto &soldiers = *game->getSavedGame()->getBases()->front()->getSoldiers();
+		if (soldiers.empty()) return nullptr;
+		auto *soldier = soldiers.front();
+		soldier->setRank(RANK_SQUADDIE);
+		soldier->promoteRank();
+		return new PromotionsState();
+	}
+	case CalypsoHarnessScenario::F19PilotExperience:
+	{
+		Game *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		Base *base = game->getSavedGame()->getBases()->front();
+		if (!base->getSoldiers()->empty())
+		{
+			auto *gain = base->getSoldiers()->front()->getDailyDogfightExperienceCache();
+			gain->firing = 1;
+			gain->reactions = 2;
+		}
+		return new DogfightExperienceState();
+	}
+	case CalypsoHarnessScenario::F23Funding:
+		if (!prepareOperationsSave(getCurrentGame(), true)) return nullptr;
+		return new FundingState();
+	case CalypsoHarnessScenario::F17TargetInfo:
+	case CalypsoHarnessScenario::F17OverlappingTargets:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		auto *home = game->getSavedGame()->getBases()->front();
+		auto *waypoint = new Waypoint();
+		waypoint->setId(17);
+		game->getSavedGame()->getWaypoints()->push_back(waypoint);
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		if (id == CalypsoHarnessScenario::F17TargetInfo) return new TargetInfoState(waypoint, globe->getGlobe());
+		return new MultipleTargetsState({home, waypoint}, {}, globe, false);
+	}
+	case CalypsoHarnessScenario::F17ContactTracker:
+	case CalypsoHarnessScenario::F17AlienBase:
+	{
+		Game *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		for (const auto &deploymentId : game->getMod()->getDeploymentsList())
+		{
+			auto *deployment = game->getMod()->getDeployment(deploymentId);
+			if (!deployment || !deployment->isAlienBase()) continue;
+			auto *base = new AlienBase(deployment, 0);
+			base->setId(17);
+			base->setLongitude(0.73);
+			base->setLatitude(0.72);
+			base->setDiscovered(true);
+			game->getSavedGame()->getAlienBases()->push_back(base);
+			auto *globe = new GeoscapeState();
+			game->pushState(globe);
+			calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+			if (id == CalypsoHarnessScenario::F17ContactTracker) return new UfoTrackerState(globe, globe->getGlobe());
+			return new AlienBaseState(base, globe);
+		}
+		return nullptr;
+	}
 	case CalypsoHarnessScenario::F17UfoDetected:
 	{
 		// The S01 board renders real contact data, so this fixture builds a
@@ -1567,13 +2062,75 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new UfoDetectedState(ufo, geoscape, true, false);
 	}
 	case CalypsoHarnessScenario::F17MissionDetected:
-		return new CraftErrorState(nullptr, "Alien mission detected nearby.");
+		{
+			auto *game = getCurrentGame();
+			if (!makeOperationsFixture(game, false, false).base) return nullptr;
+			auto *mod = game->getMod();
+			if (mod->getAlienMissionList().empty()) return nullptr;
+			for (const auto &key : mod->getDeploymentsList())
+			{
+				auto *rule = mod->getDeployment(key);
+				if (!rule || rule->getAlertMessage().empty() || rule->getAlertBackground().empty()) continue;
+				auto *site = new MissionSite(mod->getAlienMission(mod->getAlienMissionList().front()), rule, nullptr);
+				site->setDetected(true);
+				game->getSavedGame()->getMissionSites()->push_back(site);
+				auto *globe = new GeoscapeState();
+				game->pushState(globe);
+				calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+				return new MissionDetectedState(site, globe);
+			}
+			return nullptr;
+		}
+	case CalypsoHarnessScenario::F22PhysicalRoster:
+	case CalypsoHarnessScenario::F22PsionicRoster:
+		{
+			auto *game = getCurrentGame();
+			if (!prepareOperationsSave(game, true)) return nullptr;
+			for (auto *base : *game->getSavedGame()->getBases())
+			{
+				if (!base || base->getSoldiers()->empty()) continue;
+				if (id == CalypsoHarnessScenario::F22PsionicRoster) return new AllocatePsiTrainingState(base);
+				return new AllocateTrainingState(base);
+			}
+			return nullptr;
+		}
+	case CalypsoHarnessScenario::F22PhysicalBases:
+	case CalypsoHarnessScenario::F22PsiBases:
+		if (!prepareOperationsSave(getCurrentGame(), true)) return nullptr;
+		if (id == CalypsoHarnessScenario::F22PsiBases) return new PsiTrainingState();
+		return new TrainingState();
 	case CalypsoHarnessScenario::F22TrainingFinished:
-		return new CraftErrorState(nullptr, "Training program has finished.");
-	case CalypsoHarnessScenario::F30NoExperience:
-		return new NoExperienceState();
+		{
+			auto *game = getCurrentGame();
+			if (!prepareOperationsSave(game, true)) return nullptr;
+			for (auto *base : *game->getSavedGame()->getBases())
+			{
+				if (base->getSoldiers()->empty()) continue;
+				const auto &soldiers = *base->getSoldiers();
+				std::vector<Soldier*> completed(soldiers.begin(), soldiers.begin() + std::min<std::size_t>(3, soldiers.size()));
+				return new TrainingFinishedState(base, completed, false);
+			}
+			return nullptr;
+		}
 	case CalypsoHarnessScenario::F24ProductionComplete:
-		return new CraftErrorState(nullptr, "Manufacturing project completed.");
+		{
+			auto *game = getCurrentGame();
+			if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+			auto *rule = firstManufactureRule(game->getMod());
+			if (!rule) return nullptr;
+			auto *globe = new GeoscapeState();
+			game->pushState(globe);
+			calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+			auto *base = game->getSavedGame()->getBases()->front();
+			Production batch(rule, 1);
+			if (!rule->getRandomProducedItems().empty())
+			{
+				batch.setAssignedEngineers(rule->getManufactureTime());
+				batch.step(base, game->getSavedGame(), game->getMod(), game->getLanguage());
+			}
+			return new ProductionCompleteState(base, game->getLanguage()->getString(rule->getName()), globe,
+				PROGRESS_COMPLETE, &batch);
+		}
 	case CalypsoHarnessScenario::F05SoldierTransform:
 		return new CraftErrorState(nullptr, "Soldier transformation is now available.");
 	case CalypsoHarnessScenario::F06SoldierMemorial:
@@ -1891,18 +2448,149 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new TransferConfirmState(to, items);
 	}
 	case CalypsoHarnessScenario::F13Containment:
+	case CalypsoHarnessScenario::F13ManageContainment:
+	case CalypsoHarnessScenario::F13GlobalContainment:
+	case CalypsoHarnessScenario::F13ContainmentReview:
 	{
-		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), false, false);
-		return fixture.base ? new ManageAlienContainmentState(fixture.base, 0, OPT_GEOSCAPE) : nullptr;
+		auto *game = getCurrentGame();
+		auto fixture = makeOperationsFixture(game, false, false);
+		if (!fixture.base) return nullptr;
+		for (const auto &name : game->getMod()->getItemsList())
+		{
+			const auto *rule = game->getMod()->getItem(name, true);
+			if (rule->isAlien() && rule->getPrisonType() == 0)
+			{
+				fixture.base->getStorageItems()->addItem(rule, 2);
+				break;
+			}
+		}
+		if (id == CalypsoHarnessScenario::F13GlobalContainment)
+			return new GlobalAlienContainmentState(false);
+		auto *state = new ManageAlienContainmentState(fixture.base, 0, OPT_GEOSCAPE);
+		if (id != CalypsoHarnessScenario::F13ContainmentReview) return state;
+		game->pushState(state);
+		state->increaseByValue(1);
+		return new ContainmentReviewState(*state, ContainmentAction::Remove);
+	}
+	case CalypsoHarnessScenario::F24UnlockCraft:
+	case CalypsoHarnessScenario::F24UnlockFacility:
+	case CalypsoHarnessScenario::F24UnlockManufacture:
+	case CalypsoHarnessScenario::F24UnlockPurchase:
+	case CalypsoHarnessScenario::F24UnlockResearch:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		auto *base = game->getSavedGame()->getBases()->front();
+		auto *mod = game->getMod();
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		if (id == CalypsoHarnessScenario::F24UnlockCraft && !mod->getCraftsList().empty())
+			return new NewPossibleCraftState(base, {mod->getCraft(mod->getCraftsList().front(), true)});
+		if (id == CalypsoHarnessScenario::F24UnlockFacility && !mod->getBaseFacilitiesList().empty())
+			return new NewPossibleFacilityState(base, globe->getGlobe(), {mod->getBaseFacility(mod->getBaseFacilitiesList().front(), true)});
+		if (id == CalypsoHarnessScenario::F24UnlockManufacture && !mod->getManufactureList().empty())
+			return new NewPossibleManufactureState(base, {mod->getManufacture(mod->getManufactureList().front(), true)});
+		if (id == CalypsoHarnessScenario::F24UnlockPurchase && !mod->getItemsList().empty())
+			return new NewPossiblePurchaseState(base, {mod->getItem(mod->getItemsList().front(), true)});
+		if (id == CalypsoHarnessScenario::F24UnlockResearch)
+		{
+			for (const auto &name : mod->getResearchList())
+			{
+				auto *rule = mod->getResearch(name);
+				if (NewPossibleResearchState::eligible(*game->getSavedGame(), rule))
+					return new NewPossibleResearchState(base, {rule});
+			}
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F32AdvancedStats:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		for (const auto &key : game->getMod()->getUfopaediaList())
+		{
+			auto *article = game->getMod()->getUfopaediaArticle(key, true);
+			if (article->getType() == UFOPAEDIA_TYPE_TFTD_CRAFT && Ufopaedia::isArticleAvailable(game->getSavedGame(), article))
+				return new StatsForNerdsState(article->getType(), key, false, false, false);
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F32TextArticle:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		auto common = std::make_shared<ArticleCommonState>();
+		for (const auto &key : game->getMod()->getUfopaediaList())
+		{
+			auto *article = game->getMod()->getUfopaediaArticle(key, true);
+			if (!Ufopaedia::isArticleAvailable(game->getSavedGame(), article)) continue;
+			if ((article->getType() == UFOPAEDIA_TYPE_TEXT || article->getType() == UFOPAEDIA_TYPE_TFTD)
+				&& common->current_index == ArticleCommonState::invalid)
+				common->current_index = common->articleList.size();
+			common->articleList.push_back(article);
+			common->articleStatusList.push_back(game->getSavedGame()->getUfopediaRuleStatus(article->id) == ArticleDefinition::PEDIA_STATUS_HIDDEN);
+		}
+		if (common->current_index == ArticleCommonState::invalid) return nullptr;
+		auto *article = common->getCurrentArticle();
+		if (article->getType() == UFOPAEDIA_TYPE_TEXT)
+			return new ArticleStateText(static_cast<ArticleDefinitionText *>(article), common);
+		return new ArticleStateTFTD(static_cast<ArticleDefinitionTFTD *>(article), common);
+	}
+	case CalypsoHarnessScenario::F31ArchiveSections:
+	case CalypsoHarnessScenario::F31ArchiveTopics:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		if (id == CalypsoHarnessScenario::F31ArchiveSections) return new UfopaediaStartState();
+		const auto &categories = game->getMod()->getUfopaediaCategoryList();
+		for (const auto &category : categories)
+		{
+			ArticleDefinitionList articles;
+			Ufopaedia::list(game->getSavedGame(), game->getMod(), category, articles);
+			if (!articles.empty()) return new UfopaediaSelectState(category, 0, 0);
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F24StrategicEvent:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true) || game->getSavedGame()->getBases()->empty()) return nullptr;
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		const auto *events = game->getMod()->getEventList();
+		if (!events->empty())
+		{
+			const auto *rule = game->getMod()->getEvent(events->front(), true);
+			return new GeoscapeEventState(*rule, game->getSavedGame()->addReadyEvent(*rule));
+		}
+		// The stock campaign has no scripted events. A read-only preview
+		// rule supplies translatable narrative and uses the standard event artwork.
+		static const RuleEvent preview = [] {
+			RuleEvent rule("STR_BARRACUDA");
+			rule.load(YAML::YamlRootNodeReader(YAML::YamlString{"description: STR_BARRACUDA_UFOPEDIA"}, "HD event preview"));
+			return rule;
+		}();
+		return new GeoscapeEventState(preview);
 	}
 	case CalypsoHarnessScenario::F24ItemsArriving:
 	{
 		Game *game = getCurrentGame();
-		if (!game || !game->getMod() || !prepareOperationsSave(game)) return nullptr;
-		// ItemsArrivingState reads the campaign transfer queues during
-		// construction; the empty deterministic save is a valid no-arrivals
-		// fixture and keeps the native route available.
-		GeoscapeState *geoscape = new GeoscapeState();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		Base *first = nullptr, *second = nullptr;
+		ensureTransferFixture(game, first, second);
+		if (!first || !second || first->getStorageItems()->getContents()->empty()) return nullptr;
+		const auto *item = first->getStorageItems()->getContents()->begin()->first;
+		for (auto *destination : {first, second})
+		{
+			auto *arrival = new Transfer(0);
+			arrival->setItems(item, destination == first ? 4 : 2);
+			destination->getTransfers()->push_back(arrival);
+		}
+		auto *geoscape = new GeoscapeState();
+		game->pushState(geoscape);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), geoscape);
 		return new ItemsArrivingState(geoscape);
 	}
 	case CalypsoHarnessScenario::F09ResearchQueue:
@@ -1984,6 +2672,28 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 			: makeGlobalManufactureFixture(getCurrentGame());
 		const bool openedFromBasescape = profile == 208;
 		return fixture.base ? new GlobalManufactureState(openedFromBasescape) : nullptr;
+	}
+	case CalypsoHarnessScenario::F16ExtendedLinks:
+	case CalypsoHarnessScenario::F16MusicSelector:
+	{
+		auto *game = getCurrentGame();
+		if (!prepareOperationsSave(game, true)) return nullptr;
+		auto *globe = new GeoscapeState();
+		game->pushState(globe);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
+		if (id == CalypsoHarnessScenario::F16ExtendedLinks)
+			return new ExtendedGeoscapeLinksState(globe);
+		return new SelectMusicTrackState(SMT_GEOSCAPE);
+	}
+	case CalypsoHarnessScenario::F15TopicSelector:
+	{
+		auto *game = getCurrentGame();
+		auto fixture = makeOperationsFixture(game, true, false);
+		if (!fixture.research) return nullptr;
+		auto *viewer = new TechTreeViewerState(fixture.research);
+		game->pushState(viewer);
+		calypsoHarnessNavigationDestination(calypsoHarnessSession(), viewer);
+		return new TechTreeSelectState(viewer);
 	}
 	case CalypsoHarnessScenario::F15TechTree:
 	{
@@ -2361,6 +3071,43 @@ void warnUnknownScenario(int scenarioId)
 // --- Generic harness exports -------------------------------------------------
 
 extern "C" {
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_qa_preview_interception()
+{
+	using namespace OpenXcom;
+	using namespace OpenXcom::Calypso;
+	if (!EM_ASM_INT({return location.hostname === 'localhost' || location.hostname === '127.0.0.1';})) return 0;
+	Game *game = getCurrentGame();
+	if (!game || game->getSavedGame() || !game->getTopState() || !prepareOperationsSave(game, true)) return 0;
+	SavedGame *save = game->getSavedGame();
+	Mod *mod = game->getMod();
+	if (save->getBases()->empty() || mod->getUfosList().empty() || mod->getAlienMissionList().empty()) return 0;
+	Base *base = save->getBases()->front();
+	const auto &fleet = *base->getCrafts();
+	auto armed = std::find_if(fleet.begin(), fleet.end(), [](Craft *craft) { return craft && craft->getNumWeapons(true) > 0; });
+	if (armed == fleet.end()) return 0;
+	const auto *rule = mod->getUfo(mod->getUfosList().front(), false);
+	const auto *missionRule = mod->getAlienMission(mod->getAlienMissionList().front(), false);
+	const auto *trajectory = mod->getUfoTrajectory(UfoTrajectory::RETALIATION_ASSAULT_RUN, false);
+	if (!rule || !missionRule || !trajectory) return 0;
+	auto *mission = new AlienMission(*missionRule);
+	save->getAlienMissions().push_back(mission);
+	auto *ufo = new Ufo(rule, 1);
+	ufo->setMissionInfo(mission, trajectory);
+	ufo->setId(save->getId("STR_UFO"));
+	ufo->setLongitude(base->getLongitude()); ufo->setLatitude(base->getLatitude());
+	ufo->setAltitude("STR_VERY_LOW"); ufo->setDetected(true);
+	save->getUfos()->push_back(ufo);
+	Craft *craft = *armed;
+	craft->setDestination(ufo);
+	craft->setStatus("STR_OUT");
+	CalypsoTutorial::get().disableForCampaign();
+	auto *state = new GeoscapeState();
+	game->pushState(state);
+	state->startHarnessInterception(craft, ufo);
+	return 1;
+}
 
 EMSCRIPTEN_KEEPALIVE
 int calypso_hd_harness_open(int scenarioId, int layoutClass, int sideBySide)

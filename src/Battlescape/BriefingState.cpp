@@ -17,6 +17,12 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "BriefingState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#include "../Calypso/CalypsoReportLines.h"
+#include "../Mod/RuleEnviroEffects.h"
+#include "../Mod/RuleStartingCondition.h"
+#endif
 #include "BattlescapeState.h"
 #include "BattlescapeGame.h"
 #include "AliensCrashState.h"
@@ -108,13 +114,19 @@ BriefingState::BriefingState(Craft *craft, Base *base, bool infoOnly, BriefingDa
 	{
 		setStandardPalette("PAL_GEOSCAPE", 0);
 		_musicId = "GMDEFEND";
+
+#ifndef __EMSCRIPTEN__
 		_window->setBackground(_game->getMod()->getSurface("BACK16.SCR"));
+#endif
 	}
 	else
 	{
 		BriefingData data = customBriefing ? *customBriefing : deployment->getBriefingData();
 		setStandardPalette("PAL_GEOSCAPE", data.palette);
+
+#ifndef __EMSCRIPTEN__
 		_window->setBackground(_game->getMod()->getSurface(data.background));
+#endif
 		_txtCraft->setY(56 + data.textOffset);
 		_txtBriefing->setY(72 + data.textOffset);
 		_txtTarget->setVisible(data.showTarget);
@@ -220,6 +232,9 @@ BriefingState::BriefingState(Craft *craft, Base *base, bool infoOnly, BriefingDa
 	_txtBriefing->setWordWrap(true);
 	_txtBriefing->setText(tr(desc));
 
+#ifdef __EMSCRIPTEN__
+	openBriefing(isPreview);
+#endif
 	if (_infoOnly) return;
 
 	if (!isPreview && base && mission == "STR_BASE_DEFENSE")
@@ -245,7 +260,9 @@ BriefingState::BriefingState(Craft *craft, Base *base, bool infoOnly, BriefingDa
  */
 BriefingState::~BriefingState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
 }
 
 void BriefingState::init()
@@ -307,5 +324,6 @@ void BriefingState::btnOkClick(Action *)
 		_game->pushState(new AliensCrashState);
 	}
 }
+
 
 }

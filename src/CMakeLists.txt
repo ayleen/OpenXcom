@@ -615,8 +615,9 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoF03DismantleUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF03BuildFacilitiesUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF11MarketUi.cpp)
-  list(APPEND openxcom_src Calypso/CalypsoInventoryLedger.cpp)
-  list(APPEND openxcom_src Calypso/CalypsoLogisticsFilters.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoBaseLedger.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoTrainingBases.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoTrainingRoster.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF12TransferUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoLogisticsWorkspace.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF36MarketUi.cpp)
@@ -627,20 +628,21 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoF04SoldierRankUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF18CraftErrorUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF18LowFuelUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoFleetDispatch.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoFleetMapUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoF18PatrolArrivalUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF18NotEnoughPilotsUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF19DogfightErrorUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF20ConfirmLandingUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoMissionReview.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF20ConfirmCydoniaUi.cpp)
-  list(APPEND openxcom_src Calypso/CalypsoF24ResearchRequiredUi.cpp)
-  list(APPEND openxcom_src Calypso/CalypsoF24ResearchCompleteUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoResearchNotice.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF28AbortMissionUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF28ConfirmEndUi.cpp)
-  list(APPEND openxcom_src Calypso/CalypsoF17UfoLostUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoContactNotice.cpp Calypso/CalypsoTacticalActions.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoTacticalSensor.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF17UfoDetectedUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF17MissionDetectedUi.cpp)
-  list(APPEND openxcom_src Calypso/CalypsoF22TrainingFinishedUi.cpp)
-  list(APPEND openxcom_src Calypso/CalypsoF30NoExperienceUi.cpp)
-  list(APPEND openxcom_src Calypso/CalypsoF24ProductionCompleteUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF05SoldierTransformUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF05SoldierArmorUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF05SoldierAvatarUi.cpp)
@@ -658,13 +660,24 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoF08CraftSoldiersUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF08CraftArmorUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF08CraftWeaponsUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoInterceptionHud.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoStrategicGraphs.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoMissionOutcome.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF08CraftEquipmentUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF08CraftEquipmentLoadUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF08CraftEquipmentSaveUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF12TransferConfirmUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF10ProductionUi.cpp)
-  list(APPEND openxcom_src Calypso/CalypsoF13ContainmentUi.cpp)
-  list(APPEND openxcom_src Calypso/CalypsoF24ItemsArrivingUi.cpp)
+  list(APPEND openxcom_src
+    Calypso/ContainmentReviewState.cpp
+    Calypso/CalypsoBaseManagement.cpp
+    Calypso/CalypsoLogisticsFilters.cpp
+    Calypso/CalypsoMissionBriefing.cpp
+    Calypso/CalypsoFleetControls.cpp
+    Calypso/CalypsoCampaignReports.cpp
+    Calypso/CalypsoSlidePlayer.cpp
+    Calypso/CalypsoArchiveScreens.cpp
+  )
   list(APPEND openxcom_src Calypso/CalypsoF21TransactionUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF21SiteUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF21NameUi.cpp)
@@ -712,7 +725,7 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoHdUiOverlay.cpp)
   # Phase 46.F01: Basescape HD presentation holder (lifecycle only; the
   # shared renderer paints once T14 feeds a complete model).
-  list(APPEND openxcom_src Calypso/CalypsoBasescapeHdUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoBasescapeHdUi.cpp Calypso/CalypsoAccessLift.cpp)
   # Phase 46.F01: strategic navigation bridge (pending global routes).
   list(APPEND openxcom_src Calypso/CalypsoStrategicNavigation.cpp)
   # Phase 46.F01: shared RGBA image source for the HD overlay queue.
@@ -732,7 +745,9 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoHdOperationsChrome.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF09ResearchUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF14GlobalOperationsUi.cpp)
-  list(APPEND openxcom_src Calypso/CalypsoF15TechTreeUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoTacticalEquipment.cpp Calypso/CalypsoEquipmentPreview.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoF15TechTreeUi.cpp Calypso/CalypsoStrategicList.cpp
+  Calypso/CalypsoTechTopicSelector.cpp)
   list(APPEND openxcom_src Calypso/CalypsoHdScreenHarness.cpp)
   list(APPEND openxcom_src Calypso/CalypsoErrorPopupUiShared.cpp)
   list(APPEND openxcom_src Calypso/CalypsoStatisticsUi.cpp)
@@ -1098,6 +1113,9 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdHarnessHostModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdDiagnosticsTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoInventoryLocationsTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/LandingSuppliesTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/ProductionOutputSaleTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/StrategicEventReceiptTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoSelectionListScrollTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdOperationsModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/ResearchInfoTransactionTest.cpp

@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "id": "f17-overlapping-targets",
+  "familyId": 17,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "contact-sonar"
+  },
+  "state": "MultipleTargetsState",
+  "labelKeys": {
+    "title": "STR_CAL_SELECT_CONTACT",
+    "done": "STR_CANCEL"
+  },
+  "title": "SELECT TARGET",
+  "actions": [
+    {
+      "id": "detail",
+      "action": "detail",
+      "label": "DETAILS",
+      "labelKey": "STR_INFO",
+      "tone": "normal"
+    },
+    {
+      "id": "open",
+      "action": "open",
+      "label": "OPEN SELECTED",
+      "labelKey": "STR_CAL_OPEN_CONTACT",
+      "tone": "primary"
+    },
+    {
+      "id": "done",
+      "action": "done",
+      "label": "CANCEL",
+      "labelKey": "STR_CANCEL",
+      "tone": "normal"
+    }
+  ],
+  "summary": [
+    {
+      "id": "count",
+      "label": "CONTACTS",
+      "value": "3"
+    },
+    {
+      "id": "selected",
+      "label": "SELECTED",
+      "value": "Waypoint 1"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "contact",
+    "columns": [
+      {
+        "id": "name",
+        "label": "TARGET",
+        "contentRole": "name"
+      },
+      {
+        "id": "kind",
+        "label": "TYPE",
+        "contentRole": "status"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Waypoint 1",
+          "Waypoint"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": []
+}

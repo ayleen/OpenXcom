@@ -1064,6 +1064,173 @@
       "harnessScenarioIds": [
         131
       ]
-    }
+    },
+    {"id": "f02-base-information", "contract": "f02-base-information.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF02BaseInformationGen", "prefix": "CalypsoF02BaseInformation", "output": "CalypsoF02BaseInformation.generated.h"}, "browser": {"global": "CalypsoF02BaseInformation", "output": "f02-base-information.js"}, "rendererOwnership": "base-administration", "harnessScenarioIds": [132]},
+    {"id": "f02-monthly-costs", "contract": "f02-monthly-costs.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF02MonthlyCostsGen", "prefix": "CalypsoF02MonthlyCosts", "output": "CalypsoF02MonthlyCosts.generated.h"}, "browser": {"global": "CalypsoF02MonthlyCosts", "output": "f02-monthly-costs.js"}, "rendererOwnership": "base-administration", "harnessScenarioIds": [133]},
+    {"id": "f13-global-containment", "contract": "f13-global-containment.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF13GlobalContainmentGen", "prefix": "CalypsoF13GlobalContainment", "output": "CalypsoF13GlobalContainment.generated.h"}, "browser": {"global": "CalypsoF13GlobalContainment", "output": "f13-global-containment.js"}, "rendererOwnership": "base-containment", "harnessScenarioIds": [134]},
+    {"id": "f13-manage-containment", "contract": "f13-manage-containment.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF13ManageContainmentGen", "prefix": "CalypsoF13ManageContainment", "output": "CalypsoF13ManageContainment.generated.h"}, "browser": {"global": "CalypsoF13ManageContainment", "output": "f13-manage-containment.js"}, "rendererOwnership": "base-containment", "harnessScenarioIds": [135]},
+    {"id": "f13-containment-review", "contract": "f13-containment-review.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF13ContainmentReviewGen", "prefix": "CalypsoF13ContainmentReview", "output": "CalypsoF13ContainmentReview.generated.h"}, "browser": {"global": "CalypsoF13ContainmentReview", "output": "f13-containment-review.js"}, "rendererOwnership": "base-containment", "harnessScenarioIds": [136]},
+    {"id": "f36-economy", "contract": "f36-economy.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF36EconomyGen", "prefix": "CalypsoF36Economy", "output": "CalypsoF36Economy.generated.h"}, "browser": {"global": "CalypsoF36Economy", "output": "f36-economy.js"}, "rendererOwnership": "economy-ledger", "harnessScenarioIds": [137]},
+    {"id": "f37-contract-delivery", "contract": "f37-contract-delivery.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF37ContractDeliveryGen", "prefix": "CalypsoF37ContractDelivery", "output": "CalypsoF37ContractDelivery.generated.h"}, "browser": {"global": "CalypsoF37ContractDelivery", "output": "f37-contract-delivery.js"}, "rendererOwnership": "economy-ledger", "harnessScenarioIds": [138]},
+    {"id": "f15-topic-selector", "contract": "f15-topic-selector.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF15TopicSelectorGen", "prefix": "CalypsoF15TopicSelector", "output": "CalypsoF15TopicSelector.generated.h"}, "browser": {"global": "CalypsoF15TopicSelector", "output": "f15-topic-selector.js"}, "rendererOwnership": "tech-topic-selector", "harnessScenarioIds": [139]},
+    {"id": "f16-extended-links", "contract": "f16-extended-links.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF16ExtendedLinksGen", "prefix": "CalypsoF16ExtendedLinks", "output": "CalypsoF16ExtendedLinks.generated.h"}, "browser": {"global": "CalypsoF16ExtendedLinks", "output": "f16-extended-links.js"}, "rendererOwnership": "strategic-modal-list", "harnessScenarioIds": [140]},
+    {"id": "f16-music-selector", "contract": "f16-music-selector.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF16MusicSelectorGen", "prefix": "CalypsoF16MusicSelector", "output": "CalypsoF16MusicSelector.generated.h"}, "browser": {"global": "CalypsoF16MusicSelector", "output": "f16-music-selector.js"}, "rendererOwnership": "strategic-modal-list", "harnessScenarioIds": [141]},
+    {"id": "f17-ufo-lost", "contract": "f17-ufo-lost.json", "emitter": "family", "validationProfile": "small-confirmation", "native": {"namespace": "CalypsoF17UfoLostGen", "prefix": "CalypsoF17UfoLost", "output": "CalypsoF17UfoLost.generated.h"}, "browser": {"global": "CalypsoF17UfoLost", "output": "f17-ufo-lost.js"}, "rendererOwnership": "contact-notice", "harnessScenarioIds": [72]},
+    {"id": "f24-research-required", "contract": "f24-research-required.json", "emitter": "family", "validationProfile": "small-confirmation", "native": {"namespace": "CalypsoF24ResearchRequiredGen", "prefix": "CalypsoF24ResearchRequired", "output": "CalypsoF24ResearchRequired.generated.h"}, "browser": {"global": "CalypsoF24ResearchRequired", "output": "f24-research-required.js"}, "rendererOwnership": "research-notice", "harnessScenarioIds": [68]},
+    {"id": "f24-research-complete", "contract": "f24-research-complete.json", "emitter": "family", "validationProfile": "small-confirmation", "native": {"namespace": "CalypsoF24ResearchCompleteGen", "prefix": "CalypsoF24ResearchComplete", "output": "CalypsoF24ResearchComplete.generated.h"}, "browser": {"global": "CalypsoF24ResearchComplete", "output": "f24-research-complete.js"}, "rendererOwnership": "research-notice", "harnessScenarioIds": [69]},
+    {"id": "f17-alien-base", "contract": "f17-alien-base.json", "emitter": "family", "validationProfile": "small-confirmation", "native": {"namespace": "CalypsoF17AlienBaseGen", "prefix": "CalypsoF17AlienBase", "output": "CalypsoF17AlienBase.generated.h"}, "browser": {"global": "CalypsoF17AlienBase", "output": "f17-alien-base.js"}, "rendererOwnership": "contact-notice", "harnessScenarioIds": [142]},
+    {"id": "f17-contact-tracker", "contract": "f17-contact-tracker.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF17ContactTrackerGen", "prefix": "CalypsoF17ContactTracker", "output": "CalypsoF17ContactTracker.generated.h"}, "browser": {"global": "CalypsoF17ContactTracker", "output": "f17-contact-tracker.js"}, "rendererOwnership": "contact-table", "harnessScenarioIds": [143]},
+    {"id": "f17-overlapping-targets", "contract": "f17-overlapping-targets.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF17OverlappingTargetsGen", "prefix": "CalypsoF17OverlappingTargets", "output": "CalypsoF17OverlappingTargets.generated.h"}, "browser": {"global": "CalypsoF17OverlappingTargets", "output": "f17-overlapping-targets.js"}, "rendererOwnership": "contact-table", "harnessScenarioIds": [144]},
+    {"id": "f17-target-info", "contract": "f17-target-info.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF17TargetInfoGen", "prefix": "CalypsoF17TargetInfo", "output": "CalypsoF17TargetInfo.generated.h"}, "browser": {"global": "CalypsoF17TargetInfo", "output": "f17-target-info.js"}, "rendererOwnership": "contact-table", "harnessScenarioIds": [145]},
+    {
+      "id": "f24-items-arriving",
+      "contract": "f24-items-arriving.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {
+        "namespace": "CalypsoF24ItemsArrivingGen",
+        "prefix": "CalypsoF24ItemsArriving",
+        "output": "CalypsoF24ItemsArriving.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF24ItemsArriving",
+        "output": "f24-items-arriving.js"
+      },
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [
+        83
+      ]
+    },
+    {
+      "id": "f24-unlocks",
+      "contract": "f24-unlocks.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {
+        "namespace": "CalypsoF24UnlocksGen",
+        "prefix": "CalypsoF24Unlocks",
+        "output": "CalypsoF24Unlocks.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF24Unlocks",
+        "output": "f24-unlocks.js"
+      },
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [
+        175,
+        176,
+        177,
+        178,
+        179
+      ]
+    },
+    {
+      "id": "f24-production-complete",
+      "contract": "f24-production-complete.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {
+        "namespace": "CalypsoF24ProductionCompleteGen",
+        "prefix": "CalypsoF24ProductionComplete",
+        "output": "CalypsoF24ProductionComplete.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF24ProductionComplete",
+        "output": "f24-production-complete.js"
+      },
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [
+        77
+      ]
+    },
+    {
+      "id": "f24-strategic-event",
+      "contract": "f24-strategic-event.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {
+        "namespace": "CalypsoF24StrategicEventGen",
+        "prefix": "CalypsoF24StrategicEvent",
+        "output": "CalypsoF24StrategicEvent.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF24StrategicEvent",
+        "output": "f24-strategic-event.js"
+      },
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [
+        180
+      ]
+    },
+    {"id": "f31-archive-sections", "contract": "f31-archive-sections.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF31ArchiveSectionsGen", "prefix": "CalypsoF31ArchiveSections", "output": "CalypsoF31ArchiveSections.generated.h"}, "browser": {"global": "CalypsoF31ArchiveSections", "output": "f31-archive-sections.js"}, "rendererOwnership": "tech-topic-selector", "harnessScenarioIds": [181]},
+    {"id": "f31-archive-topics", "contract": "f31-archive-topics.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF31ArchiveTopicsGen", "prefix": "CalypsoF31ArchiveTopics", "output": "CalypsoF31ArchiveTopics.generated.h"}, "browser": {"global": "CalypsoF31ArchiveTopics", "output": "f31-archive-topics.js"}, "rendererOwnership": "tech-topic-selector", "harnessScenarioIds": [182]},
+    {"id": "f32-text-article", "contract": "f32-text-article.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF32TextArticleGen", "prefix": "CalypsoF32TextArticle", "output": "CalypsoF32TextArticle.generated.h"}, "browser": {"global": "CalypsoF32TextArticle", "output": "f32-text-article.js"}, "rendererOwnership": "research-manufacture-operations", "harnessScenarioIds": [183]},
+    {"id": "f32-advanced-stats", "contract": "f32-advanced-stats.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF32AdvancedStatsGen", "prefix": "CalypsoF32AdvancedStats", "output": "CalypsoF32AdvancedStats.generated.h"}, "browser": {"global": "CalypsoF32AdvancedStats", "output": "f32-advanced-stats.js"}, "rendererOwnership": "research-manufacture-operations", "harnessScenarioIds": [185]},
+    {"id": "f28-tactical-links", "contract": "f28-tactical-links.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF28TacticalLinksGen", "prefix": "CalypsoF28TacticalLinks", "output": "CalypsoF28TacticalLinks.generated.h"}, "browser": {"global": "CalypsoF28TacticalLinks", "output": "f28-tactical-links.js"}, "rendererOwnership": "tactical-messages", "harnessScenarioIds": [199]},
+    {"id": "f30-no-experience", "contract": "f30-no-experience.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF30NoExperienceGen", "prefix": "CalypsoF30NoExperience", "output": "CalypsoF30NoExperience.generated.h"}, "browser": {"global": "CalypsoF30NoExperience", "output": "f30-no-experience.js"}, "rendererOwnership": "mission-roster", "harnessScenarioIds": [76]},
+    {"id": "f30-turn-diary", "contract": "f30-turn-diary.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF30TurnDiaryGen", "prefix": "CalypsoF30TurnDiary", "output": "CalypsoF30TurnDiary.generated.h"}, "browser": {"global": "CalypsoF30TurnDiary", "output": "f30-turn-diary.js"}, "rendererOwnership": "mission-diary", "harnessScenarioIds": [191]},
+    {"id": "f28-turn-transition", "contract": "f28-turn-transition.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF28TurnTransitionGen", "prefix": "CalypsoF28TurnTransition", "output": "CalypsoF28TurnTransition.generated.h"}, "browser": {"global": "CalypsoF28TurnTransition", "output": "f28-turn-transition.js"}, "rendererOwnership": "tactical-messages", "harnessScenarioIds": [198]},
+    {"id": "f27-target-briefing", "contract": "f27-target-briefing.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF27TargetBriefingGen", "prefix": "CalypsoF27TargetBriefing", "output": "CalypsoF27TargetBriefing.generated.h"}, "browser": {"global": "CalypsoF27TargetBriefing", "output": "f27-target-briefing.js"}, "rendererOwnership": "mission-briefing", "harnessScenarioIds": [197]},
+    {"id": "f27-mission-briefing", "contract": "f27-mission-briefing.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF27MissionBriefingGen", "prefix": "CalypsoF27MissionBriefing", "output": "CalypsoF27MissionBriefing.generated.h"}, "browser": {"global": "CalypsoF27MissionBriefing", "output": "f27-mission-briefing.js"}, "rendererOwnership": "mission-briefing", "harnessScenarioIds": [196]},
+    {"id": "f26-shortages", "contract": "f26-shortages.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF26ShortagesGen", "prefix": "CalypsoF26Shortages", "output": "CalypsoF26Shortages.generated.h"}, "browser": {"global": "CalypsoF26Shortages", "output": "f26-shortages.js"}, "rendererOwnership": "tactical-inventory", "harnessScenarioIds": [219]},
+    {"id": "f26-save-template", "contract": "f26-save-template.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF26SaveTemplateGen", "prefix": "CalypsoF26SaveTemplate", "output": "CalypsoF26SaveTemplate.generated.h"}, "browser": {"global": "CalypsoF26SaveTemplate", "output": "f26-save-template.js"}, "rendererOwnership": "tactical-inventory", "harnessScenarioIds": [218]},
+    {"id": "f26-personal-template", "contract": "f26-personal-template.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF26PersonalTemplateGen", "prefix": "CalypsoF26PersonalTemplate", "output": "CalypsoF26PersonalTemplate.generated.h"}, "browser": {"global": "CalypsoF26PersonalTemplate", "output": "f26-personal-template.js"}, "rendererOwnership": "tactical-inventory", "harnessScenarioIds": [217]},
+    {"id": "f26-load-template", "contract": "f26-load-template.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF26LoadTemplateGen", "prefix": "CalypsoF26LoadTemplate", "output": "CalypsoF26LoadTemplate.generated.h"}, "browser": {"global": "CalypsoF26LoadTemplate", "output": "f26-load-template.js"}, "rendererOwnership": "tactical-inventory", "harnessScenarioIds": [216]},
+    {"id": "f26-inventory-links", "contract": "f26-inventory-links.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF26InventoryLinksGen", "prefix": "CalypsoF26InventoryLinks", "output": "CalypsoF26InventoryLinks.generated.h"}, "browser": {"global": "CalypsoF26InventoryLinks", "output": "f26-inventory-links.js"}, "rendererOwnership": "tactical-inventory", "harnessScenarioIds": [215]},
+    {"id": "f30-promotions", "contract": "f30-promotions.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF30PromotionsGen", "prefix": "CalypsoF30Promotions", "output": "CalypsoF30Promotions.generated.h"}, "browser": {"global": "CalypsoF30Promotions", "output": "f30-promotions.js"}, "rendererOwnership": "post-mission-report", "harnessScenarioIds": [192]},
+    {"id": "f30-fallen-commendations", "contract": "f30-fallen-commendations.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF30FallenCommendationsGen", "prefix": "CalypsoF30FallenCommendations", "output": "CalypsoF30FallenCommendations.generated.h"}, "browser": {"global": "CalypsoF30FallenCommendations", "output": "f30-fallen-commendations.js"}, "rendererOwnership": "post-mission-report", "harnessScenarioIds": [195]},
+    {"id": "f30-commendations", "contract": "f30-commendations.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF30CommendationsGen", "prefix": "CalypsoF30Commendations", "output": "CalypsoF30Commendations.generated.h"}, "browser": {"global": "CalypsoF30Commendations", "output": "f30-commendations.js"}, "rendererOwnership": "post-mission-report", "harnessScenarioIds": [194]},
+    {"id": "f30-experience-overview", "contract": "f30-experience-overview.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF30ExperienceOverviewGen", "prefix": "CalypsoF30ExperienceOverview", "output": "CalypsoF30ExperienceOverview.generated.h"}, "browser": {"global": "CalypsoF30ExperienceOverview", "output": "f30-experience-overview.js"}, "rendererOwnership": "mission-experience", "harnessScenarioIds": [193]},
+    {"id": "f28-tactical-alert", "contract": "f28-tactical-alert.json", "emitter": "family", "validationProfile": "small-confirmation", "native": {"namespace": "CalypsoF28TacticalAlertGen", "prefix": "CalypsoF28TacticalAlert", "output": "CalypsoF28TacticalAlert.generated.h"}, "browser": {"global": "CalypsoF28TacticalAlert", "output": "f28-tactical-alert.js"}, "rendererOwnership": "tactical-messages", "harnessScenarioIds": [201]},
+    {"id": "f28-tactical-notice", "contract": "f28-tactical-notice.json", "emitter": "family", "validationProfile": "small-confirmation", "native": {"namespace": "CalypsoF28TacticalNoticeGen", "prefix": "CalypsoF28TacticalNotice", "output": "CalypsoF28TacticalNotice.generated.h"}, "browser": {"global": "CalypsoF28TacticalNotice", "output": "f28-tactical-notice.js"}, "rendererOwnership": "tactical-messages", "harnessScenarioIds": [200]},
+    {"id": "f28-confirm-end", "contract": "f28-confirm-end.json", "emitter": "family", "validationProfile": "small-confirmation", "native": {"namespace": "CalypsoF28ConfirmEndGen", "prefix": "CalypsoF28ConfirmEnd", "output": "CalypsoF28ConfirmEnd.generated.h"}, "browser": {"global": "CalypsoF28ConfirmEnd", "output": "f28-confirm-end.js"}, "rendererOwnership": "mission-confirmation", "harnessScenarioIds": [71]},
+    {"id": "f23-funding", "contract": "f23-funding.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF23FundingGen", "prefix": "CalypsoF23Funding", "output": "CalypsoF23Funding.generated.h"}, "browser": {"global": "CalypsoF23Funding", "output": "f23-funding.js"}, "rendererOwnership": "research-manufacture-operations", "harnessScenarioIds": [160]},
+    {
+      "id": "f23-monthly-report",
+      "contract": "f23-monthly-report.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {
+        "namespace": "CalypsoF23MonthlyReportGen",
+        "prefix": "CalypsoF23MonthlyReport",
+        "output": "CalypsoF23MonthlyReport.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF23MonthlyReport",
+        "output": "f23-monthly-report.js"
+      },
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [
+        161
+      ]
+    },
+    {"id": "f23-strategic-graphs", "contract": "f23-strategic-graphs.json", "emitter": "family", "validationProfile": "tabbed-management", "native": {"namespace": "CalypsoF23StrategicGraphsGen", "prefix": "CalypsoF23StrategicGraphs", "output": "CalypsoF23StrategicGraphs.generated.h"}, "browser": {"global": "CalypsoF23StrategicGraphs", "output": "f23-strategic-graphs.js"}, "rendererOwnership": "tabbed-management", "harnessScenarioIds": [162]},
+    {"id": "f19-pilot-experience", "contract": "f19-pilot-experience.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF19PilotExperienceGen", "prefix": "CalypsoF19PilotExperience", "output": "CalypsoF19PilotExperience.generated.h"}, "browser": {"global": "CalypsoF19PilotExperience", "output": "f19-pilot-experience.js"}, "rendererOwnership": "research-manufacture-operations", "harnessScenarioIds": [190]},
+    {"id": "f18-craft-error", "contract": "f18-craft-error.json", "emitter": "family", "validationProfile": "small-confirmation", "native": {"namespace": "CalypsoF18CraftErrorGen", "prefix": "CalypsoF18CraftError", "output": "CalypsoF18CraftError.generated.h"}, "browser": {"global": "CalypsoF18CraftError", "output": "f18-craft-error.js"}, "rendererOwnership": "fleet-alert", "harnessScenarioIds": [62]},
+    {"id": "f18-low-fuel", "contract": "f18-low-fuel.json", "emitter": "family", "validationProfile": "small-confirmation", "native": {"namespace": "CalypsoF18LowFuelGen", "prefix": "CalypsoF18LowFuel", "output": "CalypsoF18LowFuel.generated.h"}, "browser": {"global": "CalypsoF18LowFuel", "output": "f18-low-fuel.js"}, "rendererOwnership": "fleet-alert", "harnessScenarioIds": [63]},
+    {"id": "f18-not-enough-pilots", "contract": "f18-not-enough-pilots.json", "emitter": "family", "validationProfile": "small-confirmation", "native": {"namespace": "CalypsoF18NotEnoughPilotsGen", "prefix": "CalypsoF18NotEnoughPilots", "output": "CalypsoF18NotEnoughPilots.generated.h"}, "browser": {"global": "CalypsoF18NotEnoughPilots", "output": "f18-not-enough-pilots.js"}, "rendererOwnership": "fleet-alert", "harnessScenarioIds": [64]},
+    {"id": "f18-patrol-arrival", "contract": "f18-patrol-arrival.json", "emitter": "family", "validationProfile": "small-confirmation", "native": {"namespace": "CalypsoF18PatrolArrivalGen", "prefix": "CalypsoF18PatrolArrival", "output": "CalypsoF18PatrolArrival.generated.h"}, "browser": {"global": "CalypsoF18PatrolArrival", "output": "f18-patrol-arrival.js"}, "rendererOwnership": "fleet-alert", "harnessScenarioIds": [146]},
+    {"id": "f18-intercept-fleet", "contract": "f18-intercept-fleet.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF18InterceptFleetGen", "prefix": "CalypsoF18InterceptFleet", "output": "CalypsoF18InterceptFleet.generated.h"}, "browser": {"global": "CalypsoF18InterceptFleet", "output": "f18-intercept-fleet.js"}, "rendererOwnership": "fleet-dispatch", "harnessScenarioIds": [147]},
+    {"id": "f18-course-confirm", "contract": "f18-course-confirm.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF18CourseConfirmGen", "prefix": "CalypsoF18CourseConfirm", "output": "CalypsoF18CourseConfirm.generated.h"}, "browser": {"global": "CalypsoF18CourseConfirm", "output": "f18-course-confirm.js"}, "rendererOwnership": "fleet-dispatch", "harnessScenarioIds": [148]},
+    {"id": "f18-course-map", "contract": "f18-course-map.json", "emitter": "family", "validationProfile": "command-card", "engineTextCalibration": true, "native": {"namespace": "CalypsoF18CourseMapGen", "prefix": "CalypsoF18CourseMap", "output": "CalypsoF18CourseMap.generated.h"}, "browser": {"global": "CalypsoF18CourseMap", "output": "f18-course-map.js"}, "rendererOwnership": "command-card", "harnessScenarioIds": [149]},
+    {"id": "f18-craft-navigation", "contract": "f18-craft-navigation.json", "emitter": "family", "validationProfile": "command-card", "engineTextCalibration": true, "native": {"namespace": "CalypsoF18CraftNavigationGen", "prefix": "CalypsoF18CraftNavigation", "output": "CalypsoF18CraftNavigation.generated.h"}, "browser": {"global": "CalypsoF18CraftNavigation", "output": "f18-craft-navigation.js"}, "rendererOwnership": "command-card", "harnessScenarioIds": [150]},
+    {"id": "f20-confirm-landing", "contract": "f20-confirm-landing.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF20ConfirmLandingGen", "prefix": "CalypsoF20ConfirmLanding", "output": "CalypsoF20ConfirmLanding.generated.h"}, "browser": {"global": "CalypsoF20ConfirmLanding", "output": "f20-confirm-landing.js"}, "rendererOwnership": "research-manufacture-operations", "harnessScenarioIds": [66]},
+    {"id": "f20-confirm-cydonia", "contract": "f20-confirm-cydonia.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF20ConfirmCydoniaGen", "prefix": "CalypsoF20ConfirmCydonia", "output": "CalypsoF20ConfirmCydonia.generated.h"}, "browser": {"global": "CalypsoF20ConfirmCydonia", "output": "f20-confirm-cydonia.js"}, "rendererOwnership": "research-manufacture-operations", "harnessScenarioIds": [67]},
+    {"id": "f22-training-finished", "contract": "f22-training-finished.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF22TrainingFinishedGen", "prefix": "CalypsoF22TrainingFinished", "output": "CalypsoF22TrainingFinished.generated.h"}, "browser": {"global": "CalypsoF22TrainingFinished", "output": "f22-training-finished.js"}, "rendererOwnership": "research-manufacture-operations", "harnessScenarioIds": [75]},
+    {"id": "f22-training-bases", "contract": "f22-training-bases.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF22TrainingBasesGen", "prefix": "CalypsoF22TrainingBases", "output": "CalypsoF22TrainingBases.generated.h"}, "browser": {"global": "CalypsoF22TrainingBases", "output": "f22-training-bases.js"}, "rendererOwnership": "research-manufacture-operations", "harnessScenarioIds": [151, 152]},
+    {"id": "f22-physical-roster", "contract": "f22-physical-roster.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF22PhysicalRosterGen", "prefix": "CalypsoF22PhysicalRoster", "output": "CalypsoF22PhysicalRoster.generated.h"}, "browser": {"global": "CalypsoF22PhysicalRoster", "output": "f22-physical-roster.js"}, "rendererOwnership": "research-manufacture-operations", "harnessScenarioIds": [153]},
+    {"id": "f22-psionic-roster", "contract": "f22-psionic-roster.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF22PsionicRosterGen", "prefix": "CalypsoF22PsionicRoster", "output": "CalypsoF22PsionicRoster.generated.h"}, "browser": {"global": "CalypsoF22PsionicRoster", "output": "f22-psionic-roster.js"}, "rendererOwnership": "research-manufacture-operations", "harnessScenarioIds": [154]},
+    {"id": "f22-training-order", "contract": "f22-training-order.json", "emitter": "family", "validationProfile": "operations-workspace", "native": {"namespace": "CalypsoF22TrainingOrderGen", "prefix": "CalypsoF22TrainingOrder", "output": "CalypsoF22TrainingOrder.generated.h"}, "browser": {"global": "CalypsoF22TrainingOrder", "output": "f22-training-order.js"}, "rendererOwnership": "research-manufacture-operations", "harnessScenarioIds": []},
+    {"id": "f29-automatic-recovery", "contract": "f29-automatic-recovery.json", "emitter": "family", "validationProfile": "small-confirmation", "native": {"namespace": "CalypsoF29AutomaticRecoveryGen", "prefix": "CalypsoF29AutomaticRecovery", "output": "CalypsoF29AutomaticRecovery.generated.h"}, "browser": {"global": "CalypsoF29AutomaticRecovery", "output": "f29-automatic-recovery.js"}, "rendererOwnership": "mission-outcome", "harnessScenarioIds": [211]},
+    {"id": "f29-debriefing", "contract": "f29-debriefing.json", "emitter": "family", "validationProfile": "tabbed-management", "native": {"namespace": "CalypsoF29DebriefingGen", "prefix": "CalypsoF29Debriefing", "output": "CalypsoF29Debriefing.generated.h"}, "browser": {"global": "CalypsoF29Debriefing", "output": "f29-debriefing.js"}, "rendererOwnership": "mission-outcome", "harnessScenarioIds": [210]},
+    {"id": "f25-skills", "contract": "f25-skills.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF25SkillsGen", "prefix": "CalypsoF25Skills", "output": "CalypsoF25Skills.generated.h"}, "browser": {"global": "CalypsoF25Skills", "output": "f25-skills.js"}, "rendererOwnership": "tactical-action", "harnessScenarioIds": [209]},
+    {"id": "f25-actions", "contract": "f25-actions.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF25ActionsGen", "prefix": "CalypsoF25Actions", "output": "CalypsoF25Actions.generated.h"}, "browser": {"global": "CalypsoF25Actions", "output": "f25-actions.js"}, "rendererOwnership": "tactical-action", "harnessScenarioIds": [208]},
+    {"id": "f25-medikit", "contract": "f25-medikit.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF25MedikitGen", "prefix": "CalypsoF25Medikit", "output": "CalypsoF25Medikit.generated.h"}, "browser": {"global": "CalypsoF25Medikit", "output": "f25-medikit.js"}, "rendererOwnership": "tactical-action", "harnessScenarioIds": [221]},
+    {"id": "f25-unit-info", "contract": "f25-unit-info.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF25UnitInfoGen", "prefix": "CalypsoF25UnitInfo", "output": "CalypsoF25UnitInfo.generated.h"}, "browser": {"global": "CalypsoF25UnitInfo", "output": "f25-unit-info.js"}, "rendererOwnership": "tactical-action", "harnessScenarioIds": [220]},
+    {"id": "f25-timer", "contract": "f25-timer.json", "emitter": "family", "validationProfile": "scrollable-collection", "native": {"namespace": "CalypsoF25TimerGen", "prefix": "CalypsoF25Timer", "output": "CalypsoF25Timer.generated.h"}, "browser": {"global": "CalypsoF25Timer", "output": "f25-timer.js"}, "rendererOwnership": "tactical-action", "harnessScenarioIds": [212]},
+    {"id": "f25-scanner", "contract": "f25-scanner.json", "emitter": "family", "validationProfile": "tabbed-management", "native": {"namespace": "CalypsoF25ScannerGen", "prefix": "CalypsoF25Scanner", "output": "CalypsoF25Scanner.generated.h"}, "browser": {"global": "CalypsoF25Scanner", "output": "f25-scanner.js"}, "rendererOwnership": "tabbed-management", "harnessScenarioIds": [223]},
+    {"id": "f25-minimap", "contract": "f25-minimap.json", "emitter": "family", "validationProfile": "tabbed-management", "native": {"namespace": "CalypsoF25MinimapGen", "prefix": "CalypsoF25Minimap", "output": "CalypsoF25Minimap.generated.h"}, "browser": {"global": "CalypsoF25Minimap", "output": "f25-minimap.js"}, "rendererOwnership": "tabbed-management", "harnessScenarioIds": [222]},
+    {"id": "f26-inspection", "contract": "f26-inspection.json", "emitter": "family", "validationProfile": "tabbed-management", "native": {"namespace": "CalypsoF26InspectionGen", "prefix": "CalypsoF26Inspection", "output": "CalypsoF26Inspection.generated.h"}, "browser": {"global": "CalypsoF26Inspection", "output": "f26-inspection.js"}, "rendererOwnership": "tabbed-management", "harnessScenarioIds": [225]},
+    {"id": "f26-inventory", "contract": "f26-inventory.json", "emitter": "family", "validationProfile": "tabbed-management", "native": {"namespace": "CalypsoF26InventoryGen", "prefix": "CalypsoF26Inventory", "output": "CalypsoF26Inventory.generated.h"}, "browser": {"global": "CalypsoF26Inventory", "output": "f26-inventory.js"}, "rendererOwnership": "tabbed-management", "harnessScenarioIds": [224]}
   ]
 }

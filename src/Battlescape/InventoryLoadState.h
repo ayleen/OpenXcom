@@ -32,15 +32,29 @@ class InventoryState;
 /**
 * Inventory Load window that allows changing of the equipment on a soldier.
 */
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoStrategicList; }
+#endif
 class InventoryLoadState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+	TextButton *_hdApply = nullptr;
+	int _pendingSlot = -1;
+	void applySlot(Action *action);
+	void previewSlot(int index);
+#endif
+	void loadLayout(int index);
 	InventoryState *_parent;
 	Window *_window;
 	Text *_txtTitle;
 	TextList *_lstLayout;
 	TextButton *_btnCancel;
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dx, int &dy) override;
+#endif
 	/// Creates the Load Inventory state.
 	InventoryLoadState(InventoryState *parent);
 	/// Cleans up the Load Inventory state.

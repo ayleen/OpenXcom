@@ -61,7 +61,9 @@ ConfirmEndMissionState::ConfirmEndMissionState(SavedBattleGame *battleGame, int 
 
 	// Set up objects
 	_window->setHighContrast(true);
+#ifndef __EMSCRIPTEN__
 	_window->setBackground(_game->getMod()->getSurface("TAC00.SCR"));
+#endif
 
 	_txtTitle->setBig();
 	_txtTitle->setHighContrast(true);

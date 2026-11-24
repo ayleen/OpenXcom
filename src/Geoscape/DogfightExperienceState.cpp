@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "DogfightExperienceState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#endif
 #include <sstream>
 #include <algorithm>
 #include "../Engine/Game.h"
@@ -37,10 +40,15 @@ namespace OpenXcom
  */
 DogfightExperienceState::DogfightExperienceState()
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_window = new Window(this, 320, 140, 0, 30);
+#else
 	_screen = false;
 
 	// Create objects
 	_window = new Window(this, 320, 140, 0, 30, POPUP_HORIZONTAL);
+#endif
 	_btnOk = new TextButton(300, 16, 10, 146);
 	_txtTitle = new Text(300, 17, 10, 46);
 	_txtFiringAcc = new Text(108, 9, 74, 70);
@@ -64,7 +72,9 @@ DogfightExperienceState::DogfightExperienceState()
 	centerAllSurfaces();
 
 	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "dogfightExperience");
+#endif
 
 	_btnOk->setText(tr("STR_OK"));
 	_btnOk->onMouseClick((ActionHandler)&DogfightExperienceState::btnOkClick);
@@ -89,7 +99,9 @@ DogfightExperienceState::DogfightExperienceState()
 	_lstPilots->setColumns(5, 114, 58, 58, 58, 0);
 	_lstPilots->setAlign(ALIGN_RIGHT);
 	_lstPilots->setAlign(ALIGN_LEFT, 0);
+#ifndef __EMSCRIPTEN__
 	_lstPilots->setDot(true);
+#endif
 
 	_lstPilots->clearList();
 	for (auto* xbase : *_game->getSavedGame()->getBases())
@@ -112,7 +124,25 @@ DogfightExperienceState::DogfightExperienceState()
 			}
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	_ledger = new Calypso::CalypsoBaseLedger(*this);
+#endif
 }
+
+DogfightExperienceState::~DogfightExperienceState()
+{
+#ifdef __EMSCRIPTEN__
+	delete _ledger;
+#endif
+}
+
+#ifdef __EMSCRIPTEN__
+void DogfightExperienceState::resize(int &dx, int &dy)
+{
+	if (_ledger) _ledger->refresh();
+	else State::resize(dx, dy);
+}
+#endif
 
 /**
  * Returns to the previous screen.

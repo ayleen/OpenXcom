@@ -1,0 +1,51 @@
+{
+  "actions": [
+    {
+      "action": "cancel",
+      "id": "cancel",
+      "label": "Cancel",
+      "tone": "safe"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "mode": "table",
+    "selectionRole": "select-action",
+    "columns": [
+      {
+        "id": "action",
+        "label": "Action"
+      },
+      {
+        "id": "accuracy",
+        "label": "Accuracy"
+      },
+      {
+        "id": "cost",
+        "label": "Cost"
+      },
+      {
+        "id": "shortcut",
+        "label": "Key"
+      }
+    ],
+    "items": [
+      {
+        "id": "choice",
+        "values": [
+          "Throw",
+          "66%",
+          "12 TU",
+          "5"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "familyId": 25,
+  "id": "f25-actions",
+  "schema": 1,
+  "title": "Tactical actions",
+  "version": "hd.2026-08-29.1",
+  "state": "ActionMenuState"
+}

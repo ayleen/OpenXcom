@@ -21,6 +21,10 @@
 
 namespace OpenXcom
 {
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoTacticalEquipment; }
+#endif
+
 
 class RuleInventory;
 class Game;
@@ -33,6 +37,10 @@ class Timer;
  */
 class AlienInventory : public InteractiveSurface
 {
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoTacticalEquipment;
+#endif
+
 private:
 	Game *_game;
 	Surface *_grid, *_items;

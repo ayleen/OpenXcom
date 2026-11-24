@@ -41,7 +41,7 @@ void calypsoHdOperationsPublishHarnessVisibility();
 class CalypsoHdOperationsChrome
 {
 public:
-	explicit CalypsoHdOperationsChrome(State& state);
+	explicit CalypsoHdOperationsChrome(State& state, bool enableNavigation = true);
 
 	void applyGeometry() const;
 	void populateModel(CalypsoHdOperationsModel& model) const;

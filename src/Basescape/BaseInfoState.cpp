@@ -17,6 +17,11 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "BaseInfoState.h"
+#ifdef __EMSCRIPTEN__
+#include <algorithm>
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Interface/TextList.h"
+#endif
 #include <sstream>
 #include <cmath>
 #include "../Engine/Game.h"
@@ -251,6 +256,25 @@ BaseInfoState::BaseInfoState(Base *base, BasescapeState *state) : _base(base), _
 	_txtLongRange->setText(tr("STR_LONG_RANGE_DETECTION"));
 
 	_barLongRange->setScale(25.0);
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_hdRows = new TextList(280, 100, 0, 0);
+	add(_hdRows, "text", "baseInfo");
+	_hdRows->setColumns(5, 100, 55, 45, 45, 35);
+	_hdRows->setSelectable(true);
+	_previousBase = new TextButton(80, 16, 0, 0);
+	_nextBase = new TextButton(80, 16, 0, 0);
+	add(_previousBase, "button", "baseInfo");
+	add(_nextBase, "button", "baseInfo");
+	_previousBase->setText(tr("STR_CAL_PREVIOUS_BASE"));
+	_nextBase->setText(tr("STR_CAL_NEXT_BASE"));
+	_previousBase->onMouseClick((ActionHandler)&BaseInfoState::changeBase);
+	_nextBase->onMouseClick((ActionHandler)&BaseInfoState::changeBase);
+	_mini->setX(-_mini->getWidth());
+	_edtBase->setText(_base->getName());
+	refreshHdRows();
+	_hdLedger = new Calypso::CalypsoBaseLedger(*this);
+#endif
 }
 
 /**
@@ -258,6 +282,9 @@ BaseInfoState::BaseInfoState(Base *base, BasescapeState *state) : _base(base), _
  */
 BaseInfoState::~BaseInfoState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdLedger;
+#endif
 
 }
 
@@ -423,6 +450,9 @@ void BaseInfoState::init()
 
 	_barLongRange->setMax(longRangeDetection);
 	_barLongRange->setValue(longRangeDetection);
+#ifdef __EMSCRIPTEN__
+	refreshHdRows();
+#endif
 }
 
 /**
@@ -445,7 +475,7 @@ void BaseInfoState::miniClick(Action *)
 	{
 		_mini->setSelectedBase(base);
 		_base = _game->getSavedGame()->getBases()->at(base);
-		_state->setBase(_base);
+		if (_state) _state->setBase(_base);
 		init();
 	}
 }
@@ -469,13 +499,13 @@ void BaseInfoState::handleKeyPress(Action *action)
 			Options::keyBaseSelect8
 		};
 		int key = action->getDetails()->key.keysym.sym;
-		for (size_t i = 0; i < _game->getSavedGame()->getBases()->size(); ++i)
+		for (size_t i = 0; i < _game->getSavedGame()->getBases()->size() && i < 8; ++i)
 		{
 			if (key == baseKeys[i])
 			{
 				_mini->setSelectedBase(i);
 				_base = _game->getSavedGame()->getBases()->at(i);
-				_state->setBase(_base);
+				if (_state) _state->setBase(_base);
 				init();
 				break;
 			}
@@ -518,5 +548,6 @@ void BaseInfoState::btnMonthlyCostsClick(Action *)
 {
 	_game->pushState(new MonthlyCostsState(_base));
 }
+
 
 }

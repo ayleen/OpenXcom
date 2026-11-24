@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "id": "f18-patrol-arrival",
+  "familyId": 18,
+  "version": "hd.2026-08-29.1",
+  "archetype": "small-confirmation",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "CRAFT DISPATCH ALERT",
+    "code": "CA-18-PA",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "NOW PATROLLING",
+  "body": [
+    "The submarine reached its destination."
+  ],
+  "icon": {
+    "kind": "warning",
+    "glyph": "!",
+    "tone": "warning"
+  },
+  "buttons": [
+    {
+      "id": "ok",
+      "label": "KEEP PATROLLING",
+      "tone": "safe",
+      "action": "close"
+    },
+    {
+      "id": "redirect",
+      "label": "REDIRECT CRAFT",
+      "tone": "primary",
+      "action": "redirect"
+    }
+  ],
+  "visibleButtons": [
+    "ok",
+    "redirect"
+  ]
+}

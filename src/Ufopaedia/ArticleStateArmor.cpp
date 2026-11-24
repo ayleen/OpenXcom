@@ -78,6 +78,7 @@ namespace OpenXcom
 		_txtTitle->setBig();
 		_txtTitle->setText(tr(defs->getTitleForPage(_state->current_page)));
 
+#ifndef __EMSCRIPTEN__
 		// optional background image
 		if (!defs->customPalette)
 		{
@@ -88,6 +89,7 @@ namespace OpenXcom
 			}
 		}
 
+#endif
 		if (customArmorSprite)
 		{
 			// blit on the background, so that text and button are always visible
@@ -130,7 +132,9 @@ namespace OpenXcom
 
 		_lstInfo->setColor(_listColor1);
 		_lstInfo->setColumns(2, 125, 25);
+#ifndef __EMSCRIPTEN__
 		_lstInfo->setDot(true);
+#endif
 
 		_txtInfo = new Text(300, 48, 8, 150);
 		add(_txtInfo);
@@ -242,6 +246,10 @@ namespace OpenXcom
 		addStat("STR_PSIONIC_SKILL", armor->getStats()->psiSkill, true);
 
 		centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+		// Only the armor layers were composed into this surface.
+		openHdReader(*_txtTitle, *_txtInfo, {}, {_lstInfo}, articleSprite(_bg));
+#endif
 	}
 
 	ArticleStateArmor::~ArticleStateArmor()

@@ -18,6 +18,9 @@
  */
 #include <locale>
 #include "TechTreeSelectState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#endif
 #include "TechTreeViewerState.h"
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
@@ -82,13 +85,21 @@ TechTreeSelectState::TechTreeSelectState(TechTreeViewerState *parent) : _parent(
 	_btnQuickSearch->setDrawBackground(false);
 	_btnQuickSearch->onEnter((ActionHandler)&TechTreeSelectState::btnQuickSearchApply);
 	_btnQuickSearch->setVisible(true);
+#ifndef __EMSCRIPTEN__
 	_btnQuickSearch->setFocus(true);
+#endif
 
 	_btnOk->onKeyboardRelease((ActionHandler)&TechTreeSelectState::btnQuickSearchToggle, Options::keyToggleQuickSearch);
+#ifdef __EMSCRIPTEN__
+	configureSelector();
+#endif
 }
 
 TechTreeSelectState::~TechTreeSelectState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdLedger;
+#endif
 }
 
 /**
@@ -115,6 +126,13 @@ void TechTreeSelectState::btnOkClick(Action *)
 */
 void TechTreeSelectState::btnQuickSearchToggle(Action *action)
 {
+#ifdef __EMSCRIPTEN__
+	if (_hdLedger)
+	{
+		_btnQuickSearch->setFocus(true);
+		return;
+	}
+#endif
 	if (_btnQuickSearch->getVisible())
 	{
 		_btnQuickSearch->setText("");
@@ -141,6 +159,14 @@ void TechTreeSelectState::btnQuickSearchApply(Action *)
 * Shows the filtered topics.
 */
 void TechTreeSelectState::initLists()
+{
+	buildTopicList();
+#ifdef __EMSCRIPTEN__
+	updateResults();
+#endif
+}
+
+void TechTreeSelectState::buildTopicList()
 {
 	std::string searchString = _btnQuickSearch->getText();
 	Unicode::upperCase(searchString);
@@ -380,27 +406,28 @@ void TechTreeSelectState::onSelectTopic(Action *)
 
 	const std::string selectedTopic = _availableTopics[index];
 
-	TTVMode topicType = TTV_RESEARCH;
-	if (index >= _firstCraftTopicIndex)
+#ifdef __EMSCRIPTEN__
+	if (_hdLedger)
 	{
-		topicType = TTV_CRAFTS;
+		if (index < _displayed.size())
+			_chosen = _displayed[index];
+		return;
 	}
-	else if (index >= _firstItemTopicIndex)
-	{
-		topicType = TTV_ITEMS;
-	}
-	else if (index >= _firstFacilitiesTopicIndex)
-	{
-		topicType = TTV_FACILITIES;
-	}
-	else if (index >= _firstManufacturingTopicIndex)
-	{
-		topicType = TTV_MANUFACTURING;
-	}
+#endif
+	const auto type = static_cast<TTVMode>(topicType(index));
 
-	_parent->setSelectedTopic(selectedTopic, topicType);
+	_parent->setSelectedTopic(selectedTopic, type);
 
 	_game->popState();
+}
+
+int TechTreeSelectState::topicType(size_t index) const
+{
+	if (index >= _firstCraftTopicIndex) return TTV_CRAFTS;
+	if (index >= _firstItemTopicIndex) return TTV_ITEMS;
+	if (index >= _firstFacilitiesTopicIndex) return TTV_FACILITIES;
+	if (index >= _firstManufacturingTopicIndex) return TTV_MANUFACTURING;
+	return TTV_RESEARCH;
 }
 
 }

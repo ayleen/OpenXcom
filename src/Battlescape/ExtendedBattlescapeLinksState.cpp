@@ -18,6 +18,10 @@
  */
 
 #include "ExtendedBattlescapeLinksState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#include "../Calypso/CalypsoReportLines.h"
+#endif
 #include "BattlescapeGame.h"
 #include "BattlescapeState.h"
 #include "BriefingState.h"
@@ -45,10 +49,18 @@ namespace OpenXcom
  */
 ExtendedBattlescapeLinksState::ExtendedBattlescapeLinksState(BattlescapeState* parent, SavedBattleGame* save) : _parent(parent), _save(save)
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+#else
 	_screen = false;
+#endif
 
 	// Create objects
+#ifdef __EMSCRIPTEN__
+	_window = new Window(this, 256, 180, 32, 10);
+#else
 	_window = new Window(this, 256, 180, 32, 10, POPUP_BOTH);
+#endif
 	_txtTitle = new Text(220, 17, 50, 33);
 	if (Options::oxceFatFingerLinks)
 	{
@@ -97,7 +109,9 @@ ExtendedBattlescapeLinksState::ExtendedBattlescapeLinksState(BattlescapeState* p
 	centerAllSurfaces();
 
 	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "oxceLinks");
+#endif
 
 	_txtTitle->setBig();
 	_txtTitle->setAlign(ALIGN_CENTER);
@@ -141,8 +155,58 @@ ExtendedBattlescapeLinksState::ExtendedBattlescapeLinksState(BattlescapeState* p
 	}
 	_btnKillAll->onMouseClick((ActionHandler)&ExtendedBattlescapeLinksState::btnKillAllClick);
 
+#ifndef __EMSCRIPTEN__
 	applyBattlescapeTheme("oxceLinks");
+#else
+	_hdBody = new TextList(1, 1, 0, 0);
+	add(_hdBody, "text", "oxceLinks");
+	_hdBody->setColumns(2, 1, 1);
+	_hdBody->setSelectable(true);
+	_hdBody->setBackground(_window);
+	for (TextButton *button : {_btnTouch,_btnNightVision,_btnPersonalLights,_btnBrightness,_btnTurnDiary,
+		_btnBriefing,_btnNotes,_btnMusic,_btnKillAll})
+	{
+		if (!button->getVisible()) continue;
+		_hdBody->addRow(2, button->getText().c_str(), tr("STR_CAL_BATTLE_CONTEXT").c_str());
+		_routes.push_back(button);
+		button->setVisible(false);
+	}
+	_hdBody->onMouseClick((ActionHandler)&ExtendedBattlescapeLinksState::openDestination);
+	_hdBody->onKeyboardPress((ActionHandler)&ExtendedBattlescapeLinksState::openDestination, Options::keyOk);
+	_hdList = new Calypso::CalypsoStrategicList(this, nullptr, _game->getMod(), _window, _txtTitle, _hdBody,
+		_btnOk, Calypso::CalypsoStrategicList::Content::TacticalLinks);
+	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+#endif
 }
+
+ExtendedBattlescapeLinksState::~ExtendedBattlescapeLinksState()
+{
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
+}
+
+#ifdef __EMSCRIPTEN__
+void ExtendedBattlescapeLinksState::openDestination(Action *)
+{
+	const auto selected = _hdBody->getSelectedRow();
+	if (selected >= _routes.size()) return;
+	SDL_Event event{};
+	event.type = SDL_MOUSEBUTTONUP;
+	event.button.button = SDL_BUTTON_LEFT;
+	Action click(&event, 1, 1, 0, 0);
+	click.setSender(_routes[selected]);
+	_routes[selected]->mouseClick(&click, this);
+}
+void ExtendedBattlescapeLinksState::resize(int &dx, int &dy)
+{
+	if (!_hdList) { State::resize(dx, dy); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+}
+#endif
 
 void ExtendedBattlescapeLinksState::btnTouchClick(Action *)
 {

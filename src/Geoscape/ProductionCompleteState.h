@@ -19,13 +19,14 @@
  */
 #include <string>
 #include <map>
+#include "ProductionOutputSale.h"
 #include <vector>
 #include "../Engine/State.h"
 #include "../Savegame/Production.h"
 
 namespace OpenXcom
 {
-namespace Calypso { class CalypsoF24ProductionCompleteUi; }
+namespace Calypso { class CalypsoBaseLedger; }
 
 class TextButton;
 class Window;
@@ -41,7 +42,7 @@ class GeoscapeState;
 class ProductionCompleteState : public State
 {
 #ifdef __EMSCRIPTEN__
-friend class Calypso::CalypsoF24ProductionCompleteUi;
+friend class Calypso::CalypsoBaseLedger;
 #endif
 private:
 	Base *_base;
@@ -49,6 +50,12 @@ private:
 
 	std::map<std::string, int> _randomProductionInfo;
 	std::vector<std::string> _index;
+	std::string _saleItem, _buyer;
+	ProductionOutputSale _shownSale;
+	void showOutput();
+	void showSale(const std::string &item, const std::string &buyer);
+	ProductionOutputSale quoteSale() const;
+	void confirmSale();
 
 	TextButton *_btnOk, *_btnGotoBase, *_btnSummary;
 	Window *_window;
@@ -71,9 +78,9 @@ public:
 
 #ifdef __EMSCRIPTEN__
 private:
-    bool _hdLayout = false;
-    bool _hdWideLayout = false;
-    Calypso::CalypsoF24ProductionCompleteUi *_hdAdapter = nullptr;
+	Calypso::CalypsoBaseLedger *_ledger = nullptr;
+	TextList *_noticeRows = nullptr;
+	int _noticeWidth = 0, _noticeFont = 0;
 public:
     void resize(int &dX, int &dY) override;
 #endif

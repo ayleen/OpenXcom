@@ -18,6 +18,9 @@
  */
 
 #include "ExtendedGeoscapeLinksState.h"
+#ifdef __EMSCRIPTEN__
+#include "TrainingState.h"
+#endif
 #include "FundingState.h"
 #include "GeoscapeState.h"
 #include "../Engine/Game.h"
@@ -27,9 +30,15 @@
 #include "../Engine/Unicode.h"
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
+#include "../Interface/TextList.h"
 #include "../Interface/TextButton.h"
 #include "../Menu/NotesState.h"
 #include "../Menu/TestState.h"
+
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
 
 namespace OpenXcom
 {
@@ -42,7 +51,13 @@ ExtendedGeoscapeLinksState::ExtendedGeoscapeLinksState(GeoscapeState* parent) : 
 	_screen = false;
 
 	// Create objects
-	_window = new Window(this, 256, 180, 32, 10, POPUP_BOTH);
+	_window = new Window(this, 256, 180, 32, 10,
+#ifdef __EMSCRIPTEN__
+		POPUP_NONE
+#else
+		POPUP_BOTH
+#endif
+	);
 	_txtTitle = new Text(220, 17, 50, 33);
 	if (Options::oxceFatFingerLinks)
 	{
@@ -144,7 +159,37 @@ ExtendedGeoscapeLinksState::ExtendedGeoscapeLinksState(GeoscapeState* parent) : 
 		_btnTest->setText(tr("STR_TEST_SCREEN"));
 	}
 	_btnTest->onMouseClick((ActionHandler)&ExtendedGeoscapeLinksState::btnTestClick);
+#ifdef __EMSCRIPTEN__
+	openDestinations();
+#endif
 }
+
+ExtendedGeoscapeLinksState::~ExtendedGeoscapeLinksState()
+{
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
+}
+
+#ifdef __EMSCRIPTEN__
+void ExtendedGeoscapeLinksState::trainingClick(Action *)
+{
+	_game->popState();
+	_game->pushState(new TrainingState());
+}
+
+void ExtendedGeoscapeLinksState::openDestination(Action *)
+{
+	const auto selected = _destinations->getSelectedRow();
+	if (selected >= _routes.size()) return;
+	SDL_Event event{};
+	event.type = SDL_MOUSEBUTTONUP;
+	event.button.button = SDL_BUTTON_LEFT;
+	Action click(&event, 1.0, 1.0, 0, 0);
+	click.setSender(_routes[selected]);
+	_routes[selected]->mouseClick(&click, this);
+}
+#endif
 
 void ExtendedGeoscapeLinksState::btnFundingClick(Action *)
 {
@@ -215,5 +260,15 @@ void ExtendedGeoscapeLinksState::btnOkClick(Action *)
 {
 	_game->popState();
 }
+
+#ifdef __EMSCRIPTEN__
+void ExtendedGeoscapeLinksState::resize(int &dX, int &dY)
+{
+	if (!_hdList) { State::resize(dX, dY); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+}
+#endif
 
 }

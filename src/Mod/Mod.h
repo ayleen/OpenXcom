@@ -943,6 +943,9 @@ public:
 	void setCurrentMusicTrack(const std::string& currentMusicTrack) { _currentMusicTrack = currentMusicTrack; }
 	/// Plays a particular music.
 	void playMusic(const std::string &name, int id = 0);
+#ifdef __EMSCRIPTEN__
+	void stopCutsceneMusic(const std::string &track);
+#endif
 	/// Gets a particular sound.
 	Sound *getSound(const std::string &set, int sound) const;
 	/// Gets all palettes.

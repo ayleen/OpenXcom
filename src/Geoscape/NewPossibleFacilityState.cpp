@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "NewPossibleFacilityState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#endif
 #include "../Engine/Game.h"
 #include "../Engine/LocalizedText.h"
 #include "../Mod/Mod.h"
@@ -38,7 +41,11 @@ namespace OpenXcom
  */
 NewPossibleFacilityState::NewPossibleFacilityState(Base *base, Globe *globe, const std::vector<RuleBaseFacility *> & possibilities) : _base(base), _globe(globe)
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+#else
 	_screen = false;
+#endif
 
 	// Create objects
 	_window = new Window(this, 288, 180, 16, 10);
@@ -59,11 +66,7 @@ NewPossibleFacilityState::NewPossibleFacilityState(Base *base, Globe *globe, con
 	add(_txtCaveat, "text1", "geoNewFacility");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
+
 
 	// Set up objects
 	setWindowBackground(_window, "geoNewFacility");
@@ -78,6 +81,7 @@ NewPossibleFacilityState::NewPossibleFacilityState(Base *base, Globe *globe, con
 	_txtTitle->setAlign(ALIGN_CENTER);
 	_txtTitle->setText(tr("STR_WE_CAN_NOW_BUILD"));
 
+#ifndef __EMSCRIPTEN__
 	// Caveat
 	{
 		RuleBaseFacilityFunctions requiredServices;
@@ -100,15 +104,27 @@ NewPossibleFacilityState::NewPossibleFacilityState(Base *base, Globe *globe, con
 		_txtCaveat->setText(tr("STR_REQUIRED_BASE_SERVICES").arg(argument));
 		_txtCaveat->setVisible(requiredServices.any());
 	}
+#endif
 
+#ifdef __EMSCRIPTEN__
+	_lstPossibilities->setColumns(2, 130, 120);
+#else
 	_lstPossibilities->setColumns(1, 250);
+#endif
 	_lstPossibilities->setBig();
 	_lstPossibilities->setAlign(ALIGN_CENTER);
 	_lstPossibilities->setScrolling(true, 0);
 	for (const auto* facRule : possibilities)
 	{
+#ifdef __EMSCRIPTEN__
+		Calypso::calypsoAddUnlockRow(*this, *_lstPossibilities, tr(facRule->getType()), facRule->getRequireBaseFunc());
+#else
 		_lstPossibilities->addRow (1, tr(facRule->getType()).c_str());
+#endif
 	}
+#ifdef __EMSCRIPTEN__
+	_ledger = new Calypso::CalypsoBaseLedger(*this, _base, *_txtTitle, *_lstPossibilities, *_btnOpen, *_btnOk);
+#endif
 }
 
 /**
@@ -129,5 +145,18 @@ void NewPossibleFacilityState::btnOpenClick(Action *)
 	_game->popState();
 	_game->pushState(new BasescapeState(_base, _globe));
 }
+
+#ifdef __EMSCRIPTEN__
+NewPossibleFacilityState::~NewPossibleFacilityState()
+{
+	delete _ledger;
+}
+
+void NewPossibleFacilityState::resize(int &dx, int &dy)
+{
+	if (_ledger) _ledger->refresh();
+	else State::resize(dx, dy);
+}
+#endif
 
 }

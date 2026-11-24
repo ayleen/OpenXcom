@@ -17,12 +17,13 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <map>
+#include "../Savegame/GeoscapeEvent.h"
 #include "../Engine/State.h"
 
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoBaseLedger; }
 class TextButton;
 class TextList;
 class ToggleTextButton;
@@ -43,16 +44,18 @@ private:
 	ToggleTextButton *_btnItemsArriving;
 	TextList *_lstTransfers;
 
-	std::map<std::string, int> _itemsRemoved;
+	GeoscapeEvent *_pending;
+	bool _initialized = false;
 	std::string _researchName;
 	std::string _bonusResearchName;
 	const RuleEvent &_eventRule;
 
 	/// Helper performing event logic.
-	void eventLogic();
+	void eventLogic(StrategicEventReceipt &receipt);
+	void presentEvent();
 public:
 	/// Creates the GeoscapeEventState.
-	GeoscapeEventState(const RuleEvent& eventRule);
+	GeoscapeEventState(const RuleEvent& eventRule, GeoscapeEvent *pending = nullptr);
 	/// Cleans up the GeoscapeEventState.
 	~GeoscapeEventState();
 	/// Initializes the state.
@@ -62,8 +65,12 @@ public:
 	/// Handler for clicking the ItemsArriving button.
 	void btnItemsArrivingClick(Action *action);
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+	void resize(int &dX, int &dY) override;
+private:
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_ledger = nullptr;
+	TextList *_narrative = nullptr;
+	int _narrativeWidth = 0, _narrativeFont = 0, _narrativeMinimumRows = 0;
 #endif
 };
 

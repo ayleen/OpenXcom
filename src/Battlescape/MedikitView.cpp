@@ -128,8 +128,7 @@ void MedikitView::mouseClick (Action *action, State *)
 		Surface * surface = set->getFrame (i);
 		if (surface->getPixel(x, y))
 		{
-			_selectedPart = i;
-			_redraw = true;
+			selectPart(i);
 			break;
 		}
 	}
@@ -139,6 +138,13 @@ void MedikitView::mouseClick (Action *action, State *)
  * Gets the selected body part.
  * @return The selected body part.
  */
+void MedikitView::selectPart(int part)
+{
+	if (part < 0 || part >= BODYPART_MAX) return;
+	_selectedPart = part;
+	invalidate();
+}
+
 int MedikitView::getSelectedPart() const
 {
 	return _selectedPart;

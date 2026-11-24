@@ -22,7 +22,8 @@
 
 namespace OpenXcom
 {
-namespace Calypso { class CalypsoF17UfoLostUi; }
+namespace Calypso { class CalypsoContactNotice; }
+
 
 class TextButton;
 class Window;
@@ -34,9 +35,7 @@ class Text;
  */
 class UfoLostState : public State
 {
-#ifdef __EMSCRIPTEN__
-friend class Calypso::CalypsoF17UfoLostUi;
-#endif
+
 private:
 	TextButton *_btnOk;
 	Window *_window;
@@ -52,9 +51,7 @@ public:
 
 #ifdef __EMSCRIPTEN__
 private:
-    bool _hdLayout = false;
-    bool _hdWideLayout = false;
-    Calypso::CalypsoF17UfoLostUi *_hdAdapter = nullptr;
+	Calypso::CalypsoContactNotice *_notice = nullptr;
 public:
     void resize(int &dX, int &dY) override;
 #endif

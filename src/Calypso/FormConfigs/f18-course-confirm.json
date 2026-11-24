@@ -1,0 +1,126 @@
+{
+  "schema": 1,
+  "id": "f18-course-confirm",
+  "familyId": 18,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-crafts"
+  },
+  "state": "ConfirmDestinationState",
+  "labelKeys": {
+    "title": "STR_CAL_PRE_FLIGHT",
+    "collectionHeading": "STR_CAL_WING_SELECTED",
+    "collectionMeta": "STR_CAL_FLEET_TARGET"
+  },
+  "title": "PRE-FLIGHT",
+  "actions": [
+    {
+      "id": "transfer",
+      "label": "TRANSFER BASE",
+      "labelKey": "STR_CAL_BASE_TRANSFER",
+      "tone": "safe",
+      "action": "transfer"
+    },
+    {
+      "id": "cancel",
+      "label": "CANCEL",
+      "labelKey": "STR_CANCEL_UC",
+      "tone": "safe",
+      "action": "cancel"
+    },
+    {
+      "id": "route",
+      "label": "CONFIRM COURSE",
+      "labelKey": "STR_CAL_CONFIRM_COURSE",
+      "tone": "primary",
+      "action": "route"
+    }
+  ],
+  "summary": [
+    {
+      "id": "wing",
+      "label": "WING",
+      "value": "2"
+    },
+    {
+      "id": "destination",
+      "label": "TARGET",
+      "value": "Waypoint"
+    },
+    {
+      "id": "eta",
+      "label": "ETA",
+      "value": "2 h"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "craft",
+    "heading": "WING",
+    "columns": [
+      {
+        "id": "craft",
+        "label": "SUBMARINE",
+        "contentRole": "name"
+      },
+      {
+        "id": "pilots",
+        "label": "PILOTS",
+        "contentRole": "count"
+      },
+      {
+        "id": "fuel",
+        "label": "FUEL",
+        "contentRole": "count"
+      },
+      {
+        "id": "damage",
+        "label": "DAMAGE",
+        "contentRole": "count"
+      }
+    ],
+    "items": [
+      {
+        "id": "barracuda",
+        "values": [
+          "Barracuda-1",
+          "0 / 0",
+          "100%",
+          "0%"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [],
+  "detail": {
+    "id": "leader",
+    "label": "LEAD SUBMARINE",
+    "title": "Barracuda-1",
+    "subtitle": "Batumi",
+    "metrics": [
+      {
+        "id": "speed",
+        "label": "MAX SPEED",
+        "value": "2,100"
+      },
+      {
+        "id": "crew",
+        "label": "PERSONNEL",
+        "value": "0"
+      }
+    ],
+    "actions": [
+      {
+        "id": "formation",
+        "label": "FOLLOW WING LEADER",
+        "labelKey": "STR_FOLLOW_WING_LEADER_QUESTION",
+        "tone": "safe",
+        "action": "formation"
+      }
+    ]
+  }
+}

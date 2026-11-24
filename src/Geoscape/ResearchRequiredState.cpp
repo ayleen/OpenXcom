@@ -26,7 +26,9 @@
 #include "../Mod/RuleItem.h"
 #include "../Engine/Options.h"
 #ifdef __EMSCRIPTEN__
-#include "../Calypso/CalypsoF24ResearchRequiredUi.h"
+#include "../Calypso/CalypsoResearchNotice.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#include "GeoscapeState.h"
 #endif
 
 namespace OpenXcom
@@ -53,15 +55,12 @@ ResearchRequiredState::ResearchRequiredState(RuleItem *item)
 	add(_txtTitle, "text1", "geoResearchRequired");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF24ResearchRequiredUi::configure(*this);
-#endif
 
+
+#ifdef __EMSCRIPTEN__
+	if (!item || item->getPrimaryCompatibleAmmo()->empty())
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Research dependency has no compatible ammunition");
+#endif
 	std::string weapon = item->getType();
 	std::string clip = item->getPrimaryCompatibleAmmo()->front()->getType();
 
@@ -79,6 +78,15 @@ ResearchRequiredState::ResearchRequiredState(RuleItem *item)
 	_txtTitle->setText(tr("STR_YOU_NEED_TO_RESEARCH_ITEM_TO_PRODUCE_ITEM")
 					   .arg(tr(clip))
 					   .arg(tr(weapon)));
+#ifdef __EMSCRIPTEN__
+	const auto *underlay = dynamic_cast<GeoscapeState *>(_game->getTopState());
+	if (!Calypso::CalypsoHdUiOverlay::instance().hasRegisteredState(underlay)) underlay = nullptr;
+	_screen = !underlay;
+	_window->finishPopupForHd();
+	_notice = new Calypso::CalypsoResearchNotice(this, underlay, _game->getMod(), _window,
+		_txtTitle, tr("STR_RESEARCH_REQUIRED"), tr("STR_RESEARCH"), _btnOk);
+	enableUiScaling(_notice->designWidth(), _notice->designHeight(), 1.0f, false);
+#endif
 }
 
 /**
@@ -96,8 +104,9 @@ void ResearchRequiredState::btnOkClick(Action *)
 namespace OpenXcom {
 void ResearchRequiredState::resize(int &dX, int &dY)
 {
-	if (Calypso::CalypsoF24ResearchRequiredUi::resize(*this)) return;
-	State::resize(dX, dY);
+	if (!_notice) { State::resize(dX, dY); return; }
+	_notice->layout();
+	recaptureUiScaling(_notice->designWidth(), _notice->designHeight(), 1.0f, false);
 }
 }
 #endif
@@ -106,8 +115,7 @@ namespace OpenXcom {
 ResearchRequiredState::~ResearchRequiredState()
 {
 #ifdef __EMSCRIPTEN__
-	delete _hdAdapter;
-	_hdAdapter = nullptr;
+	delete _notice;
 #endif
 }
 }

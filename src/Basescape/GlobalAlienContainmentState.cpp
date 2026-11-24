@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "GlobalAlienContainmentState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Savegame/Transfer.h"
+#endif
 #include "ManageAlienContainmentState.h"
 #include "TechTreeViewerState.h"
 #include <sstream>
@@ -90,7 +94,11 @@ GlobalAlienContainmentState::GlobalAlienContainmentState(bool openedFromBasescap
 	_txtPrisonersInterrogated->setText(tr("STR_PRISONER_INTERROGATED"));
 
 
+	#ifdef __EMSCRIPTEN__
+	_lstPrisoners->setColumns(5, 105, 40, 48, 48, 40);
+#else
 	_lstPrisoners->setColumns(3, 146, 60, 80);
+#endif
 	_lstPrisoners->setSelectable(true);
 	_lstPrisoners->setBackground(_window);
 	_lstPrisoners->setMargin(2);
@@ -99,6 +107,11 @@ GlobalAlienContainmentState::GlobalAlienContainmentState(bool openedFromBasescap
 	_lstPrisoners->setAlign(ALIGN_CENTER, 2);
 	_lstPrisoners->onMouseClick((ActionHandler)&GlobalAlienContainmentState::onSelectBase, SDL_BUTTON_LEFT);
 	_lstPrisoners->onMouseClick((ActionHandler)&GlobalAlienContainmentState::onOpenTechTreeViewer, SDL_BUTTON_MIDDLE);
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	fillBaseOverview();
+	_hdLedger = new Calypso::CalypsoBaseLedger(*this);
+#endif
 }
 
 /**
@@ -106,6 +119,9 @@ GlobalAlienContainmentState::GlobalAlienContainmentState(bool openedFromBasescap
  */
 GlobalAlienContainmentState::~GlobalAlienContainmentState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdLedger;
+#endif
 }
 
 /**
@@ -115,7 +131,11 @@ GlobalAlienContainmentState::~GlobalAlienContainmentState()
 void GlobalAlienContainmentState::init()
 {
 	State::init();
+#ifdef __EMSCRIPTEN__
+	fillBaseOverview();
+#else
 	fillPrisonerList();
+#endif
 }
 
 /**
@@ -259,7 +279,9 @@ void GlobalAlienContainmentState::btnOkClick(Action*)
  */
 void GlobalAlienContainmentState::onSelectBase(Action*)
 {
-	auto& tuple = _topics[_lstPrisoners->getSelectedRow()];
+	const auto row = _lstPrisoners->getSelectedRow();
+	if (row >= _topics.size()) return;
+	auto& tuple = _topics[row];
 	Base* base = std::get<1>(tuple);
 	int prisonType = std::get<2>(tuple);
 
@@ -285,7 +307,9 @@ void GlobalAlienContainmentState::onSelectBase(Action*)
  */
 void GlobalAlienContainmentState::onOpenTechTreeViewer(Action*)
 {
-	auto& tuple = _topics[_lstPrisoners->getSelectedRow()];
+	const auto row = _lstPrisoners->getSelectedRow();
+	if (row >= _topics.size()) return;
+	auto& tuple = _topics[row];
 	const RuleResearch* selectedTopic = _game->getMod()->getResearch(std::get<0>(tuple));
 
 	if (selectedTopic)
@@ -293,5 +317,6 @@ void GlobalAlienContainmentState::onOpenTechTreeViewer(Action*)
 		_game->pushState(new TechTreeViewerState(selectedTopic, 0));
 	}
 }
+
 
 }

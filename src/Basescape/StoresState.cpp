@@ -18,7 +18,7 @@
  */
 #include "StoresState.h"
 #ifdef __EMSCRIPTEN__
-#include "../Calypso/CalypsoInventoryLedger.h"
+#include "../Calypso/CalypsoBaseLedger.h"
 #endif
 #include "ItemLocationsState.h"
 #include "InventoryLocations.h"
@@ -172,7 +172,7 @@ StoresState::StoresState(Base *base) : _base(base)
 	_btnOk->onKeyboardRelease((ActionHandler)&StoresState::btnQuickSearchToggle, Options::keyToggleQuickSearch);
 #ifdef __EMSCRIPTEN__
 	_screen = true;
-	_hdLedger = new Calypso::CalypsoInventoryLedger(*this);
+	_hdLedger = new Calypso::CalypsoBaseLedger(*this);
 #endif
 }
 

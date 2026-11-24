@@ -21,6 +21,10 @@
 
 namespace OpenXcom
 {
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoTacticalEquipment; }
+#endif
+
 
 class Surface;
 class BattlescapeButton;
@@ -34,11 +38,14 @@ class Text;
  */
 class AlienInventoryState : public State
 {
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoTacticalEquipment;
+	Calypso::CalypsoTacticalEquipment *_hdBoard = nullptr;
+	void hdBoardClick(Action *action);
+#endif
+
 private:
 	Surface *_bg, *_soldier;
-#ifdef __EMSCRIPTEN__
-	SDL_Surface *_bgNative = nullptr, *_soldierNative = nullptr;  ///< Calypso: bg/paperdoll snapshots, bilinear-stretched into the scaled surfaces
-#endif
 	BattlescapeButton *_btnArmor;
 	Text *_txtName;
 	Text *_txtFatalWounds;
@@ -48,6 +55,10 @@ private:
 	void calculateMeleeWeapon(BattleUnit* unit, BattleItem* weapon, Text* label);
 	void calculateRangedWeapon(BattleUnit* unit, BattleItem* weapon, Text* label);
 public:
+
+#ifdef __EMSCRIPTEN__
+	void think() override;
+#endif
 	/// Creates the AlienInventory state.
 	AlienInventoryState(BattleUnit *unit);
 	/// Cleans up the AlienInventory state.

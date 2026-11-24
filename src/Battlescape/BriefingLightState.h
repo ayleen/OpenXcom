@@ -24,6 +24,10 @@ namespace OpenXcom
 
 class TextButton;
 class ToggleTextButton;
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoStrategicList; }
+class TextList;
+#endif
 class Window;
 class Text;
 class TextList;
@@ -44,7 +48,16 @@ private:
 	std::vector<std::pair<std::string, std::string> > _armorNameList;
 	// Checks the starting condition
 	void checkStartingCondition(AlienDeployment *deployment);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+	TextList *_hdBody = nullptr;
+	std::vector<std::string> _articleRows;
+	void layoutBriefing(bool initial);
+#endif
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dx, int &dy) override;
+#endif
 	/// Creates the BriefingLight state.
 	BriefingLightState(AlienDeployment *deployment);
 	/// Cleans up the BriefingLight state.

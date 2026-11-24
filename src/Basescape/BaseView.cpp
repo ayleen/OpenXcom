@@ -357,6 +357,9 @@ BasePlacementErrors BaseView::getPlacementError(const RuleBaseFacility *rule, Ba
 		}
 	}
 
+	// An access lift is the first facility, so it has no neighbour to connect to.
+	if (rule->isLift() && _base->getFacilities()->empty()) return BPE_None;
+
 	bool bq=Options::allowBuildingQueue;
 	bool hasConnectingFacility = false;
 

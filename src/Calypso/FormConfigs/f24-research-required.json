@@ -13,8 +13,10 @@
   },
   "title": "RESEARCH REQUIRED",
   "body": [
-    "Additional research is",
-    "required to proceed."
+    "You will need to research a",
+    "MANTIS clip",
+    "in order to produce the",
+    "MANTIS Projector"
   ],
   "icon": {
     "kind": "info",

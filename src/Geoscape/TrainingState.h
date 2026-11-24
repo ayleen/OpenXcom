@@ -17,7 +17,11 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTrainingBases.h"
+#else
 #include "../Engine/State.h"
+#endif
 
 namespace OpenXcom
 {
@@ -30,7 +34,12 @@ class Base;
 /**
  * Screen shown monthly when the player has psi labs available.
  */
-class TrainingState : public State
+class TrainingState
+#ifdef __EMSCRIPTEN__
+	: public CalypsoTrainingBases
+#else
+	: public State
+#endif
 {
 private:
 	TextButton *_btnOk;

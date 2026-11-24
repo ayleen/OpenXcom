@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "AlienInventoryState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTacticalEquipment.h"
+#endif
+
 #include "AlienInventory.h"
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
@@ -103,6 +107,11 @@ AlienInventoryState::AlienInventoryState(BattleUnit *unit)
 		_txtRightHand->setVisible(false);
 		_btnArmor->onKeyboardPress((ActionHandler)&AlienInventoryState::btnOkClick, Options::keyCancel);
 		_inv->setVisible(false);
+
+#ifdef __EMSCRIPTEN__
+		_screen = true;
+		_hdBoard = new Calypso::CalypsoTacticalEquipment(*this);
+#endif
 		return;
 	}
 
@@ -245,23 +254,13 @@ AlienInventoryState::AlienInventoryState(BattleUnit *unit)
 		tmp->blitNShade(_soldier, 112, 32);
 	}
 
-#ifdef __EMSCRIPTEN__
-	// Calypso: scale this fullscreen alien-info screen (placed before the debug
-	// early-return so it runs in the common case). Snapshot the painted bg +
-	// paperdoll, scale every widget (the AlienInventory view composites native then
-	// scale-blits), HD-TTF the labels, then bilinear-stretch the bitmaps back in.
-	{
-		SDL_Surface* sb = _bg->getSurface();
-		if (sb && sb->format->BitsPerPixel == 32) _bgNative = SDL_ConvertSurface(sb, sb->format, 0);
-		SDL_Surface* ss = _soldier->getSurface();
-		if (ss && ss->format->BitsPerPixel == 32) _soldierNative = SDL_ConvertSurface(ss, ss->format, 0);
-	}
-	enableUiScaling(320, 200, 0.75f);
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	if (_bgNative)      { TTFUtil::blitStretch(_bgNative, _bg);           _bg->setRedraw(false); }
-	if (_soldierNative) { TTFUtil::blitStretch(_soldierNative, _soldier); _soldier->setRedraw(false); }
-#endif
 
+
+
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_hdBoard = new Calypso::CalypsoTacticalEquipment(*this);
+#endif
 	// --------------------- DEBUG INDICATORS ---------------------
 	if (!Options::debug)
 		return;
@@ -330,8 +329,7 @@ AlienInventoryState::~AlienInventoryState()
 		_game->getScreen()->resetDisplay(false);
 	}
 #ifdef __EMSCRIPTEN__
-	if (_bgNative)      SDL_FreeSurface(_bgNative);
-	if (_soldierNative) SDL_FreeSurface(_soldierNative);
+	delete _hdBoard;
 #endif
 }
 
@@ -342,9 +340,7 @@ AlienInventoryState::~AlienInventoryState()
 void AlienInventoryState::resize(int &dX, int &dY)
 {
 #ifdef __EMSCRIPTEN__
-	applyUiScaling();
-	if (_bgNative)      { TTFUtil::blitStretch(_bgNative, _bg);           _bg->setRedraw(false); }
-	if (_soldierNative) { TTFUtil::blitStretch(_soldierNative, _soldier); _soldier->setRedraw(false); }
+	if (_hdBoard) _hdBoard->layout();
 #else
 	State::resize(dX, dY);
 #endif

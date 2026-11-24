@@ -28,6 +28,7 @@ class Text;
 class TextButton;
 class Craft;
 class Texture;
+class RuleStartingCondition;
 class Surface;
 
 /**
@@ -48,7 +49,8 @@ private:
 	TextButton *_btnYes, *_btnNo;
 	Surface *_sprite;
 	// Checks the starting condition
-	std::string checkStartingCondition();
+	const RuleStartingCondition *landingStartingCondition() const;
+	std::string checkStartingCondition(const RuleStartingCondition *rule);
 public:
 	/// Creates the Confirm Landing state.
 	ConfirmLandingState(Craft *craft, Texture *missionTexture, Texture *globeTexture, int shade);
@@ -65,8 +67,8 @@ public:
 
 #ifdef __EMSCRIPTEN__
 private:
-    bool _hdLayout = false;
-    bool _hdWideLayout = false;
+    void reviewTabClick(Action *action);
+    void reviewPatrolClick(Action *action);
     Calypso::CalypsoF20ConfirmLandingUi *_hdAdapter = nullptr;
 public:
     void resize(int &dX, int &dY) override;

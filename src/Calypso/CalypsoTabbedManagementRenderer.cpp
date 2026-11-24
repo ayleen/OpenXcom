@@ -272,13 +272,13 @@ void calypsoCollectTabbedManagement(
 		if (text.empty() || sourceRect.w <= 0 || sourceRect.h <= 0) return;
 		CalypsoHdTextRasterKey key;
 		key.source = font;
-		key.physicalPixelHeight = std::max(1, fontSize);
+		key.physicalPixelHeight = std::max(1, int(std::lround(fontSize * model.textRasterScale)));
 		key.text = text;
-		key.wrapWidth = wrapWidth;
+		key.wrapWidth = int(std::lround(wrapWidth * model.textRasterScale));
 		key.colorRgba = color;
 		key.direction = CalypsoTextDirection::LTR;
 		if (trackingEm > 0.0 && wrapWidth == 0)
-			key.letterSpacingPx = std::max(1, (int)calypsoHdRoundToInt(fontSize * trackingEm));
+			key.letterSpacingPx = std::max(1, (int)calypsoHdRoundToInt(key.physicalPixelHeight * trackingEm));
 
 		CalypsoHdItem item;
 		item.kind = CalypsoHdItemKind::Text;
@@ -286,9 +286,9 @@ void calypsoCollectTabbedManagement(
 		item.colorRgba = color;
 		item.rasterKey = key;
 		item.textScaleX = (float)motionTextScale(
-			model.projectionScaleX, sourceRect, item.rect, false);
+			model.projectionScaleX / model.textRasterScale, sourceRect, item.rect, false);
 		item.textScaleY = (float)motionTextScale(
-			model.projectionScaleY, sourceRect, item.rect, true);
+			model.projectionScaleY / model.textRasterScale, sourceRect, item.rect, true);
 		item.hAlign = hAlign;
 		item.vAlign = vAlign;
 		item.opacity = opacity;
@@ -479,7 +479,7 @@ void calypsoCollectTabbedManagement(
 				else
 				{
 					addText(cellRect, model.listWidget, body, data.cells[column],
-						data.enabled ? model.textColor : model.mutedTextColor,
+						data.enabled ? (column == 0 && data.labelColor ? data.labelColor : model.textColor) : model.mutedTextColor,
 						CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
 						rowPx, 0, 0.0, TABBED_ROLE_ROW_LABEL_BASE + (std::uint32_t)slot);
 				}
@@ -532,6 +532,21 @@ void calypsoCollectTabbedManagement(
 	}
 	}
 
+	for (const auto &cell : model.plotCells) addFrame(cell, model.dividerColor);
+	if (!model.plotImage.source.empty())
+	{
+		CalypsoHdItem plot;
+		plot.kind = CalypsoHdItemKind::RgbaImage;
+		plot.rect = motionRect(model.plotRect);
+		plot.image = model.plotImage;
+		plot.opacity = opacity;
+		stamp(plot, TABBED_ROLE_COLLECTION);
+		builder.add(plot);
+
+	}
+	for (const auto &label : model.plotLabels)
+		addText(label.rect, nullptr, mono, label.text, model.mutedTextColor,
+			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, summaryPx, 0, 0, TABBED_ROLE_SUMMARY);
 	if (model.detail.present)
 	{
 		CalypsoHdPanelStyle detailStyle;

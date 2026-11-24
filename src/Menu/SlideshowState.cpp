@@ -18,6 +18,14 @@
  */
 #include "SlideshowState.h"
 #include "CutsceneState.h"
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <memory>
+#include "../Engine/Exception.h"
+#include "../Engine/Music.h"
+#include "../Engine/Logger.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
 #include "../Engine/FileMap.h"
 #include "../Engine/Game.h"
 #include "../Engine/InteractiveSurface.h"
@@ -34,6 +42,9 @@ namespace OpenXcom
 SlideshowState::SlideshowState(const SlideshowHeader &slideshowHeader, const std::vector<SlideshowSlide> *slideshowSlides)
 		: _slideshowHeader(slideshowHeader), _slideshowSlides(slideshowSlides), _curScreen(-1)
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+#else
 	_wasLetterboxed = CutsceneState::initDisplay();
 
 	// pre-render and queue up all the frames
@@ -74,10 +85,18 @@ SlideshowState::SlideshowState(const SlideshowHeader &slideshowHeader, const std
 	_game->getMod()->playMusic(_slideshowHeader.musicId);
 	_game->getCursor()->setVisible(false);
 	screenClick(0);
+#endif
 }
 
 SlideshowState::~SlideshowState()
 {
+#ifdef __EMSCRIPTEN__
+	if (_opened)
+	{
+		EM_ASM({ if (globalThis.CalypsoSlidePlayer) CalypsoSlidePlayer.close($0); }, this);
+		_game->getMod()->stopCutsceneMusic(_ownedMusic);
+	}
+#endif
 	delete _transitionTimer;
 }
 
@@ -94,7 +113,7 @@ void SlideshowState::screenTimer()
  */
 void SlideshowState::think()
 {
-	_transitionTimer->think(this, 0);
+	if (_transitionTimer) _transitionTimer->think(this, 0);
 }
 
 /**
@@ -102,6 +121,11 @@ void SlideshowState::think()
  */
 void SlideshowState::screenClick(Action *action)
 {
+#ifdef __EMSCRIPTEN__
+	if (_closed) return;
+	if (++_curScreen >= static_cast<int>(_slideshowSlides->size())) screenSkip(action);
+	else showHdSlide();
+#else
 	if (_curScreen >= 0)
 	{
 		_slides[_curScreen]->setVisible(false);
@@ -127,6 +151,7 @@ void SlideshowState::screenClick(Action *action)
 	{
 		screenSkip(action);
 	}
+#endif
 }
 
 /**
@@ -134,10 +159,17 @@ void SlideshowState::screenClick(Action *action)
  */
 void SlideshowState::screenSkip(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	if (_closed) return;
+	_closed = true;
+	EM_ASM({ CalypsoSlidePlayer.close($0); }, this);
+#else
 	// slideshow is over.  restore the screen scale and pop the state
 	_game->getCursor()->setVisible(true);
 	CutsceneState::resetDisplay(_wasLetterboxed);
+#endif
 	_game->popState();
 }
+
 
 }

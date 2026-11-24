@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "id": "f31-archive-sections",
+  "familyId": 31,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "state": "UfopaediaStartState",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-research"
+  },
+  "labelKeys": {
+    "title": "STR_UFOPAEDIA",
+    "done": "STR_OK"
+  },
+  "title": "ARCHIVE",
+  "actions": [
+    {
+      "id": "done",
+      "label": "BACK",
+      "labelKey": "STR_OK",
+      "action": "done",
+      "tone": "normal"
+    }
+  ],
+  "summary": [
+    {
+      "id": "matches",
+      "label": "RESULTS",
+      "value": "6"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "section",
+    "columns": [
+      {
+        "id": "section",
+        "label": "SECTION",
+        "contentRole": "name"
+      },
+      {
+        "id": "topics",
+        "label": "TOPICS",
+        "contentRole": "quantity"
+      },
+      {
+        "id": "new",
+        "label": "NEW",
+        "contentRole": "quantity"
+      }
+    ],
+    "items": [
+      {
+        "id": "first",
+        "values": [
+          "Equipment",
+          "12",
+          "3"
+        ]
+      }
+    ]
+  },
+  "toolbar": [],
+  "controls": []
+}

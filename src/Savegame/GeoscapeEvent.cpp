@@ -41,6 +41,19 @@ void GeoscapeEvent::load(const YAML::YamlNodeReader& reader)
 {
 	reader.tryRead("spawnCountdown", _spawnCountdown);
 	reader.tryRead("over", _over);
+	const auto notice = reader["notice"];
+	if (notice)
+	{
+		notice.tryRead("order", _receipt.order);
+		notice.tryRead("applied", _receipt.applied);
+		notice.tryRead("acknowledged", _receipt.acknowledged);
+		notice.tryRead("region", _receipt.region);
+		notice.tryRead("city", _receipt.city);
+		notice.tryRead("research", _receipt.research);
+		notice.tryRead("bonusResearch", _receipt.bonusResearch);
+		notice.tryRead("recoveryFile", _receipt.recoveryFile);
+		_receipt.items = notice["items"].readVal(_receipt.items);
+	}
 }
 
 /**
@@ -54,6 +67,20 @@ void GeoscapeEvent::save(YAML::YamlNodeWriter writer) const
 	writer.write("spawnCountdown", _spawnCountdown);
 	if (_over)
 		writer.write("over", _over);
+	if (_receipt.order || _receipt.acknowledged)
+	{
+		auto note = writer["notice"];
+		note.setAsMap();
+		note.write("order", _receipt.order);
+		note.write("applied", _receipt.applied);
+		note.write("acknowledged", _receipt.acknowledged);
+		if (!_receipt.region.empty()) note.write("region", _receipt.region);
+		if (_receipt.city >= 0) note.write("city", _receipt.city);
+		if (!_receipt.items.empty()) note.write("items", _receipt.items);
+		if (!_receipt.research.empty()) note.write("research", _receipt.research);
+		if (!_receipt.bonusResearch.empty()) note.write("bonusResearch", _receipt.bonusResearch);
+		if (!_receipt.recoveryFile.empty()) note.write("recoveryFile", _receipt.recoveryFile);
+	}
 }
 
 /**

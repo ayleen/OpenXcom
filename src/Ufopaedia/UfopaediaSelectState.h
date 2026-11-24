@@ -23,6 +23,10 @@
 
 namespace OpenXcom
 {
+#ifdef __EMSCRIPTEN__
+	namespace Calypso { class CalypsoBaseLedger; }
+	class TextList;
+#endif
 	class Game;
 	class Action;
 	class Window;
@@ -43,6 +47,16 @@ namespace OpenXcom
 		virtual ~UfopaediaSelectState();
 		void init() override;
 	protected:
+#ifdef __EMSCRIPTEN__
+		friend class Calypso::CalypsoBaseLedger;
+		Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
+		void resize(int &dX, int &dY) override;
+		TextButton *_hdFilter = nullptr;
+		TextButton *_hdSeen = nullptr;
+		int _hdStatusX = 0;
+		void cycleFilter(Action *action);
+		const char *filterKey() const;
+#endif
 		std::string _section;
 		Window *_window;
 		TextEdit *_btnQuickSearch;

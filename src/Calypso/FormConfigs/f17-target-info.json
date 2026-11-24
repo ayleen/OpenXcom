@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "id": "f17-target-info",
+  "familyId": 17,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "contact-sonar"
+  },
+  "state": "TargetInfoState",
+  "labelKeys": {
+    "title": "STR_CAL_TARGET_INFO",
+    "done": "STR_CANCEL"
+  },
+  "title": "TARGET INFORMATION",
+  "actions": [
+    {
+      "id": "intercept",
+      "action": "intercept",
+      "label": "INTERCEPT",
+      "labelKey": "STR_INTERCEPT",
+      "tone": "primary"
+    },
+    {
+      "id": "info",
+      "action": "info",
+      "label": "BRIEFING",
+      "labelKey": "STR_INFO",
+      "tone": "normal"
+    },
+    {
+      "id": "done",
+      "action": "done",
+      "label": "CLOSE",
+      "labelKey": "STR_CANCEL",
+      "tone": "normal"
+    }
+  ],
+  "summary": [
+    {
+      "id": "current",
+      "label": "CURRENT NAME",
+      "value": "Waypoint 2"
+    },
+    {
+      "id": "preview",
+      "label": "NAME AFTER APPLY",
+      "value": "Waypoint 2"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "contact-info",
+    "columns": [
+      {
+        "id": "field",
+        "label": "FIELD",
+        "contentRole": "name"
+      },
+      {
+        "id": "value",
+        "label": "VALUE",
+        "contentRole": "status"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Followers",
+          "0"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [
+    {
+      "id": "name",
+      "action": "name",
+      "label": "NAME",
+      "labelKey": "STR_NAME_UC",
+      "tone": "normal"
+    },
+    {
+      "id": "apply",
+      "action": "apply",
+      "label": "APPLY",
+      "labelKey": "STR_CAL_APPLY_NAME",
+      "tone": "normal"
+    }
+  ]
+}

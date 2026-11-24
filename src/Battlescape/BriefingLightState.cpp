@@ -17,6 +17,12 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "BriefingLightState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#include "../Calypso/CalypsoReportLines.h"
+#include "../Mod/RuleEnviroEffects.h"
+#include "../Mod/RuleStartingCondition.h"
+#endif
 #include <vector>
 #include "../Engine/Game.h"
 #include "../Engine/LocalizedText.h"
@@ -60,7 +66,10 @@ BriefingLightState::BriefingLightState(AlienDeployment *deployment)
 
 	BriefingData data = deployment->getBriefingData();
 	setStandardPalette("PAL_GEOSCAPE", data.palette);
+
+#ifndef __EMSCRIPTEN__
 	_window->setBackground(_game->getMod()->getSurface(data.background));
+#endif
 
 	add(_window, "window", "briefing");
 	add(_btnOk, "button", "briefing");
@@ -99,7 +108,22 @@ BriefingLightState::BriefingLightState(AlienDeployment *deployment)
 
 	checkStartingCondition(deployment);
 
+#ifdef __EMSCRIPTEN__
+	_txtBriefing->setVisible(false);
+	_btnOk->setText(tr("STR_CAL_BRIEF_CLOSE"));
+	_hdBody = new TextList(1, 1, 0, 0);
+	add(_hdBody, "text", "briefing");
+	_hdBody->setColumns(1, 1);
+	_hdBody->setBackground(_window);
+	_hdList = new Calypso::CalypsoStrategicList(this, nullptr, _game->getMod(), _window, _txtTitle,
+		_hdBody, _btnOk, Calypso::CalypsoStrategicList::Content::TargetBriefing, _btnArmors);
+	_hdBody->setSelectable(true);
+	_hdBody->onMouseClick((ActionHandler)&BriefingLightState::lstArmorsClick);
+	_hdList->setArticleRows(_articleRows);
+	layoutBriefing(true);
+#else
 	_lstArmors->onMouseClick((ActionHandler)&BriefingLightState::lstArmorsClick, SDL_BUTTON_MIDDLE);
+#endif
 }
 
 /**
@@ -152,7 +176,9 @@ void BriefingLightState::checkStartingCondition(AlienDeployment *deployment)
  */
 BriefingLightState::~BriefingLightState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
 }
 
 /**
@@ -170,9 +196,15 @@ void BriefingLightState::btnOkClick(Action *)
  */
 void BriefingLightState::btnArmorsClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	_btnArmors->setText(tr(_btnArmors->getPressed() ? "STR_BRIEFING" : "STR_WHAT_CAN_I_WEAR"));
+	layoutBriefing(false);
+	_hdBody->scrollTo(0);
+#else
 	_txtArmors->setVisible(_btnArmors->getPressed());
 	_lstArmors->setVisible(_btnArmors->getPressed());
 	_txtBriefing->setVisible(!_btnArmors->getPressed());
+#endif
 }
 
 /**
@@ -181,6 +213,13 @@ void BriefingLightState::btnArmorsClick(Action *)
  */
 void BriefingLightState::lstArmorsClick(Action* action)
 {
+#ifdef __EMSCRIPTEN__
+	(void)action;
+	const auto row = _hdBody->getSelectedRow();
+	if (!_btnArmors->getPressed() || row >= _articleRows.size() || _articleRows[row].empty()) return;
+	std::string articleId = _articleRows[row];
+	Ufopaedia::openArticle(_game, articleId);
+#else
 	size_t halfSize = _armorNameList.size() / 2;
 
 	double mx = action->getAbsoluteXMouse();
@@ -190,6 +229,7 @@ void BriefingLightState::lstArmorsClick(Action* action)
 	}
 
 	auto idx = halfSize + _lstArmors->getSelectedRow();
+	if (idx >= _armorNameList.size() || _armorNameList[idx].first.empty()) return;
 	const std::string& armorType = _armorNameList[idx].first;
 	Armor* armor = _game->getMod()->getArmor(armorType, false);
 	if (armor)
@@ -197,6 +237,8 @@ void BriefingLightState::lstArmorsClick(Action* action)
 		std::string articleId = armor->getUfopediaType();
 		Ufopaedia::openArticle(_game, articleId);
 	}
+#endif
 }
+
 
 }

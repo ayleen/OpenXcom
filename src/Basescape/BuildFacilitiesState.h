@@ -66,6 +66,7 @@ public:
 	virtual void lstFacilitiesClick(Action *action);
 #ifdef __EMSCRIPTEN__
 private:
+	virtual bool hdFacilityRowEnabled(size_t row) const { return row < _facilities.size(); }
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
 	bool _hdOwnFixture = false;

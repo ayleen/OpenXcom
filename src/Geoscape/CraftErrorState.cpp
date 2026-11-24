@@ -45,7 +45,13 @@ CraftErrorState::CraftErrorState(GeoscapeState *state, const std::string &msg, b
 	_screen = false;
 
 	// Create objects
-	_window = new Window(this, 256, 160, 32, 20, POPUP_BOTH);
+	_window = new Window(this, 256, 160, 32, 20,
+#ifdef __EMSCRIPTEN__
+		POPUP_NONE
+#else
+		POPUP_BOTH
+#endif
+	);
 	_btnOk = new TextButton(100, 18, _state ? 48 : 110, 150);
 	_btnOk5Secs = new TextButton(100, 18, 172, 150);
 	_txtMessage = new Text(246, 96, 37, 42);
@@ -59,17 +65,12 @@ CraftErrorState::CraftErrorState(GeoscapeState *state, const std::string &msg, b
 	add(_txtMessage, "text1", "craftError");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF18CraftErrorUi::configure(*this);
-#endif
+
 
 	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "craftError");
+#endif
 
 	_btnOk->setText(tr("STR_OK"));
 	_btnOk->onMouseClick((ActionHandler)&CraftErrorState::btnOkClick);
@@ -95,6 +96,9 @@ CraftErrorState::CraftErrorState(GeoscapeState *state, const std::string &msg, b
 	_txtMessage->setBig();
 	_txtMessage->setWordWrap(true);
 	_txtMessage->setText(msg);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF18CraftErrorUi::configure(*this);
+#endif
 }
 
 /**

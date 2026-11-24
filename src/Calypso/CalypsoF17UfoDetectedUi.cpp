@@ -401,8 +401,15 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
     calypsoCollectContactIntelBoard(builder, m, _motion);
 }
 
+const void* CalypsoF17UfoDetectedUi::physicalUnderlayState() const
+{
+    return _state && !_state->_screen ? _state->_state : nullptr;
+}
+
 void CalypsoF17UfoDetectedUi::configure(UfoDetectedState& s, bool allow) {
-    if(!allow || !s._game || !s._game->getMod()->isHdUiFamilyEnabled("F17")) { s._hdLayout=false; return; }
+    if (!allow || !s._game || !s._game->getMod())
+        CalypsoHdUiOverlay::instance().failHdRoute("Contact detection prerequisites are unavailable");
+    s._screen = !CalypsoHdUiOverlay::instance().hasRegisteredState(s._state);
     s._hdLayout = true;
     const LayoutVariant layout = chooseLayout();
     s._hdWideLayout = (layout == LayoutVariant::Wide);

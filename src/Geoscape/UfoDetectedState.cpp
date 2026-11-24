@@ -77,11 +77,23 @@ UfoDetectedState::UfoDetectedState(Ufo *ufo, GeoscapeState *state, bool detected
 	// Create objects
 	if (hyperwave)
 	{
-		_window = new Window(this, 224, 180, 16, 10, POPUP_BOTH);
+		_window = new Window(this, 224, 180, 16, 10,
+#ifdef __EMSCRIPTEN__
+			POPUP_NONE
+#else
+			POPUP_BOTH
+#endif
+		);
 	}
 	else
 	{
-		_window = new Window(this, 224, 128, 16, 44, POPUP_BOTH);
+		_window = new Window(this, 224, 128, 16, 44,
+#ifdef __EMSCRIPTEN__
+			POPUP_NONE
+#else
+			POPUP_BOTH
+#endif
+		);
 	}
 	_btnIntercept = new TextButton(200, 12, 28, 118);
 	_btnCentre = new TextButton(200, 12, 28, 134);

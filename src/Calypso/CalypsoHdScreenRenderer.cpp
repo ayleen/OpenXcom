@@ -2,6 +2,7 @@
 #ifdef __EMSCRIPTEN__
 
 #include "CalypsoHdScreenRenderer.h"
+#include "CalypsoInterceptionHud.h"
 
 #include <algorithm>
 #include <cmath>
@@ -26,7 +27,6 @@
 #include "CommandCenter/CommandCenterRenderer.h"
 #include "../Basescape/BasescapeState.h"
 #include "../Basescape/PlaceFacilityState.h"
-#include "../Basescape/PlaceStartFacilityState.h"
 #include "CalypsoF21UiShared.h"
 #include "CalypsoHdFontSource.h"
 #include "CalypsoHdTheme.h"
@@ -235,9 +235,9 @@ void paintPlacementColumn(CalypsoF21Painter& painter,
 			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0,
 			static_cast<double>(fitParams.smallActionFontSize));
 	}
-	if (cancel == nullptr)
+	if (!cancel || !cancel->widget || !static_cast<const Surface *>(cancel->widget)->getVisible())
 	{
-		// Already failHdRoute'd above: texts paint, no Cancel button.
+		// A mandatory first lift has no cancel action.
 		return;
 	}
 	CalypsoInteractionState cancelState = CalypsoInteractionState::Rest;
@@ -662,7 +662,7 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 		if (gridX >= 0 && gridX < 6 && gridY >= 0 && gridY < 6)
 		{
 			placementCursor = true;
-			const bool isStart = dynamic_cast<const PlaceStartFacilityState*>(placing) != nullptr;
+			const bool isStart = placing->usesStartingPlacement();
 			placementValid = placing->_view->getPlacementError(
 				placing->_rule, placing->_origFac, isStart) == BPE_None;
 			const BaseGridCellRect cell = calypsoBaseDeckCellRect(deckX, deckY, deckSide,
@@ -1254,6 +1254,16 @@ bool CalypsoHdScreenRenderer::retryableReadiness() const
 }
 
 void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
+{
+    collectChrome(builder);
+    if (_mode == CalypsoHdScreenRenderMode::GeoscapeLiveChrome && _state && getCurrentGame()->getTopState() == _state)
+    {
+        auto *geo = static_cast<GeoscapeState*>(const_cast<void*>(_state));
+        CalypsoInterceptionHud::collect(*geo, builder);
+    }
+}
+
+void CalypsoHdScreenRenderer::collectChrome(CalypsoHdFrameBuilder& builder) const
 {
 	const bool live = _mode == CalypsoHdScreenRenderMode::GeoscapeLiveChrome;
 	const CalypsoHdScreenRenderModel* modelPtr = &_model;

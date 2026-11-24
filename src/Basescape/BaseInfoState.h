@@ -24,6 +24,10 @@ namespace OpenXcom
 
 class BasescapeState;
 class Base;
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoBaseLedger; }
+class TextList;
+#endif
 class Surface;
 class MiniBaseView;
 class TextButton;
@@ -38,6 +42,14 @@ class Bar;
 class BaseInfoState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
+	TextList *_hdRows = nullptr;
+	TextButton *_previousBase, *_nextBase;
+	void changeBase(Action *action);
+	void refreshHdRows();
+#endif
 	static const int MAX_BAR_WIDTH = 140;
 
 	Base *_base;
@@ -60,6 +72,9 @@ private:
 	Text *_numDefense, *_numShortRange, *_numLongRange;
 	Bar *_barDefense, *_barShortRange, *_barLongRange;
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 	/// Creates the Base Info state.
 	BaseInfoState(Base *base, BasescapeState *state);
 	/// Cleans up the Base Info state.

@@ -19,6 +19,11 @@
 
 #include "Ufopaedia.h"
 #include "ArticleState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Interface/TextList.h"
+#include "../Interface/Text.h"
+#endif
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
 #include "../Engine/Surface.h"
@@ -143,7 +148,12 @@ namespace OpenXcom
 	 * Destructor
 	 */
 	ArticleState::~ArticleState()
-	{}
+	{
+#ifdef __EMSCRIPTEN__
+		delete _hdLedger;
+#endif
+	}
+
 
 	std::string ArticleState::getDamageTypeText(ItemDamageType dt) const
 	{

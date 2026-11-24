@@ -263,8 +263,8 @@ def validate_config(config, template):
 
     one_line(config["title"], "config.title", 48)
     body = config["body"]
-    if not isinstance(body, list) or len(body) > 2:
-        raise FormError("config.body must contain zero, one, or two lines")
+    if not isinstance(body, list) or len(body) > 4:
+        raise FormError("config.body must contain at most four lines")
     for index, line in enumerate(body):
         one_line(line, "config.body[" + str(index) + "]", 96)
 
@@ -926,6 +926,16 @@ def content_sized_shell(config, template, name, table_rows):
               button_width, button_height)
         for index in range(len(config["buttons"]))
     ]
+    # The authored message band accommodates two guarded lines. Grow longer
+    # notices symmetrically, keeping the footer and its input targets together.
+    if len(config["body"]) > 2:
+        extra = (len(config["body"]) - 2) * ((message["height"] + 1) // 2)
+        window["height"] += extra
+        message["height"] += extra
+        for part in (window, status, warning, title, message):
+            part["y"] -= extra // 2
+        for part in (footer, *slots):
+            part["y"] += extra - extra // 2
     return window, status, warning, title, message, footer, slots
 
 

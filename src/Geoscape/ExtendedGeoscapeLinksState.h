@@ -18,10 +18,17 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "../Engine/State.h"
+#include <vector>
 
 namespace OpenXcom
 {
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoStrategicList; }
+#endif
 
+#ifdef __EMSCRIPTEN__
+class TextList;
+#endif
 class TextButton;
 class Window;
 class Text;
@@ -33,6 +40,14 @@ class GeoscapeState;
 class ExtendedGeoscapeLinksState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	void openDestinations();
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+	TextList *_destinations = nullptr;
+	std::vector<TextButton*> _routes;
+	void trainingClick(Action *action);
+	void openDestination(Action *action);
+#endif
 	TextButton *_btnOk;
 	TextButton *_btnFunding, *_btnTechTree, *_btnGlobalResearch, *_btnGlobalProduction, *_btnUfoTracker, *_btnPilotExp, *_btnNotes, *_btnMusic;
 	TextButton *_btnTest;
@@ -40,10 +55,13 @@ private:
 	Text *_txtTitle;
 	GeoscapeState *_parent;
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 	/// Creates the ExtendedGeoscapeLinks state.
 	ExtendedGeoscapeLinksState(GeoscapeState* parent);
 	/// Cleans up the ExtendedGeoscapeLinks state.
-	~ExtendedGeoscapeLinksState() = default;
+	~ExtendedGeoscapeLinksState();
 	/// Handlers for clicking the buttons.
 	void btnFundingClick(Action* action);
 	void btnTechTreeClick(Action* action);

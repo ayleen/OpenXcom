@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "CommendationState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#include <algorithm>
+#endif
 #include <sstream>
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
@@ -57,7 +61,9 @@ CommendationState::CommendationState(std::vector<Soldier*> soldiersMedalled)
 	centerAllSurfaces();
 
 	// Set up object
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "commendations");
+#endif
 
 	_btnOk->setText(tr("STR_OK"));
 	_btnOk->onMouseClick((ActionHandler)&CommendationState::btnOkClick);
@@ -166,6 +172,20 @@ CommendationState::CommendationState(std::vector<Soldier*> soldiersMedalled)
 			++commIter;
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	if (std::none_of(_commendationsNames.begin(), _commendationsNames.end(),
+		[](const std::string &id) { return !id.empty(); }))
+	{
+		_lstSoldiers->clearList();
+		_commendationsNames.clear();
+		_lstSoldiers->addRow(2, tr("STR_NONE").c_str(), "");
+	}
+	_hdList = new Calypso::CalypsoStrategicList(this, nullptr, _game->getMod(), _window, _txtTitle,
+		_lstSoldiers, _btnOk, Calypso::CalypsoStrategicList::Content::Commendations);
+	_hdList->setArticleRows(_commendationsNames);
+	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+#endif
 }
 
 /**
@@ -173,14 +193,29 @@ CommendationState::CommendationState(std::vector<Soldier*> soldiersMedalled)
  */
 CommendationState::~CommendationState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void CommendationState::resize(int &dx, int &dy)
+{
+	if (!_hdList) { State::resize(dx, dy); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+}
+#endif
 
 /*
 *
 */
 void CommendationState::lstSoldiersMouseClick(Action *)
 {
-	Ufopaedia::openArticle(_game, _commendationsNames[_lstSoldiers->getSelectedRow()]);
+	const auto row = _lstSoldiers->getSelectedRow();
+	if (row < _commendationsNames.size() && !_commendationsNames[row].empty())
+		Ufopaedia::openArticle(_game, _commendationsNames[row]);
 }
 
 /**

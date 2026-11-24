@@ -34,7 +34,7 @@
 #include "../Engine/Options.h"
 #include "../Basescape/BasescapeState.h"
 #ifdef __EMSCRIPTEN__
-#include "../Calypso/CalypsoF24ItemsArrivingUi.h"
+#include "../Calypso/CalypsoBaseLedger.h"
 #endif
 
 namespace OpenXcom
@@ -47,10 +47,13 @@ namespace OpenXcom
  */
 ItemsArrivingState::ItemsArrivingState(GeoscapeState *state) : _state(state), _base(0)
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_window = new Window(this, 320, 184, 0, 8);
+#else
 	_screen = false;
-
-	// Create objects
 	_window = new Window(this, 320, 184, 0, 8, POPUP_BOTH);
+#endif
 	_btnOk = new TextButton(142, 16, 16, 166);
 	_btnGotoBase = new TextButton(142, 16, 162, 166);
 	_txtTitle = new Text(310, 17, 5, 18);
@@ -72,14 +75,6 @@ ItemsArrivingState::ItemsArrivingState(GeoscapeState *state) : _state(state), _b
 	add(_lstTransfers, "text2", "itemsArriving");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF24ItemsArrivingUi::configure(*this);
-#endif
 
 	// Set up objects
 	setWindowBackground(_window, "itemsArriving");
@@ -114,7 +109,11 @@ ItemsArrivingState::ItemsArrivingState(GeoscapeState *state) : _state(state), _b
 			Transfer* transfer = (*transferIt);
 			if (transfer->getHours() == 0)
 			{
+#ifdef __EMSCRIPTEN__
+				_destinations.push_back(xbase);
+#else
 				_base = xbase;
+#endif
 
 				// Check if we have an automated use for an item
 				if (transfer->getType() == TRANSFER_ITEM)
@@ -142,6 +141,12 @@ ItemsArrivingState::ItemsArrivingState(GeoscapeState *state) : _state(state), _b
 			}
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	_btnGotoBase->setVisible(!_destinations.empty());
+	if (!_destinations.empty())
+		_lstTransfers->setSelectedRow(0);
+	_ledger = new Calypso::CalypsoBaseLedger(*this);
+#endif
 }
 
 /**
@@ -150,8 +155,7 @@ ItemsArrivingState::ItemsArrivingState(GeoscapeState *state) : _state(state), _b
 ItemsArrivingState::~ItemsArrivingState()
 {
 #ifdef __EMSCRIPTEN__
-	delete _hdAdapter;
-	_hdAdapter = nullptr;
+	delete _ledger;
 #endif
 
 }
@@ -171,6 +175,11 @@ void ItemsArrivingState::btnOkClick(Action *)
  */
 void ItemsArrivingState::btnGotoBaseClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	const auto row = _lstTransfers->getSelectedRow();
+	if (row >= _destinations.size()) return;
+	_base = _destinations[row];
+#endif
 	_state->timerReset();
 	_game->popState();
 	_game->pushState(new BasescapeState(_base, _state->getGlobe()));
@@ -182,8 +191,8 @@ void ItemsArrivingState::btnGotoBaseClick(Action *)
 namespace OpenXcom {
 void ItemsArrivingState::resize(int &dX, int &dY)
 {
-	if (Calypso::CalypsoF24ItemsArrivingUi::resize(*this)) return;
-	State::resize(dX, dY);
+	if (_ledger) _ledger->refresh();
+	else State::resize(dX, dY);
 }
 }
 #endif

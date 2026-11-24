@@ -18,6 +18,12 @@
  */
 #include <sstream>
 #include "PrimeGrenadeState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#include "../Interface/TextList.h"
+#include "../Interface/TextButton.h"
+#include "../Interface/Window.h"
+#endif
 #include "BattlescapeGame.h"
 #include "../Engine/Game.h"
 #include "../Engine/Action.h"
@@ -122,13 +128,7 @@ PrimeGrenadeState::PrimeGrenadeState(BattleAction *action, bool inInventoryView,
 
 	centerAllSurfaces();
 #ifdef __EMSCRIPTEN__
-	// Calypso: scale this overlay popup ~1.25x (factor 0.5 of fill, matching the
-	// action menu). enableUiScaling replaces lowerAllSurfaces, whose extra shift
-	// would corrupt the design-space geometry capture. Re-draw the static bg/button
-	// rects (scaling recreated the surfaces, clearing them) and HD-TTF the labels.
-	enableUiScaling(320, 200, 0.5f);
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	redrawStatic();
+	openHdTimer();
 #else
 	lowerAllSurfaces();
 #endif
@@ -163,8 +163,10 @@ void PrimeGrenadeState::redrawStatic()
 void PrimeGrenadeState::resize(int &dX, int &dY)
 {
 #ifdef __EMSCRIPTEN__
-	applyUiScaling();
-	redrawStatic();
+	if (!_hdList) { State::resize(dX,dY); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(),1.0f,false);
+	_hdList->fitInput();
 #else
 	State::resize(dX, dY);
 #endif
@@ -175,6 +177,9 @@ void PrimeGrenadeState::resize(int &dX, int &dY)
  */
 PrimeGrenadeState::~PrimeGrenadeState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
 
 }
 
@@ -182,9 +187,22 @@ PrimeGrenadeState::~PrimeGrenadeState()
  * Closes the window on right-click.
  * @param action Pointer to an action.
  */
+
 void PrimeGrenadeState::handle(Action *action)
 {
 	State::handle(action);
+	if (!_game->isState(this)) return;
+#ifdef __EMSCRIPTEN__
+	auto *event = action->getDetails();
+	const auto key = event->type == SDL_KEYDOWN || event->type == SDL_KEYUP ? event->key.keysym.sym : SDLK_UNKNOWN;
+	const bool numeric = event->type == SDL_KEYDOWN && key >= SDLK_0 && key <= SDLK_3;
+	if (numeric || (event->type == SDL_KEYUP && key == SDLK_q))
+	{
+		action->setSender(_button[numeric ? key - SDLK_0 : 0]);
+		btnClick(action);
+		return;
+	}
+#endif
 	if (action->getDetails()->type == SDL_MOUSEBUTTONDOWN && _game->isRightClick(action))
 	{
 		if (!_inInventoryView) _action->value = -1;

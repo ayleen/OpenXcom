@@ -274,9 +274,9 @@
       },
       "collectionViewport": {
         "x": 112,
-        "y": 190,
+        "y": 234,
         "width": 1144,
-        "height": 456
+        "height": 412
       },
       "detailPanel": {
         "x": 944,
@@ -291,7 +291,7 @@
             "id": "cargo",
             "rect": {
               "x": 112,
-              "y": 190,
+              "y": 234,
               "width": 298,
               "height": 36
             },
@@ -305,7 +305,7 @@
             "id": "destination",
             "rect": {
               "x": 411,
-              "y": 190,
+              "y": 234,
               "width": 297,
               "height": 36
             },
@@ -319,7 +319,7 @@
             "id": "capacity",
             "rect": {
               "x": 709,
-              "y": 190,
+              "y": 234,
               "width": 297,
               "height": 36
             },
@@ -333,7 +333,7 @@
             "id": "quantity",
             "rect": {
               "x": 1007,
-              "y": 190,
+              "y": 234,
               "width": 97,
               "height": 36
             },
@@ -347,7 +347,7 @@
             "id": "arrival",
             "rect": {
               "x": 1105,
-              "y": 190,
+              "y": 234,
               "width": 97,
               "height": 36
             },
@@ -361,87 +361,6 @@
         "rowSlots": [
           {
             "id": "row-slot-1",
-            "rect": {
-              "x": 112,
-              "y": 226,
-              "width": 1090,
-              "height": 44
-            },
-            "cells": [
-              {
-                "id": "cargo",
-                "rect": {
-                  "x": 112,
-                  "y": 226,
-                  "width": 298,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "destination",
-                "rect": {
-                  "x": 411,
-                  "y": 226,
-                  "width": 297,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "capacity",
-                "rect": {
-                  "x": 709,
-                  "y": 226,
-                  "width": 297,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "quantity",
-                "rect": {
-                  "x": 1007,
-                  "y": 226,
-                  "width": 97,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
-                "id": "arrival",
-                "rect": {
-                  "x": 1105,
-                  "y": 226,
-                  "width": 97,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              }
-            ]
-          },
-          {
-            "id": "row-slot-2",
             "rect": {
               "x": 112,
               "y": 270,
@@ -522,7 +441,7 @@
             ]
           },
           {
-            "id": "row-slot-3",
+            "id": "row-slot-2",
             "rect": {
               "x": 112,
               "y": 314,
@@ -603,7 +522,7 @@
             ]
           },
           {
-            "id": "row-slot-4",
+            "id": "row-slot-3",
             "rect": {
               "x": 112,
               "y": 358,
@@ -684,7 +603,7 @@
             ]
           },
           {
-            "id": "row-slot-5",
+            "id": "row-slot-4",
             "rect": {
               "x": 112,
               "y": 402,
@@ -765,7 +684,7 @@
             ]
           },
           {
-            "id": "row-slot-6",
+            "id": "row-slot-5",
             "rect": {
               "x": 112,
               "y": 446,
@@ -846,7 +765,7 @@
             ]
           },
           {
-            "id": "row-slot-7",
+            "id": "row-slot-6",
             "rect": {
               "x": 112,
               "y": 490,
@@ -925,19 +844,100 @@
                 "weight": 1
               }
             ]
+          },
+          {
+            "id": "row-slot-7",
+            "rect": {
+              "x": 112,
+              "y": 534,
+              "width": 1090,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "cargo",
+                "rect": {
+                  "x": 112,
+                  "y": 534,
+                  "width": 298,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "destination",
+                "rect": {
+                  "x": 411,
+                  "y": 534,
+                  "width": 297,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "capacity",
+                "rect": {
+                  "x": 709,
+                  "y": 534,
+                  "width": 297,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 1007,
+                  "y": 534,
+                  "width": 97,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "arrival",
+                "rect": {
+                  "x": 1105,
+                  "y": 534,
+                  "width": 97,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              }
+            ]
           }
         ],
         "count": 1,
         "scroll": {
           "track": {
             "x": 1238,
-            "y": 226,
+            "y": 270,
             "width": 18,
             "height": 308
           },
           "thumb": {
             "x": 1238,
-            "y": 226,
+            "y": 270,
             "width": 18,
             "height": 308
           }
@@ -1055,9 +1055,9 @@
         },
         "collectionViewport": {
           "x": 112,
-          "y": 190,
+          "y": 234,
           "width": 1144,
-          "height": 456
+          "height": 412
         },
         "footer": {
           "x": 112,
@@ -1121,55 +1121,55 @@
         },
         "collection.scroll.track": {
           "x": 1238,
-          "y": 226,
+          "y": 270,
           "width": 18,
           "height": 308
         },
         "collection.scroll.thumb": {
           "x": 1238,
-          "y": 226,
+          "y": 270,
           "width": 18,
           "height": 308
         },
         "collection.column.cargo": {
           "x": 112,
-          "y": 190,
+          "y": 234,
           "width": 298,
           "height": 36
         },
         "collection.column.destination": {
           "x": 411,
-          "y": 190,
+          "y": 234,
           "width": 297,
           "height": 36
         },
         "collection.column.capacity": {
           "x": 709,
-          "y": 190,
+          "y": 234,
           "width": 297,
           "height": 36
         },
         "collection.column.quantity": {
           "x": 1007,
-          "y": 190,
+          "y": 234,
           "width": 97,
           "height": 36
         },
         "collection.column.arrival": {
           "x": 1105,
-          "y": 190,
+          "y": 234,
           "width": 97,
           "height": 36
         },
         "collection.row-slot.1": {
           "x": 112,
-          "y": 226,
+          "y": 270,
           "width": 1090,
           "height": 44
         },
         "collection.row-slot.2": {
           "x": 112,
-          "y": 270,
+          "y": 314,
           "width": 1090,
           "height": 44
         },
@@ -1224,9 +1224,9 @@
       },
       "collectionViewport": {
         "x": 52,
-        "y": 108,
+        "y": 152,
         "width": 680,
-        "height": 196
+        "height": 152
       },
       "detailPanel": {
         "x": 526,
@@ -1241,7 +1241,7 @@
             "id": "cargo",
             "rect": {
               "x": 52,
-              "y": 108,
+              "y": 152,
               "width": 159,
               "height": 28
             },
@@ -1255,7 +1255,7 @@
             "id": "destination",
             "rect": {
               "x": 212,
-              "y": 108,
+              "y": 152,
               "width": 159,
               "height": 28
             },
@@ -1269,7 +1269,7 @@
             "id": "capacity",
             "rect": {
               "x": 372,
-              "y": 108,
+              "y": 152,
               "width": 158,
               "height": 28
             },
@@ -1283,7 +1283,7 @@
             "id": "quantity",
             "rect": {
               "x": 531,
-              "y": 108,
+              "y": 152,
               "width": 74,
               "height": 28
             },
@@ -1297,7 +1297,7 @@
             "id": "arrival",
             "rect": {
               "x": 606,
-              "y": 108,
+              "y": 152,
               "width": 74,
               "height": 28
             },
@@ -1311,87 +1311,6 @@
         "rowSlots": [
           {
             "id": "row-slot-1",
-            "rect": {
-              "x": 52,
-              "y": 136,
-              "width": 628,
-              "height": 44
-            },
-            "cells": [
-              {
-                "id": "cargo",
-                "rect": {
-                  "x": 52,
-                  "y": 136,
-                  "width": 159,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "destination",
-                "rect": {
-                  "x": 212,
-                  "y": 136,
-                  "width": 159,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "capacity",
-                "rect": {
-                  "x": 372,
-                  "y": 136,
-                  "width": 158,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "quantity",
-                "rect": {
-                  "x": 531,
-                  "y": 136,
-                  "width": 74,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
-                "id": "arrival",
-                "rect": {
-                  "x": 606,
-                  "y": 136,
-                  "width": 74,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              }
-            ]
-          },
-          {
-            "id": "row-slot-2",
             "rect": {
               "x": 52,
               "y": 180,
@@ -1470,19 +1389,100 @@
                 "weight": 1
               }
             ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 52,
+              "y": 224,
+              "width": 628,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "cargo",
+                "rect": {
+                  "x": 52,
+                  "y": 224,
+                  "width": 159,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "destination",
+                "rect": {
+                  "x": 212,
+                  "y": 224,
+                  "width": 159,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "capacity",
+                "rect": {
+                  "x": 372,
+                  "y": 224,
+                  "width": 158,
+                  "height": 44
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
+              },
+              {
+                "id": "quantity",
+                "rect": {
+                  "x": 531,
+                  "y": 224,
+                  "width": 74,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              },
+              {
+                "id": "arrival",
+                "rect": {
+                  "x": 606,
+                  "y": 224,
+                  "width": 74,
+                  "height": 44
+                },
+                "contentRole": "count",
+                "font": "data",
+                "align": "right",
+                "minWidth": 64,
+                "weight": 1
+              }
+            ]
           }
         ],
         "count": 1,
         "scroll": {
           "track": {
             "x": 714,
-            "y": 136,
+            "y": 180,
             "width": 18,
             "height": 88
           },
           "thumb": {
             "x": 714,
-            "y": 136,
+            "y": 180,
             "width": 18,
             "height": 88
           }
@@ -1600,9 +1600,9 @@
         },
         "collectionViewport": {
           "x": 52,
-          "y": 108,
+          "y": 152,
           "width": 680,
-          "height": 196
+          "height": 152
         },
         "footer": {
           "x": 52,
@@ -1666,55 +1666,55 @@
         },
         "collection.scroll.track": {
           "x": 714,
-          "y": 136,
+          "y": 180,
           "width": 18,
           "height": 88
         },
         "collection.scroll.thumb": {
           "x": 714,
-          "y": 136,
+          "y": 180,
           "width": 18,
           "height": 88
         },
         "collection.column.cargo": {
           "x": 52,
-          "y": 108,
+          "y": 152,
           "width": 159,
           "height": 28
         },
         "collection.column.destination": {
           "x": 212,
-          "y": 108,
+          "y": 152,
           "width": 159,
           "height": 28
         },
         "collection.column.capacity": {
           "x": 372,
-          "y": 108,
+          "y": 152,
           "width": 158,
           "height": 28
         },
         "collection.column.quantity": {
           "x": 531,
-          "y": 108,
+          "y": 152,
           "width": 74,
           "height": 28
         },
         "collection.column.arrival": {
           "x": 606,
-          "y": 108,
+          "y": 152,
           "width": 74,
           "height": 28
         },
         "collection.row-slot.1": {
           "x": 52,
-          "y": 136,
+          "y": 180,
           "width": 628,
           "height": 44
         },
         "collection.row-slot.2": {
           "x": 52,
-          "y": 180,
+          "y": 224,
           "width": 628,
           "height": 44
         },
@@ -2052,25 +2052,25 @@
       "scrollSteps": 0,
       "track": {
         "x": 1238,
-        "y": 226,
+        "y": 270,
         "width": 18,
         "height": 308
       },
       "thumb": {
         "x": 1238,
-        "y": 226,
+        "y": 270,
         "width": 18,
         "height": 308
       },
       "trackHitTarget": {
         "x": 1212,
-        "y": 226,
+        "y": 270,
         "width": 44,
         "height": 308
       },
       "thumbHitTarget": {
         "x": 1212,
-        "y": 226,
+        "y": 270,
         "width": 44,
         "height": 308
       },
@@ -2087,25 +2087,25 @@
       "scrollSteps": 0,
       "track": {
         "x": 714,
-        "y": 136,
+        "y": 180,
         "width": 18,
         "height": 88
       },
       "thumb": {
         "x": 714,
-        "y": 136,
+        "y": 180,
         "width": 18,
         "height": 88
       },
       "trackHitTarget": {
         "x": 688,
-        "y": 136,
+        "y": 180,
         "width": 44,
         "height": 88
       },
       "thumbHitTarget": {
         "x": 688,
-        "y": 136,
+        "y": 180,
         "width": 44,
         "height": 88
       },

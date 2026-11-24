@@ -1,0 +1,54 @@
+{
+  "actions": [
+    {
+      "action": "close",
+      "id": "cancel",
+      "label": "Close",
+      "tone": "safe"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "mode": "table",
+    "selectionRole": "use-or-select",
+    "columns": [
+      {
+        "id": "treatment",
+        "label": "Treatment / condition"
+      },
+      {
+        "id": "value",
+        "label": "Value"
+      },
+      {
+        "id": "detail",
+        "label": "Detail"
+      }
+    ],
+    "items": [
+      {
+        "id": "heal",
+        "values": [
+          "Heal",
+          "3",
+          "12 TU"
+        ]
+      },
+      {
+        "id": "head",
+        "values": [
+          "Head",
+          "1",
+          "Fatal wounds"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "familyId": 25,
+  "id": "f25-medikit",
+  "schema": 1,
+  "title": "Medikit",
+  "version": "hd.2026-08-29.1",
+  "state": "MedikitState"
+}

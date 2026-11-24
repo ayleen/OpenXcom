@@ -33,6 +33,7 @@
  */
 #ifdef __EMSCRIPTEN__
 
+#include "CalypsoDialogRoute.h"
 #include "CalypsoStatisticsUi.h"
 
 #include <algorithm>
@@ -411,13 +412,9 @@ void CalypsoStatisticsUi::rebuildList(StatisticsState& state, std::size_t scroll
 
 void CalypsoStatisticsUi::configure(StatisticsState& state)
 {
-	state._hdLayout = state._game && state._game->getMod()
-		&& state._game->getLanguage()
-		&& isF34PhysicalRouteEligible(
-			state._game->getMod()->isHdUiFamilyEnabled("F34"),
-			state._game->getLanguage()->getTextDirection() == DIRECTION_RTL,
-			false);
+	state._hdLayout = calypsoDialogUsesHd(state._game, "F34");
 	if (!state._hdLayout) return;
+	state._screen = true;
 
 	state._hdWideLayout = currentF34LayoutClass() == CalypsoLayoutClass::Wide;
 	const CalypsoF34StatisticsLayout layout = calypsoF34StatisticsLayout(
@@ -469,6 +466,7 @@ void CalypsoStatisticsUi::configure(StatisticsState& state)
 
 	// Create + register the snapshot-only adapter (driven at the pre-blit
 	// boundary; no feeder Surface, no _surfaces reordering for text).
+	state._window->finishPopupForHd();
 	CalypsoStatisticsUi* adapter = new CalypsoStatisticsUi(&state);
 	state._hdAdapter = adapter;
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter);

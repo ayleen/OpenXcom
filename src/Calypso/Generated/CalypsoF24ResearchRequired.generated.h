@@ -4,16 +4,20 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF24ResearchRequiredGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kFormId = "f24-research-required";
 inline constexpr int kFamilyId = 24;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f24-research-required.json";
+inline constexpr const char* kProtocol = "CALYPSO COMMAND · RESEARCH PROTOCOL RS-24";
+inline constexpr const char* kTitle = "RESEARCH REQUIRED";
+inline constexpr const char* kMessage[] = { "You will need to research a", "MANTIS clip", "in order to produce the", "MANTIS Projector" };
+inline constexpr int kMessageCount = 4;
 
-inline constexpr const char* kDensityProfile = "brief-acknowledgement";
-inline constexpr int kPresentationScaleNumerator = 2;
-inline constexpr int kPresentationScaleDenominator = 3;
-inline constexpr float kPresentationScale = 0.666667f;
+inline constexpr const char* kDensityProfile = "standard";
+inline constexpr int kPresentationScaleNumerator = 1;
+inline constexpr int kPresentationScaleDenominator = 1;
+inline constexpr float kPresentationScale = 1.000000f;
 
 struct CalypsoF24ResearchRequiredGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
 inline constexpr CalypsoF24ResearchRequiredGenButton kButtons[] = {
@@ -31,18 +35,22 @@ inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
 inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
 inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
 inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
+inline constexpr std::uint32_t kDestructiveFill = 0xF25F5CFFu;
+inline constexpr std::uint32_t kDestructiveText = 0x071013FFu;
+inline constexpr std::uint32_t kSafeBorder = 0x74FFB0CCu;
+inline constexpr std::uint32_t kSafeFill = 0x051417B8u;
 
 struct CalypsoF24ResearchRequiredGenRect { int x; int y; int w; int h; };
 struct CalypsoF24ResearchRequiredGenLayout { int designWidth; int designHeight; CalypsoF24ResearchRequiredGenRect window; CalypsoF24ResearchRequiredGenRect status; CalypsoF24ResearchRequiredGenRect warning; CalypsoF24ResearchRequiredGenRect title; CalypsoF24ResearchRequiredGenRect message; CalypsoF24ResearchRequiredGenRect footer;
 };
 inline constexpr CalypsoF24ResearchRequiredGenLayout kLayouts[] = {
-    { 1280, 720, { 484, 269, 312, 158 }, { 484, 269, 312, 25 }, { 505, 309, 22, 21 }, { 537, 305, 238, 29 }, { 505, 338, 270, 40 }, { 484, 379, 312, 48 } }, // wide
-    { 740, 360, { 230, 97, 280, 147 }, { 230, 97, 280, 23 }, { 249, 131, 18, 19 }, { 277, 128, 214, 25 }, { 249, 153, 242, 40 }, { 230, 196, 280, 48 } }, // compact
+    { 1280, 720, { 406, 203, 468, 290 }, { 406, 203, 468, 38 }, { 438, 263, 32, 32 }, { 486, 257, 356, 44 }, { 438, 309, 404, 108 }, { 406, 431, 468, 62 } }, // wide
+    { 740, 360, { 160, 36, 420, 269 }, { 160, 36, 420, 34 }, { 188, 87, 28, 28 }, { 230, 82, 322, 38 }, { 188, 126, 364, 96 }, { 160, 239, 420, 66 } }, // compact
 };
 struct CalypsoF24ResearchRequiredGenButtonRect { const char* id; CalypsoF24ResearchRequiredGenRect rect; };
 inline constexpr CalypsoF24ResearchRequiredGenButtonRect kButtonRects[][ 1 ] = {
-    { { "ok", { 669, 388, 106, 29 } } }, // wide
-    { { "ok", { 393, 205, 98, 29 } } }, // compact
+    { { "ok", { 684, 440, 158, 44 } } }, // wide
+    { { "ok", { 404, 249, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

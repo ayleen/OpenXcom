@@ -1,0 +1,107 @@
+{
+  "schema": 1,
+  "id": "f32-advanced-stats",
+  "familyId": 32,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-research"
+  },
+  "state": "StatsForNerdsState",
+  "labelKeys": {
+    "title": "STR_STATS_FOR_NERDS",
+    "done": "STR_OK",
+    "previous": "STR_CAL_ARTICLE_PREVIOUS",
+    "next": "STR_CAL_ARTICLE_NEXT",
+    "info": "STR_INFO_UFOPEDIA"
+  },
+  "title": "ADVANCED STATS",
+  "actions": [
+    {
+      "id": "previous",
+      "label": "PREVIOUS",
+      "labelKey": "STR_CAL_ARTICLE_PREVIOUS",
+      "action": "previous",
+      "tone": "normal"
+    },
+    {
+      "id": "next",
+      "label": "NEXT",
+      "labelKey": "STR_CAL_ARTICLE_NEXT",
+      "action": "next",
+      "tone": "normal"
+    },
+    {
+      "id": "done",
+      "label": "BACK",
+      "labelKey": "STR_OK",
+      "action": "done",
+      "tone": "primary"
+    }
+  ],
+  "summary": [
+    {
+      "id": "article",
+      "label": "ARTICLE",
+      "value": "Nereid"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "event-line",
+    "columns": [
+      {
+        "id": "item",
+        "label": "ITEM",
+        "contentRole": "category"
+      },
+      {
+        "id": "value",
+        "label": "VALUE",
+        "contentRole": "name"
+      }
+    ],
+    "items": [
+      {
+        "id": "field",
+        "values": [
+          "Maximum speed",
+          "760"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [
+    {
+      "id": "debug",
+      "label": "DEBUG",
+      "labelKey": "STR_INCLUDE_DEBUG",
+      "action": "debug",
+      "tone": "normal"
+    },
+    {
+      "id": "ids",
+      "label": "IDS",
+      "labelKey": "STR_INCLUDE_IDS",
+      "action": "ids",
+      "tone": "normal"
+    },
+    {
+      "id": "defaults",
+      "label": "DEFAULTS",
+      "labelKey": "STR_INCLUDE_DEFAULTS",
+      "action": "defaults",
+      "tone": "normal"
+    },
+    {
+      "id": "context",
+      "label": "RELATED",
+      "labelKey": "STR_CAL_ARTICLE_RELATED",
+      "action": "context",
+      "tone": "normal"
+    }
+  ]
+}

@@ -21,6 +21,10 @@
 #include <climits>
 #include "TileEngine.h"
 #include "DebriefingState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoMissionOutcome.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
 #include "CannotReequipState.h"
 #include "../Geoscape/GeoscapeEventState.h"
 #include "../Engine/Action.h"
@@ -86,7 +90,7 @@ namespace OpenXcom
  * @param game Pointer to the core game.
  */
 DebriefingState::DebriefingState() :
-	_eventToSpawn(nullptr), _region(0), _country(0),
+	_eventToSpawn(nullptr), _region(0), _country(0), _base(nullptr),
 	_positiveScore(true), _destroyBase(false), _promotions(false), _showSellButton(true), _initDone(false),
 	_pageNumber(0)
 {
@@ -298,6 +302,9 @@ DebriefingState::DebriefingState() :
 	_lstRecoveredItems->setColumns(2, firstColumnWidth, 18);
 	_lstRecoveredItems->setAlign(ALIGN_LEFT);
 	_lstRecoveredItems->setDot(true);
+#ifdef __EMSCRIPTEN__
+	_hdOutcome = new Calypso::CalypsoMissionOutcome(*this);
+#endif
 }
 
 /**
@@ -305,6 +312,9 @@ DebriefingState::DebriefingState() :
  */
 DebriefingState::~DebriefingState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdOutcome;
+#endif
 	for (auto* ds : _stats)
 	{
 		delete ds;
@@ -388,10 +398,24 @@ void DebriefingState::init()
 
 	if (_initDone)
 	{
+#ifdef __EMSCRIPTEN__
+		_hdOutcome->refresh();
+#endif
 		return;
 	}
 	_initDone = true;
 
+#ifdef __EMSCRIPTEN__
+	auto *campaign = _game->getSavedGame();
+	if (!campaign || !campaign->getSavedBattle()) Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Missing battle for mission outcome");
+	const auto *bases = campaign->getBases();
+	const bool hasMissionBase = std::any_of(bases->begin(), bases->end(), [](Base *base) {
+		if (base->isInBattlescape()) return true;
+		const auto *fleet = base->getCrafts();
+		return std::any_of(fleet->begin(), fleet->end(), [](Craft *craft){return craft->isInBattlescape();});
+	});
+	if (!hasMissionBase) Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Mission outcome could not find its base");
+#endif
 	prepareDebriefing();
 
 	for (const auto& sse : _soldierStats)
@@ -793,6 +817,9 @@ void DebriefingState::init()
 		_promotions = _game->getSavedGame()->handlePromotions(participants, _game->getMod());
 	}
 
+#ifdef __EMSCRIPTEN__
+	_hdOutcome->capture();
+#endif
 	_game->getSavedGame()->setBattleGame(0);
 
 	if (_positiveScore)
@@ -844,6 +871,15 @@ void DebriefingState::txtTooltipOut(Action *action)
  * Displays soldiers' stat increases.
  * @param action Pointer to an action.
  */
+#ifdef __EMSCRIPTEN__
+void DebriefingState::resize(int &dx, int &dy)
+{
+	if (_hdOutcome) _hdOutcome->layout();
+	else State::resize(dx,dy);
+}
+void DebriefingState::hdPageClick(Action *action) { _hdOutcome->click(action); }
+#endif
+
 void DebriefingState::btnStatsClick(Action *)
 {
 	_pageNumber = (_pageNumber + 1) % 3;
@@ -902,7 +938,7 @@ void DebriefingState::btnOkClick(Action *)
 			bool canSpawn = _game->getSavedGame()->canSpawnInstantEvent(_eventToSpawn);
 			if (canSpawn)
 			{
-				_game->pushState(new GeoscapeEventState(*_eventToSpawn));
+				_game->pushState(new GeoscapeEventState(*_eventToSpawn, _game->getSavedGame()->addReadyEvent(*_eventToSpawn)));
 			}
 		}
 		if (!_deadSoldiersCommended.empty())

@@ -161,6 +161,7 @@ private:
 	int _monthsPassed;
 	int _daysPassed;
 	int _vehiclesLost, _craftLostDogfight, _craftLostMission;
+	std::map<std::string, bool> _graphVisibility;
 	std::string _graphRegionToggles;
 	std::string _graphCountryToggles;
 	std::string _graphFinanceToggles;
@@ -205,6 +206,9 @@ public:
 	void loadUfopediaRuleStatus(const YAML::YamlNodeReader& reader);
 	/// Saves a saved game to YAML.
 	void save(const std::string &filename, Mod *mod) const;
+	std::string serializeCampaign(Mod *mod) const;
+	static std::string writeEventRecovery(const std::string &snapshot);
+	GeoscapeEvent *addReadyEvent(const RuleEvent &rule);
 	/// Gets the game name.
 	std::string getName() const;
 	/// Sets the game name.
@@ -447,6 +451,7 @@ public:
 	void increaseCraftLostMission() { _craftLostMission++; }
 	/// Return the GraphRegionToggles.
 	const std::string &getGraphRegionToggles() const;
+	std::map<std::string, bool> &getGraphVisibility() { return _graphVisibility; }
 	/// Return the GraphCountryToggles.
 	const std::string &getGraphCountryToggles() const;
 	/// Return the GraphFinanceToggles.

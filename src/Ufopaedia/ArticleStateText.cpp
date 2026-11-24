@@ -52,7 +52,9 @@ namespace OpenXcom
 		centerAllSurfaces();
 
 		// Set up objects
+#ifndef __EMSCRIPTEN__
 		_game->getMod()->getSurface("BACK10.SCR")->blitNShade(_bg, 0, 0);
+#endif
 		_btnOk->setColor(_buttonColor);
 		_btnPrev->setColor(_buttonColor);
 		_btnNext->setColor(_buttonColor);
@@ -66,9 +68,10 @@ namespace OpenXcom
 		_txtInfo->setWordWrap(true);
 		_txtInfo->setScrollable(true);
 		_txtInfo->setText(tr(defs->getTextForPage(_state->current_page)));
+#ifdef __EMSCRIPTEN__
+		openHdReader(*_txtTitle, *_txtInfo);
+#endif
 	}
 
-	ArticleStateText::~ArticleStateText()
-	{}
-
+	ArticleStateText::~ArticleStateText() = default;
 }

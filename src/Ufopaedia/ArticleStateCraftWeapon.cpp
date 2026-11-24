@@ -85,7 +85,6 @@ namespace OpenXcom
 		Surface *articleImage = _game->getMod()->getSurface(defs->image_id);
 		_calypsoImageDecoded = articleImage != nullptr && articleImage->getSurface() != nullptr
 			&& articleImage->getWidth() > 0 && articleImage->getHeight() > 0;
-		if (articleImage) articleImage->blitNShade(_bg, 0, 0);
 #else
 		_game->getMod()->getSurface(defs->image_id)->blitNShade(_bg, 0, 0);
 #endif
@@ -115,7 +114,9 @@ namespace OpenXcom
 
 		_lstInfo->setColor(_listColor1);
 		_lstInfo->setColumns(2, 180, 70);
+#ifndef __EMSCRIPTEN__
 		_lstInfo->setDot(true);
+#endif
 		_lstInfo->setBig();
 
 		if (category == CWC_WEAPON)
@@ -145,6 +146,9 @@ namespace OpenXcom
 		}
 
 		centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+		openHdReader(*_txtTitle, *_txtInfo, {}, {_lstInfo}, articleIllustration(defs->image_id));
+#endif
 	}
 
 	ArticleStateCraftWeapon::~ArticleStateCraftWeapon()

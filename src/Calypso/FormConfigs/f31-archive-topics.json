@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "id": "f31-archive-topics",
+  "familyId": 31,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "state": "UfopaediaSelectState",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-research"
+  },
+  "labelKeys": {
+    "title": "STR_UFOPAEDIA",
+    "done": "STR_OK"
+  },
+  "title": "ARCHIVE TOPICS",
+  "actions": [
+    {
+      "id": "seen",
+      "label": "MARK LIST SEEN",
+      "labelKey": "STR_CAL_ARCHIVE_SEEN",
+      "tone": "normal",
+      "action": "seen"
+    },
+    {
+      "id": "done",
+      "label": "BACK",
+      "labelKey": "STR_OK",
+      "action": "done",
+      "tone": "normal"
+    }
+  ],
+  "summary": [
+    {
+      "id": "matches",
+      "label": "RESULTS",
+      "value": "6"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "article",
+    "columns": [
+      {
+        "id": "topic",
+        "label": "TOPIC",
+        "contentRole": "name"
+      },
+      {
+        "id": "status",
+        "label": "STATUS",
+        "contentRole": "status"
+      }
+    ],
+    "items": [
+      {
+        "id": "first",
+        "values": [
+          "Medi-Kit",
+          "New"
+        ]
+      }
+    ]
+  },
+  "toolbar": [
+    {
+      "id": "query",
+      "label": "SEARCH",
+      "labelKey": "STR_QUICK_SEARCH",
+      "action": "query",
+      "tone": "normal"
+    },
+    {
+      "id": "filter",
+      "label": "FILTER",
+      "labelKey": "STR_FILTER_DEFAULT",
+      "action": "filter",
+      "tone": "normal"
+    }
+  ],
+  "controls": []
+}

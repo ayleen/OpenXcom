@@ -26,7 +26,7 @@ namespace OpenXcom
 class Base;
 class RuleItem;
 #ifdef __EMSCRIPTEN__
-namespace Calypso { class CalypsoInventoryLedger; }
+namespace Calypso { class CalypsoBaseLedger; }
 #endif
 class TextButton;
 class ToggleTextButton;
@@ -71,14 +71,14 @@ class StoresState : public State
 {
 private:
 #ifdef __EMSCRIPTEN__
-	friend class Calypso::CalypsoInventoryLedger;
+	friend class Calypso::CalypsoBaseLedger;
 	TextButton *_hdCategory = nullptr;
 	std::string _category;
 	std::vector<std::string> _availableCategories;
 	std::string hdStorageCapacity(bool over) const;
 	void nextCategory(Action *);
 	bool includeCategory(const RuleItem &rule);
-	Calypso::CalypsoInventoryLedger *_hdLedger = nullptr;
+	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
 #endif
 	Base *_base;
 

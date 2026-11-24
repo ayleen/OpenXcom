@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "StatsForNerdsState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#endif
 #include "Ufopaedia.h"
 #include "../Battlescape/BattlescapeGenerator.h"
 #include "../Battlescape/BriefingState.h"
@@ -183,6 +186,9 @@ StatsForNerdsState::StatsForNerdsState(std::shared_ptr<ArticleCommonState> state
 	_mainArticle = true;
 
 	buildUI(debug, ids, defaults);
+#ifdef __EMSCRIPTEN__
+	openHd();
+#endif
 }
 
 /**
@@ -195,6 +201,9 @@ StatsForNerdsState::StatsForNerdsState(const UfopaediaTypeId typeId, const std::
 	_mainArticle = false;
 
 	buildUI(debug, ids, defaults);
+#ifdef __EMSCRIPTEN__
+	openHd();
+#endif
 }
 
 /**
@@ -241,7 +250,9 @@ void StatsForNerdsState::buildUI(bool debug, bool ids, bool defaults)
 	centerAllSurfaces();
 
 	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "statsForNerds");
+#endif
 
 	_txtTitle->setBig();
 	_txtTitle->setAlign(ALIGN_CENTER);
@@ -318,7 +329,11 @@ void StatsForNerdsState::buildUI(bool debug, bool ids, bool defaults)
  */
 StatsForNerdsState::~StatsForNerdsState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdLedger;
+#endif
 }
+
 
 /**
  * Initializes the screen (fills the data).

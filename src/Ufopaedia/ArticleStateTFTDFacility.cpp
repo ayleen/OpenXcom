@@ -27,6 +27,10 @@
 #include "../Interface/TextButton.h"
 #include "../Engine/Unicode.h"
 #include "../Interface/TextList.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseVisualCatalog.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
 
 namespace OpenXcom
 {
@@ -44,7 +48,10 @@ namespace OpenXcom
 
 		_lstInfo->setColor(_listColor1);
 		_lstInfo->setColumns(2, 104, 46);
+
+#ifndef __EMSCRIPTEN__
 		_lstInfo->setDot(true);
+#endif
 
 		std::ostringstream ss;
 		int row = 0;
@@ -77,6 +84,15 @@ namespace OpenXcom
 		_lstInfo->setCellColor(row++, 1, _listColor2);
 
 		centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+		Calypso::CalypsoBaseVisualCatalog catalog;
+		std::string error;
+		if (!Calypso::calypsoLoadBaseVisualCatalog(catalog, error))
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(error);
+		bool known = false;
+		const auto facilityArt = Calypso::calypsoBaseFacilityImage(catalog, defs->id, known);
+		openHdReader(*_txtTitle, *_txtInfo, {}, {_lstInfo}, known ? facilityArt : articleIllustration(defs->image_id));
+#endif
 	}
 
 	ArticleStateTFTDFacility::~ArticleStateTFTDFacility()

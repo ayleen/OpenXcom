@@ -29,6 +29,7 @@
 #include <algorithm>
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
+#include "../Menu/CutsceneState.h"
 #include "../Engine/Screen.h"
 #include "../Engine/Surface.h"
 #include "../Engine/SurfaceSet.h"
@@ -1148,6 +1149,18 @@ void calypso_set_audit_mode(int on)
  * Live-tunable from the JS console: Module._calypso_set_underwater_strength(0.4).
  * Default matches the "L1" starting look chosen during authoring. */
 float g_calypsoUnderwaterStrength = 0.20f;
+
+// Preview the installed introductory sequence through the normal dispatcher.
+EMSCRIPTEN_KEEPALIVE
+int calypso_qa_open_intro_cutscene()
+{
+	Game *game = getCurrentGame();
+	if (!game || !game->getTopState() || game->getSavedGame() || !game->getMod()
+		|| !game->getMod()->getVideo("intro")) return 0;
+	if (!EM_ASM_INT({return location.hostname === 'localhost' || location.hostname === '127.0.0.1';})) return 0;
+	game->pushState(new OpenXcom::CutsceneState("intro"));
+	return 1;
+}
 
 /* Loopback QA (read-only): demangled-ish name of the top state, so automated
  * probes can assert WHICH state is on screen instead of guessing from pixels.

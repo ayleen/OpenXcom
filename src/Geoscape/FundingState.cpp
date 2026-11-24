@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "FundingState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#endif
 #include <sstream>
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
@@ -65,10 +68,18 @@ struct compareFundingCountryChange
  */
 FundingState::FundingState()
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+#else
 	_screen = false;
+#endif
 
 	// Create objects
+#ifdef __EMSCRIPTEN__
+	_window = new Window(this, 320, 200, 0, 0);
+#else
 	_window = new Window(this, 320, 200, 0, 0, POPUP_BOTH);
+#endif
 	_btnOk = new TextButton(50, 12, 135, 180);
 	_txtTitle = new Text(320, 17, 0, 8);
 	_txtCountry = new Text(100, 9, 32, 30);
@@ -94,11 +105,7 @@ FundingState::FundingState()
 	add(_sortChange, "text2", "fundingWindow");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
+
 
 	// Set up objects
 	setWindowBackground(_window, "fundingWindow");
@@ -120,7 +127,9 @@ FundingState::FundingState()
 	_txtChange->setText(tr("STR_CHANGE"));
 
 	_lstCountries->setColumns(3, 108, 100, 52);
+#ifndef __EMSCRIPTEN__
 	_lstCountries->setDot(true);
+#endif
 
 	_sortName->setX(_sortName->getX() + _txtCountry->getTextWidth() + 4);
 	_sortName->onMouseClick((ActionHandler)&FundingState::sortNameClick);
@@ -141,6 +150,10 @@ FundingState::FundingState()
 			country->getFunding().size() > 1 ? country->getFunding().back() - country->getFunding().at(country->getFunding().size() - 2) : 0)
 		);
 	}
+#ifdef __EMSCRIPTEN__
+	updateList();
+	_ledger = new Calypso::CalypsoBaseLedger(*this);
+#endif
 }
 
 /**
@@ -148,8 +161,18 @@ FundingState::FundingState()
  */
 FundingState::~FundingState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _ledger;
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void FundingState::resize(int &dx, int &dy)
+{
+	if (_ledger) _ledger->refresh();
+	else State::resize(dx, dy);
+}
+#endif
 
 /**
  * Returns to the previous screen.

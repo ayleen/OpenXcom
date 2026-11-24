@@ -44,7 +44,8 @@
 #include "TechTreeViewerState.h"
 #include "TransferBaseState.h"
 #ifdef __EMSCRIPTEN__
-#include "../Calypso/CalypsoF13ContainmentUi.h"
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Calypso/ContainmentReviewState.h"
 #endif
 
 namespace OpenXcom
@@ -179,7 +180,21 @@ ManageAlienContainmentState::ManageAlienContainmentState(Base *base, int prisonT
 	_timerDec = new Timer(250);
 	_timerDec->onTimer((StateHandler)&ManageAlienContainmentState::decrease);
 #ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF13ContainmentUi::configure(*this);
+	_screen = true;
+	_lstAliens->setArrowColumn(-1, ARROW_HORIZONTAL);
+	_lstAliens->onMouseClick((ActionHandler)&ManageAlienContainmentState::hdSelectRow, SDL_BUTTON_LEFT);
+	_hdGlobal = new TextButton(80, 16);
+	_hdIncrease = new TextButton(44, 16);
+	_hdDecrease = new TextButton(44, 16);
+	for (auto *button : {_hdGlobal, _hdIncrease, _hdDecrease}) add(button, "button", "manageContainment");
+	_hdGlobal->setText(tr("STR_BASES"));
+	_hdIncrease->setText("+");
+	_hdDecrease->setText("−");
+	_hdGlobal->onMouseClick((ActionHandler)&ManageAlienContainmentState::onGlobalAlienContainmentClick);
+	_hdIncrease->onMouseClick((ActionHandler)&ManageAlienContainmentState::hdChangeQuantity);
+	_hdDecrease->onMouseClick((ActionHandler)&ManageAlienContainmentState::hdChangeQuantity);
+	resetListAndTotals();
+	_hdAdapter = new Calypso::CalypsoBaseLedger(*this);
 #endif
 }
 
@@ -308,6 +323,9 @@ void ManageAlienContainmentState::resetListAndTotals()
 		_btnOk->setVisible(!overCrowded);
 		_btnSell->setVisible(!overCrowded && _threeButtons);
 		_btnTransfer->setVisible(overCrowded);
+#ifdef __EMSCRIPTEN__
+		_btnTransfer->setVisible(_game->getSavedGame()->getBases()->size() > 1);
+#endif
 
 		int usedContainmentExternal = _base->getUsedContainment(_prisonType, true);
 		bool needToCleanup = overCrowded && usedContainmentExternal > 0 && availableContainment < usedContainmentExternal;
@@ -334,7 +352,12 @@ void ManageAlienContainmentState::think()
 void ManageAlienContainmentState::btnOkClick(Action *)
 {
 	bool sell = Options::canSellLiveAliens && !Options::retainCorpses; // in all other cases, it's kill, not sell
+	#ifdef __EMSCRIPTEN__
+	if (_aliensSold > 0)
+		_game->pushState(new ContainmentReviewState(*this, sell ? ContainmentAction::Sell : ContainmentAction::Remove));
+#else
 	dealWithSelectedAliens(sell);
+#endif
 }
 
 /**
@@ -352,7 +375,12 @@ void ManageAlienContainmentState::onGlobalAlienContainmentClick(Action *)
  */
 void ManageAlienContainmentState::btnSellClick(Action *)
 {
-	dealWithSelectedAliens(true); // this one is always sell
+	#ifdef __EMSCRIPTEN__
+	if (_aliensSold > 0)
+		_game->pushState(new ContainmentReviewState(*this, ContainmentAction::Sell));
+#else
+	dealWithSelectedAliens(true);
+#endif
 }
 
 /**
@@ -431,11 +459,15 @@ void ManageAlienContainmentState::btnTransferClick(Action *)
  */
 void ManageAlienContainmentState::btnCleanupClick(Action *)
 {
+	#ifdef __EMSCRIPTEN__
+	_game->pushState(new ContainmentReviewState(*this, ContainmentAction::Cleanup));
+#else
 	// cleanup
 	_base->cleanupPrisons(_prisonType);
 
 	// reset
 	resetListAndTotals();
+#endif
 }
 
 /**
@@ -577,6 +609,7 @@ void ManageAlienContainmentState::increase()
  */
 void ManageAlienContainmentState::increaseByValue(int change)
 {
+	if (_sel >= _qtys.size()) return;
 	int qty = getQuantity() - _qtys[_sel];
 	if (change <= 0 || qty <= 0) return;
 
@@ -602,7 +635,7 @@ void ManageAlienContainmentState::decrease()
  */
 void ManageAlienContainmentState::decreaseByValue(int change)
 {
-	if (change <= 0 || _qtys[_sel] <= 0) return;
+	if (_sel >= _qtys.size() || change <= 0 || _qtys[_sel] <= 0) return;
 	change = std::min(_qtys[_sel], change);
 	_qtys[_sel] -= change;
 	_aliensSold -= change;
@@ -615,6 +648,7 @@ void ManageAlienContainmentState::decreaseByValue(int change)
 void ManageAlienContainmentState::updateStrings()
 {
 	std::ostringstream ss, ss2;
+	if (_sel >= _qtys.size()) return;
 	int qty = getQuantity() - _qtys[_sel];
 	ss << qty;
 	ss2 << _qtys[_sel];
@@ -655,9 +689,22 @@ void ManageAlienContainmentState::updateStrings()
 
 #ifdef __EMSCRIPTEN__
 namespace OpenXcom {
+void ManageAlienContainmentState::hdSelectRow(Action *)
+{
+	const auto row = _lstAliens->getSelectedRow();
+	if (row < _qtys.size()) _sel = row;
+}
+
+void ManageAlienContainmentState::hdChangeQuantity(Action *action)
+{
+	if (_sel >= _qtys.size()) return;
+	if (action->getSender() == _hdIncrease) increaseByValue(1);
+	else decreaseByValue(1);
+}
+
 void ManageAlienContainmentState::resize(int &dX, int &dY)
 {
-	if (Calypso::CalypsoF13ContainmentUi::resize(*this)) return;
+	if (_hdAdapter) { _hdAdapter->refresh(); return; }
 	State::resize(dX, dY);
 }
 }

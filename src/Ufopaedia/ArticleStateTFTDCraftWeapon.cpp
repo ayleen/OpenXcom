@@ -61,7 +61,10 @@ namespace OpenXcom
 
 		_lstInfo->setColor(_listColor1);
 		_lstInfo->setColumns(2, 100, 68); // deliberately making this wider than the original to account for finish.
+
+#ifndef __EMSCRIPTEN__
 		_lstInfo->setDot(true);
+#endif
 
 		if (category == CWC_WEAPON)
 		{
@@ -90,6 +93,9 @@ namespace OpenXcom
 		}
 
 		centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+		openHdReader(*_txtTitle, *_txtInfo, {}, {_lstInfo}, articleIllustration(defs->image_id));
+#endif
 	}
 
 	ArticleStateTFTDCraftWeapon::~ArticleStateTFTDCraftWeapon()

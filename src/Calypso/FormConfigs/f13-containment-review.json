@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "id": "f13-containment-review",
+  "familyId": 13,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-research"
+  },
+  "state": "ContainmentReviewState",
+  "labelKeys": {
+    "title": "STR_CAL_CONTAINMENT_REVIEW",
+    "done": "STR_BACK"
+  },
+  "title": "REVIEW",
+  "actions": [
+    {
+      "id": "confirm",
+      "action": "confirm",
+      "label": "CONFIRM",
+      "labelKey": "STR_OK",
+      "tone": "danger"
+    },
+    {
+      "id": "done",
+      "action": "done",
+      "label": "BACK",
+      "labelKey": "STR_BACK",
+      "tone": "primary"
+    }
+  ],
+  "toolbar": [],
+  "summary": [
+    {
+      "id": "capacity",
+      "label": "FREE",
+      "value": "-87"
+    },
+    {
+      "id": "proceeds",
+      "label": "SALE",
+      "value": "0"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "containment-record",
+    "columns": [
+      {
+        "id": "specimen",
+        "label": "SPECIMEN",
+        "contentRole": "name"
+      },
+      {
+        "id": "quantity",
+        "label": "QUANTITY",
+        "contentRole": "count"
+      },
+      {
+        "id": "result",
+        "label": "RESULT",
+        "contentRole": "status"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Aquatoid",
+          "1",
+          "Removed"
+        ]
+      }
+    ]
+  },
+  "controls": []
+}

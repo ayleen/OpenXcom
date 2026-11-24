@@ -1038,6 +1038,7 @@ Music *Mod::getRandomMusic(const std::string &name) const
 	}
 }
 
+
 /**
  * Plays the specified track if it's not already playing.
  * @param name Name of the music.

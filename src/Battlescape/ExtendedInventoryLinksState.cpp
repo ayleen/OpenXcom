@@ -18,6 +18,10 @@
  */
 
 #include "ExtendedInventoryLinksState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#include "../Interface/TextList.h"
+#endif
 #include "InventoryState.h"
 #include "../Engine/Game.h"
 #include "../Engine/Action.h"
@@ -40,7 +44,12 @@ ExtendedInventoryLinksState::ExtendedInventoryLinksState(InventoryState* parent,
 	_screen = false;
 
 	// Create objects
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_window = new Window(this, 256, inBase ? 180 : 180-14, 32, inBase ? 10 : 10+14);
+#else
 	_window = new Window(this, 256, inBase ? 180 : 180-14, 32, inBase ? 10 : 10+14, POPUP_BOTH);
+#endif
 	_txtTitle = new Text(220, 17, 50, inBase ? 33 : 33+23);
 	if (Options::oxceFatFingerLinks)
 	{
@@ -89,7 +98,9 @@ ExtendedInventoryLinksState::ExtendedInventoryLinksState(InventoryState* parent,
 	centerAllSurfaces();
 
 	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "oxceLinks");
+#endif
 
 	_txtTitle->setBig();
 	_txtTitle->setAlign(ALIGN_CENTER);
@@ -133,7 +144,30 @@ ExtendedInventoryLinksState::ExtendedInventoryLinksState(InventoryState* parent,
 	_btnAutoEquip->onMouseClick((ActionHandler)&ExtendedInventoryLinksState::btnAutoEquipClick);
 	_btnAutoEquip->setVisible(beforeMission);
 
+#ifndef __EMSCRIPTEN__
 	applyBattlescapeTheme("oxceLinks");
+#endif
+#ifdef __EMSCRIPTEN__
+	_hdRows = new TextList(1,1,0,0);
+	add(_hdRows,"text","oxceLinks");
+	_hdRows->setColumns(1,1);
+	_hdRows->setSelectable(true);
+	_hdRows->setBackground(_window);
+	for (auto *button : {_btnArmor, _btnAvatar, _btnEquipmentSave, _btnEquipmentLoad, _btnPersonalSave,
+		_btnPersonalLoad, _btnNotes, _btnUfopedia, _btnAutoEquip})
+	{
+		if (!button->getVisible()) continue;
+		_hdRows->addRow(1,button->getText().c_str());
+		_routes.push_back(button);
+		button->setVisible(false);
+	}
+	_hdRows->onMouseClick((ActionHandler)&ExtendedInventoryLinksState::openDestination);
+	_hdRows->onKeyboardPress((ActionHandler)&ExtendedInventoryLinksState::openDestination, Options::keyOk);
+	_hdList = new Calypso::CalypsoStrategicList(this, nullptr, _game->getMod(), _window, _txtTitle,
+		_hdRows, _btnOk, Calypso::CalypsoStrategicList::Content::InventoryLinks);
+	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+#endif
 }
 
 void ExtendedInventoryLinksState::btnArmorClick(Action *)
@@ -198,5 +232,33 @@ void ExtendedInventoryLinksState::btnOkClick(Action *)
 {
 	_game->popState();
 }
+
+ExtendedInventoryLinksState::~ExtendedInventoryLinksState()
+{
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
+}
+
+#ifdef __EMSCRIPTEN__
+void ExtendedInventoryLinksState::openDestination(Action *)
+{
+	const auto selected = _hdRows->getSelectedRow();
+	if (selected >= _routes.size()) return;
+	SDL_Event event{};
+	event.type = SDL_MOUSEBUTTONUP;
+	event.button.button = SDL_BUTTON_LEFT;
+	Action click(&event, 1, 1, 0, 0);
+	click.setSender(_routes[selected]);
+	_routes[selected]->mouseClick(&click, this);
+}
+void ExtendedInventoryLinksState::resize(int &dx, int &dy)
+{
+	if (!_hdList) { State::resize(dx,dy); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(),1.0f,false);
+	_hdList->fitInput();
+}
+#endif
 
 }

@@ -23,6 +23,10 @@ namespace OpenXcom
 {
 
 class TextButton;
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoStrategicList; }
+class TextList;
+#endif
 class Window;
 class Text;
 class Craft;
@@ -42,7 +46,17 @@ private:
 	std::string _cutsceneId, _musicId;
 	bool _infoOnly;
 	bool _disableCutsceneAndMusic;
+#ifdef __EMSCRIPTEN__
+	void openBriefing(bool isPreview);
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+	TextList *_hdBody = nullptr;
+	std::vector<std::string> _briefingParagraphs;
+	void layoutBriefing(bool initial);
+#endif
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dx, int &dy) override;
+#endif
 	/// Creates the Briefing state.
 	BriefingState(Craft *craft = 0, Base *base = 0, bool infoOnly = false, BriefingData *customBriefing = nullptr);
 	/// Cleans up the Briefing state.

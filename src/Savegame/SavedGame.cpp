@@ -412,6 +412,7 @@ void SavedGame::load(const std::string &filename, Mod *mod, Language *lang)
 	reader.tryRead("vehiclesLost", _vehiclesLost);
 	reader.tryRead("craftLostDogfight", _craftLostDogfight);
 	reader.tryRead("craftLostMission", _craftLostMission);
+	reader.tryRead("graphVisibility", _graphVisibility);
 	reader.tryRead("graphRegionToggles", _graphRegionToggles);
 	reader.tryRead("graphCountryToggles", _graphCountryToggles);
 	reader.tryRead("graphFinanceToggles", _graphFinanceToggles);
@@ -780,7 +781,7 @@ void saveVector(YAML::YamlNodeWriter& writer, const std::vector<T*>& vector, con
  * Saves a saved game's contents to a YAML file.
  * @param filename YAML filename.
  */
-void SavedGame::save(const std::string &filename, Mod *mod) const
+std::string SavedGame::serializeCampaign(Mod *mod) const
 {
 	YAML::YamlRootNodeWriter headerWriter;
 	headerWriter.setAsMap();
@@ -821,6 +822,7 @@ void SavedGame::save(const std::string &filename, Mod *mod) const
 	writer.write("vehiclesLost", _vehiclesLost);
 	writer.write("craftLostDogfight", _craftLostDogfight);
 	writer.write("craftLostMission", _craftLostMission);
+	if (!_graphVisibility.empty()) writer.write("graphVisibility", _graphVisibility);
 	writer.write("graphRegionToggles", _graphRegionToggles);
 	writer.write("graphCountryToggles", _graphCountryToggles);
 	writer.write("graphFinanceToggles", _graphFinanceToggles);
@@ -950,6 +952,11 @@ void SavedGame::save(const std::string &filename, Mod *mod) const
 	finalString += headerString.yaml;
 	finalString	+= directivesEndMarker;
 	finalString += bodyString.yaml;
+	return finalString;
+}
+
+static void writeCampaignSnapshot(const std::string &filename, const std::string &finalString)
+{
 
 	std::string filepath = Options::getMasterUserFolder() + filename;
 	if (!CrossPlatform::writeFile(filepath, finalString))
@@ -959,6 +966,29 @@ void SavedGame::save(const std::string &filename, Mod *mod) const
 #ifdef __EMSCRIPTEN__
 	EM_ASM(({ FS.syncfs(false, function(err) { if (err) console.error('[calypso] syncfs error', err); }); }));
 #endif
+}
+
+void SavedGame::save(const std::string &filename, Mod *mod) const
+{
+	writeCampaignSnapshot(filename, serializeCampaign(mod));
+}
+
+std::string SavedGame::writeEventRecovery(const std::string &snapshot)
+{
+	const auto prefix = "event-recovery-" + std::to_string(std::time(nullptr));
+	std::string name = prefix + ".sav";
+	for (int n = 1; CrossPlatform::fileExists(Options::getMasterUserFolder() + name); ++n)
+		name = prefix + "-" + std::to_string(n) + ".sav";
+	writeCampaignSnapshot(name, snapshot);
+	return name;
+}
+
+GeoscapeEvent *SavedGame::addReadyEvent(const RuleEvent &rule)
+{
+	auto *event = new GeoscapeEvent(rule);
+	event->think();
+	_geoscapeEvents.push_back(event);
+	return event;
 }
 
 /**

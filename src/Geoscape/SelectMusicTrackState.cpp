@@ -33,6 +33,11 @@
 #include <emscripten.h>
 #endif
 
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
+
 namespace OpenXcom
 {
 
@@ -55,7 +60,13 @@ SelectMusicTrackState::SelectMusicTrackState(SelectMusicTrackOrigin origin) : _o
 	}
 
 	// Create objects
-	_window = new Window(this, 216, 160, x, 20, POPUP_BOTH);
+	_window = new Window(this, 216, 160, x, 20,
+#ifdef __EMSCRIPTEN__
+		POPUP_NONE
+#else
+		POPUP_BOTH
+#endif
+	);
 	_txtTitle = new Text(206, 17, x + 5, 32);
 	_btnCancel = new TextButton(140, 16, x + 38, 156);
 	_lstTracks = new TextList(180, 96, x + 13, 52);
@@ -81,7 +92,16 @@ SelectMusicTrackState::SelectMusicTrackState(SelectMusicTrackOrigin origin) : _o
 	_btnCancel->onMouseClick((ActionHandler)&SelectMusicTrackState::btnCancelClick);
 	_btnCancel->onKeyboardPress((ActionHandler)&SelectMusicTrackState::btnCancelClick, Options::keyCancel);
 
+#ifdef __EMSCRIPTEN__
+	_btnKeep = new TextButton(100, 16);
+	add(_btnKeep, "button", "selectMusicTrack");
+	_btnKeep->setText(tr("STR_CAL_KEEP_TRACK"));
+	_btnKeep->onMouseClick((ActionHandler)&SelectMusicTrackState::keepTrack);
+	_btnKeep->onKeyboardPress((ActionHandler)&SelectMusicTrackState::keepTrack, Options::keyOk);
+	_lstTracks->setColumns(2, 100, 72);
+#else
 	_lstTracks->setColumns(1, 172);
+#endif
 	_lstTracks->setSelectable(true);
 	_lstTracks->setBackground(_window);
 	_lstTracks->setMargin(8);
@@ -95,7 +115,11 @@ SelectMusicTrackState::SelectMusicTrackState(SelectMusicTrackOrigin origin) : _o
 	{
 		if (pair.first == currentName || pair.first.find(search) != std::string::npos)
 		{
+#ifdef __EMSCRIPTEN__
+			_lstTracks->addRow(2, tr(pair.first).c_str(), "");
+#else
 			_lstTracks->addRow(1, tr(pair.first).c_str());
+#endif
 			_tracks.push_back(pair.second);
 			_trackNames.push_back(pair.first);
 			if (pair.first == currentName)
@@ -116,6 +140,20 @@ SelectMusicTrackState::SelectMusicTrackState(SelectMusicTrackOrigin origin) : _o
 			_lstTracks->setRowColor(currentTrackIndex, element->color2);
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	_previousTrack = currentName;
+	_wasPlaying = Music::isPlaying();
+	if (_origin == SMT_GEOSCAPE)
+		_browserMusic = EM_ASM_INT({ return globalThis.calypsoGeoscapeMusicGetState ? globalThis.calypsoGeoscapeMusicGetState() : 0; });
+	updateTrackLabels();
+	_lstTracks->onKeyboardPress((ActionHandler)&SelectMusicTrackState::lstTrackClick, SDLK_SPACE);
+	const State *underlay = _game->getTopState();
+	if (!Calypso::CalypsoHdUiOverlay::instance().hasRegisteredState(underlay)) underlay = nullptr;
+	_screen = !underlay;
+	_hdList = new Calypso::CalypsoStrategicList(this, underlay, _game->getMod(), _window, _txtTitle, _lstTracks, _btnCancel, Calypso::CalypsoStrategicList::Content::Tracks, _btnKeep);
+	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+#endif
 }
 
 /**
@@ -123,6 +161,9 @@ SelectMusicTrackState::SelectMusicTrackState(SelectMusicTrackOrigin origin) : _o
  */
 SelectMusicTrackState::~SelectMusicTrackState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
 
 }
 
@@ -132,6 +173,16 @@ SelectMusicTrackState::~SelectMusicTrackState()
  */
 void SelectMusicTrackState::btnCancelClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	if (_preview >= 0)
+	{
+		Music::stop();
+		if (_browserMusic > 0)
+			EM_ASM({ if (globalThis.calypsoGeoscapeMusicSetState) globalThis.calypsoGeoscapeMusicSetState($0); }, _browserMusic);
+		else if (_wasPlaying && !_previousTrack.empty())
+			if (Music *previous = _game->getMod()->getMusic(_previousTrack, false)) previous->play();
+	}
+#endif
 	_game->popState();
 }
 
@@ -142,6 +193,8 @@ void SelectMusicTrackState::btnCancelClick(Action *)
 void SelectMusicTrackState::lstTrackClick(Action *)
 {
 #ifdef __EMSCRIPTEN__
+	const auto index = _lstTracks->getSelectedRow();
+	if (index >= _tracks.size() || !_tracks[index]) return;
 	if (_origin == SMT_GEOSCAPE)
 	{
 		// A manually selected legacy track temporarily owns Geoscape music.
@@ -151,12 +204,46 @@ void SelectMusicTrackState::lstTrackClick(Action *)
 				globalThis.calypsoGeoscapeMusicStop();
 		});
 	}
-#endif
+	_preview = static_cast<int>(index);
+	_tracks[index]->play();
+	updateTrackLabels();
+#else
 	Music *selected = _tracks[_lstTracks->getSelectedRow()];
 	selected->play();
 	_game->getMod()->setCurrentMusicTrack(_trackNames[_lstTracks->getSelectedRow()]);
 
 	_game->popState();
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void SelectMusicTrackState::keepTrack(Action *)
+{
+	if (_preview < 0 || static_cast<size_t>(_preview) >= _tracks.size()) return;
+	_game->getMod()->setCurrentMusicTrack(_trackNames[_preview]);
+	_game->popState();
+}
+
+void SelectMusicTrackState::updateTrackLabels()
+{
+	for (size_t i = 0; i < _trackNames.size(); ++i)
+	{
+		std::string status;
+		if (static_cast<int>(i) == _preview) status = tr("STR_PREVIEW");
+		else if (_trackNames[i] == _previousTrack && _wasPlaying && _browserMusic == 0) status = tr("STR_CAL_CURRENT_TRACK");
+		_lstTracks->setCellText(i, 1, status);
+	}
+}
+
+#endif
+#ifdef __EMSCRIPTEN__
+void SelectMusicTrackState::resize(int &dX, int &dY)
+{
+	if (!_hdList) { State::resize(dX, dY); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+}
+#endif
 
 }

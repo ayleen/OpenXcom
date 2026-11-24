@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "id": "f37-contract-delivery",
+  "familyId": 37,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "logistics-group"
+  },
+  "state": "CalypsoContractDeliverState",
+  "labelKeys": {
+    "title": "STR_CAL_ECON_DELIVER_TITLE",
+    "done": "STR_CANCEL"
+  },
+  "title": "DELIVER FROM",
+  "actions": [
+    {
+      "id": "deliver",
+      "label": "DELIVER",
+      "labelKey": "STR_CAL_DELIVER",
+      "action": "deliver",
+      "tone": "primary"
+    },
+    {
+      "id": "done",
+      "label": "CANCEL",
+      "labelKey": "STR_CANCEL",
+      "action": "done",
+      "tone": "primary"
+    }
+  ],
+  "toolbar": [],
+  "summary": [
+    {
+      "id": "quantity",
+      "label": "QUANTITY",
+      "value": "2"
+    },
+    {
+      "id": "reward",
+      "label": "REWARD",
+      "value": "$100"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "economy-record",
+    "columns": [
+      {
+        "id": "base",
+        "label": "BASE",
+        "contentRole": "name"
+      },
+      {
+        "id": "held",
+        "label": "IN STORES",
+        "contentRole": "count"
+      },
+      {
+        "id": "after",
+        "label": "AFTER",
+        "contentRole": "count"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Batumi",
+          "4",
+          "2"
+        ]
+      }
+    ]
+  },
+  "controls": []
+}

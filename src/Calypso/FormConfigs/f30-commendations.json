@@ -1,0 +1,41 @@
+{
+  "actions": [
+    {
+      "id": "ok",
+      "label": "OK",
+      "action": "ok",
+      "tone": "safe"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "mode": "table",
+    "selectionRole": "commendation",
+    "columns": [
+      {
+        "id": "award",
+        "label": "MEDAL"
+      },
+      {
+        "id": "decoration",
+        "label": "LEVEL"
+      }
+    ],
+    "items": [
+      {
+        "id": "sample-award",
+        "values": [
+          "Service medal",
+          "Level 1"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "familyId": 30,
+  "id": "f30-commendations",
+  "schema": 1,
+  "title": "MEDALS",
+  "version": "hd.2026-08-29.1",
+  "state": "CommendationState"
+}

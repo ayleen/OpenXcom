@@ -18,7 +18,7 @@
  */
 #include "TransfersState.h"
 #ifdef __EMSCRIPTEN__
-#include "../Calypso/CalypsoInventoryLedger.h"
+#include "../Calypso/CalypsoBaseLedger.h"
 #endif
 #include <sstream>
 #include "../Engine/Game.h"
@@ -107,7 +107,7 @@ TransfersState::TransfersState(Base *base) : _base(base)
 	}
 #endif
 #ifdef __EMSCRIPTEN__
-	_hdLedger = new Calypso::CalypsoInventoryLedger(*this);
+	_hdLedger = new Calypso::CalypsoBaseLedger(*this);
 #endif
 }
 

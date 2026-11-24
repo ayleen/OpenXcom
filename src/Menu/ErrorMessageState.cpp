@@ -25,6 +25,7 @@
 #include "../Interface/Text.h"
 #include "../Engine/Options.h"
 #ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoDialogRoute.h"
 #include "../Calypso/CalypsoErrorPopupUi.h"
 #endif
 
@@ -77,7 +78,11 @@ void ErrorMessageState::create(const std::string &str, SDL_Color *palette, Uint8
 	_hdForm = hdForm;
 
 	// Create objects
-	_window = new Window(this, 256, 160, 32, 20, POPUP_BOTH);
+	bool hdDialog = false;
+#ifdef __EMSCRIPTEN__
+	hdDialog = Calypso::calypsoDialogUsesHd(_game, "F34", hdForm.hdUnderlayState || !hdForm.empty());
+#endif
+	_window = new Window(this, 256, 160, 32, 20, hdDialog ? POPUP_NONE : POPUP_BOTH);
 	_btnOk = new TextButton(120, 18, 100, 154);
 	_txtMessage = new Text(246, 80, 37, 50);
 
@@ -94,7 +99,7 @@ void ErrorMessageState::create(const std::string &str, SDL_Color *palette, Uint8
 
 	// Set up objects
 	_window->setColor(color);
-	_window->setBackground(_game->getMod()->getSurface(bg));
+	if (!hdDialog) _window->setBackground(_game->getMod()->getSurface(bg));
 
 	_btnOk->setColor(color);
 	_btnOk->setText(tr("STR_OK"));
@@ -121,10 +126,6 @@ void ErrorMessageState::create(const std::string &str, SDL_Color *palette, Uint8
 	}
 
 #ifdef __EMSCRIPTEN__
-	// Until the post-composite pipeline has separate gameplay-FX and modal
-	// strata, an HD popup over a live Battlescape could be painted over by
-	// projectile/smoke passes. Keep that route on its complete logical fallback;
-	// bgColor == -1 is the existing Battlescape-call-site contract.
 	Calypso::CalypsoErrorPopupUi::configure(*this,
 		bgColor != -1 || _hdForm.hdUnderlayState != nullptr);
 #endif

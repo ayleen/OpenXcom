@@ -4,6 +4,7 @@
 #ifdef __EMSCRIPTEN__
 
 #include "CalypsoErrorPopupUi.h"
+#include "CalypsoDialogRoute.h"
 
 #include <algorithm>
 #include <cmath>
@@ -211,39 +212,36 @@ void CalypsoErrorPopupUi::applyRects(
 	applyRect(state._btnOk, calypsoSmallConfirmationTouchRect(layout.acknowledge));
 }
 
+bool calypsoDialogUsesHd(Game *game, const char *family, bool explicitForm)
+{
+	if (!game || !game->getMod())
+		CalypsoHdUiOverlay::instance().failHdRoute("Missing HD dialog game or rules");
+	const auto route = calypsoDialogRoute(explicitForm || game->getMod()->isHdUiFamilyEnabled(family),
+		game->getLanguage() && game->getLanguage()->getTextDirection() != DIRECTION_RTL);
+	if (route == CalypsoDialogRoute::Unregistered) return false;
+	if (route == CalypsoDialogRoute::UnsupportedText)
+		CalypsoHdUiOverlay::instance().failHdRoute("HD dialog text shaping is unavailable for this language");
+	return true;
+}
+
 void CalypsoErrorPopupUi::configure(
 	ErrorMessageState& state, bool allowPhysicalOverlay)
 {
-	// Explicit-underlay construction errors carry _hdForm.hdUnderlayState and
-	// are always HD: no family toggle, no vanilla fallback. Missing
-	// prerequisites or unsupported physical conditions fail the route closed.
-	if (state._hdForm.hdUnderlayState != nullptr)
+	const bool explicitForm = state._hdForm.hdUnderlayState || !state._hdForm.empty();
+	state._hdLayout = calypsoDialogUsesHd(state._game, "F34", explicitForm);
+	if (!state._hdLayout) return;
+	if (!state._window || !state._txtMessage || !state._btnOk)
+		CalypsoHdUiOverlay::instance().failHdRoute("HD error dialog controls are unavailable");
+	if (state._hdForm.empty())
 	{
-		if (state._hdForm.empty()
-			|| !state._game || !state._game->getMod() || !state._game->getLanguage()
-			|| !state._window || !state._txtMessage || !state._btnOk)
-		{
-			CalypsoHdUiOverlay::instance().failHdRoute(
-				"Error popup HD prerequisites are unavailable");
-		}
-		if (state._game->getLanguage()->getTextDirection() == DIRECTION_RTL
-			|| !allowPhysicalOverlay)
-		{
-			CalypsoHdUiOverlay::instance().failHdRoute(
-				"Error popup HD physical route is unsupported");
-		}
-		state._hdLayout = true;
+		if (state._hdForm.hdUnderlayState)
+			CalypsoHdUiOverlay::instance().failHdRoute("HD error form is incomplete");
+		state._hdForm.protocol = state.tr("STR_CAL_DIALOG_PROTOCOL");
+		state._hdForm.title = state.tr("STR_CAL_DIALOG_WARNING");
+		state._hdForm.bodyLines = {state._txtMessage->getText()};
+		state._hdForm.actionLabel = state._btnOk->getText();
 	}
-	else
-	{
-		state._hdLayout = !state._hdForm.empty()
-			&& state._game && state._game->getMod() && state._game->getLanguage()
-			&& isF34PhysicalRouteEligible(
-				state._game->getMod()->isHdUiFamilyEnabled("F34"),
-				state._game->getLanguage()->getTextDirection() == DIRECTION_RTL,
-				!allowPhysicalOverlay);
-		if (!state._hdLayout) return;
-	}
+	if (!allowPhysicalOverlay || !state._hdForm.hdUnderlayState) state._screen = true;
 
 	state._hdWideLayout = currentLayoutClass() == CalypsoLayoutClass::Wide;
 	const CalypsoF34ErrorLayout layout = currentPresentationLayout(state._hdWideLayout);

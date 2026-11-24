@@ -18,6 +18,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "CalypsoEconomyState.h"
+#include "CalypsoBaseLedger.h"
 #include "CalypsoContractDeliverState.h"
 #include <sstream>
 #include "../Engine/Game.h"
@@ -42,12 +43,12 @@ namespace OpenXcom
 /**
  * Initializes all the elements in the Calypso Economy screen.
  */
-CalypsoEconomyState::CalypsoEconomyState() : _tab(0), _tabGroupHack(nullptr)
+CalypsoEconomyState::CalypsoEconomyState() : _tabGroupHack(nullptr), _tab(0)
 {
-	_screen = false;
+	_screen = true;
 
 	// Create objects
-	_window       = new Window(this, 320, 200, 0, 0, POPUP_BOTH);
+	_window       = new Window(this, 320, 200, 0, 0, POPUP_NONE);
 	_txtTitle     = new Text(320, 17, 0, 8);
 	_btnGrants    = new TextButton(96, 14,   8, 26);
 	_btnContracts = new TextButton(96, 14, 112, 26);
@@ -95,10 +96,13 @@ CalypsoEconomyState::CalypsoEconomyState() : _tab(0), _tabGroupHack(nullptr)
 	_btnOk->onKeyboardPress((ActionHandler)&CalypsoEconomyState::btnOkClick, Options::keyCancel);
 
 	_lstMain->setColumns(3, 150, 80, 58);
-	_lstMain->setDot(true);
+	_lstMain->setDot(false);
 	_lstMain->setSelectable(true);
 	_lstMain->setBackground(_window);
 	_lstMain->onMouseClick((ActionHandler)&CalypsoEconomyState::lstMainClick);
+	if (auto *eco = _game->getSavedGame()->getCalypsoEconomy())
+		eco->ensureInitialized(_game->getSavedGame(), _game->getMod());
+	_hdLedger = new Calypso::CalypsoBaseLedger(*this);
 }
 
 /**
@@ -164,6 +168,8 @@ void CalypsoEconomyState::showTab(int tab)
 {
 	_tab = tab;
 	_lstMain->clearList();
+	const auto *economy = _game->getSavedGame()->getCalypsoEconomy();
+	if (!economy || !economy->active()) return;
 	switch (tab)
 	{
 	case 0: populateGrants(); break;
@@ -286,6 +292,17 @@ void CalypsoEconomyState::lstMainClick(Action *)
 		}
 		return;
 	}
+}
+
+CalypsoEconomyState::~CalypsoEconomyState()
+{
+	delete _hdLedger;
+}
+
+void CalypsoEconomyState::resize(int &dX, int &dY)
+{
+	if (_hdLedger) _hdLedger->refresh();
+	else State::resize(dX, dY);
 }
 
 }

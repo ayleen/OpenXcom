@@ -41,6 +41,10 @@ namespace OpenXcom
  * @param game Pointer to the core game.
  */
 TrainingState::TrainingState()
+#ifdef __EMSCRIPTEN__
+	: CalypsoTrainingBases(false)
+{
+#else
 {
 	// Create objects
 	_window = new Window(this, 320, 200, 0, 0);
@@ -86,6 +90,7 @@ TrainingState::TrainingState()
 	}
 
 	centerAllSurfaces();
+#endif
 }
 /**
  *

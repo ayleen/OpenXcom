@@ -1,35 +1,36 @@
 {
-  "schema": 1,
-  "id": "f30-no-experience",
-  "familyId": 30,
-  "version": "hd.2026-08-29.1",
-  "archetype": "small-confirmation",
-  "protocol": {
-    "authority": "CALYPSO COMMAND",
-    "record": "TACTICAL NOTICE",
-    "code": "F30-NE-01",
-    "revision": "1.0.21",
-    "effectiveDate": "15.07.2061"
-  },
-  "title": "NO EXPERIENCE YET",
-  "body": [
-    "No combat experience",
-    "to display yet."
-  ],
-  "icon": {
-    "kind": "info",
-    "glyph": "i",
-    "tone": "primary"
-  },
-  "buttons": [
+  "actions": [
     {
-      "id": "ok",
-      "label": "OK",
-      "tone": "safe",
-      "action": "ok"
+      "action": "cancel",
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe"
     }
   ],
-  "visibleButtons": [
-    "ok"
-  ]
+  "archetype": "scrollable-collection",
+  "collection": {
+    "mode": "list",
+    "selectionRole": "soldier",
+    "columns": [
+      {
+        "id": "name",
+        "label": "NAME"
+      }
+    ],
+    "items": [
+      {
+        "id": "example-diver",
+        "values": [
+          "Mahmoud Mustafa"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "familyId": 30,
+  "id": "f30-no-experience",
+  "schema": 1,
+  "title": "NO EXPERIENCE YET",
+  "version": "hd.2026-08-29.1",
+  "state": "NoExperienceState"
 }

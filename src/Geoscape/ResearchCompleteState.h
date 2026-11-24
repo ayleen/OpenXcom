@@ -21,7 +21,7 @@
 
 namespace OpenXcom
 {
-namespace Calypso { class CalypsoF24ResearchCompleteUi; }
+namespace Calypso { class CalypsoResearchNotice; }
 
 class Game;
 class Window;
@@ -36,9 +36,6 @@ class RuleResearch;
  */
 class ResearchCompleteState : public State
 {
-#ifdef __EMSCRIPTEN__
-friend class Calypso::CalypsoF24ResearchCompleteUi;
-#endif
 	Window *_window;
 	Text *_txtTitle, *_txtResearch, *_txtBase;
 	TextButton *_btnReport, *_btnOk;
@@ -54,9 +51,7 @@ public:
 
 #ifdef __EMSCRIPTEN__
 private:
-    bool _hdLayout = false;
-    bool _hdWideLayout = false;
-    Calypso::CalypsoF24ResearchCompleteUi *_hdAdapter = nullptr;
+	Calypso::CalypsoResearchNotice *_notice = nullptr;
 public:
     void resize(int &dX, int &dY) override;
 #endif

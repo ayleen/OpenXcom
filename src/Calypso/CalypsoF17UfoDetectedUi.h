@@ -11,6 +11,7 @@ public:
         LayoutVariant layout = LayoutVariant::Compact);
     ~CalypsoF17UfoDetectedUi() override;
     const void* topState() const override;
+    const void* physicalUnderlayState() const override;
     void collect(CalypsoHdFrameBuilder& b) const override;
     void setLayout(LayoutVariant layout) { _layout = layout; }
     static void configure(UfoDetectedState& s, bool allow=true);

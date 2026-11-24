@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "TurnDiaryState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+#include "../Calypso/CalypsoReportLines.h"
+#endif
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
@@ -37,10 +41,14 @@ namespace OpenXcom
  */
 TurnDiaryState::TurnDiaryState(const HitLog *hitLog)
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_window = new Window(this, 216, 160, 52, 20);
+#else
 	_screen = false;
 
-	// Create objects
 	_window = new Window(this, 216, 160, 52, 20, POPUP_BOTH);
+#endif
 	_txtTitle = new Text(206, 17, 57, 32);
 	_btnCancel = new TextButton(140, 16, 90, 156);
 	_lstTurnDiary = new TextList(180, 96, 65, 52);
@@ -57,7 +65,9 @@ TurnDiaryState::TurnDiaryState(const HitLog *hitLog)
 
 	// Set up objects
 	_window->setHighContrast(true);
+#ifndef __EMSCRIPTEN__
 	_window->setBackground(_game->getMod()->getSurface("TAC00.SCR"));
+#endif
 
 	_txtTitle->setAlign(ALIGN_CENTER);
 	_txtTitle->setBig();
@@ -77,6 +87,14 @@ TurnDiaryState::TurnDiaryState(const HitLog *hitLog)
 	_lstTurnDiary->setHighContrast(true);
 	_lstTurnDiary->setWordWrap(true);
 
+#ifdef __EMSCRIPTEN__
+	_entries.push_back(hitLog->getHitLogText(true));
+	const auto &history = hitLog->getTurnDiary();
+	_entries.insert(_entries.end(), history.rbegin(), history.rend());
+	_hdList = new Calypso::CalypsoStrategicList(this, nullptr, _game->getMod(), _window,
+		_txtTitle, _lstTurnDiary, _btnCancel, Calypso::CalypsoStrategicList::Content::TurnDiary);
+	layoutDiary(true);
+#else
 	// in reverse order
 	_lstTurnDiary->addRow(1, hitLog->getHitLogText(true).c_str());
 	size_t row = 1;
@@ -89,7 +107,38 @@ TurnDiaryState::TurnDiaryState(const HitLog *hitLog)
 		}
 		++row;
 	}
+#endif
 }
+
+TurnDiaryState::~TurnDiaryState()
+{
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
+}
+
+#ifdef __EMSCRIPTEN__
+void TurnDiaryState::layoutDiary(bool initial)
+{
+	const auto scroll = _lstTurnDiary->getScroll();
+	if (!initial) _hdList->layout();
+	_lstTurnDiary->clearList();
+	_lstTurnDiary->setWordWrap(false);
+	for (const auto &entry : _entries)
+		for (const auto &line : Calypso::calypsoWrapReportText(*_game->getMod(), entry, _hdList->firstColumnWidth(), _hdList->bodyFontSize()))
+			_lstTurnDiary->addRow(1, line.c_str());
+	if (initial) enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	else recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+	_lstTurnDiary->scrollTo(scroll);
+}
+
+void TurnDiaryState::resize(int &dX, int &dY)
+{
+	if (_hdList) layoutDiary(false);
+	else State::resize(dX, dY);
+}
+#endif
 
 /**
  * Returns to the previous screen.

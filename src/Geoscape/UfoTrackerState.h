@@ -23,6 +23,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoBaseLedger; }
+class TextList;
 class TextButton;
 class Window;
 class Text;
@@ -38,6 +40,17 @@ class GeoscapeState;
 class UfoTrackerState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
+	size_t _picked = static_cast<size_t>(-1);
+	void chooseContact(Action *);
+	void openPicked(Action *);
+	TextButton *_open, *_center, *_reference;
+	void centerPicked(Action *);
+	void referencePicked(Action *);
+	bool canReference() const;
+#endif
 	TextButton *_btnCancel;
 	Window *_window;
 	Text *_txtTitle, *_txtObject, *_txtSize, *_txtAltitude, *_txtHeading, *_txtSpeed;
@@ -46,6 +59,9 @@ private:
 	Globe *_globe;
 	std::vector<Target*> _objects;
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 	/// Creates the UfoTracker state.
 	UfoTrackerState(GeoscapeState *state, Globe *globe);
 	/// Cleans up the UfoTracker state.

@@ -27,7 +27,7 @@ namespace Calypso { void calypsoGeoscapeStateInitHd(GeoscapeState &); }
 
 #ifdef __EMSCRIPTEN__
 struct CalypsoGeoscapeHdShellState;
-namespace Calypso { class CalypsoHdScreenRenderer; }
+namespace Calypso { class CalypsoHdScreenRenderer; class CalypsoInterceptionHud; }
 namespace Calypso { class CalypsoF21SiteUi; }
 #endif
 
@@ -70,6 +70,7 @@ private:
 	Text *_txtSlacking;
 	Text *_txtTraining;
 	std::list<State*> _popups;
+	bool _restoreEventNotices = true;
 	std::list<DogfightState*> _dogfights, _dogfightsToBeStarted;
 	std::vector<Craft*> _activeCrafts;
 	size_t _minimizedDogfights;
@@ -96,6 +97,7 @@ private:
 	friend struct CalypsoGeoscapeHdShell;
 	friend class Calypso::CalypsoF21SiteUi;
 	friend class Calypso::CalypsoHdScreenRenderer;
+	friend class Calypso::CalypsoInterceptionHud;
 	friend void Calypso::calypsoGeoscapeStateInitHd(GeoscapeState &);
 	bool calypsoCenterOnBase(size_t index);
 	public:
@@ -218,6 +220,9 @@ public:
 	/// Multi-dogfights logic handling.
 	void handleDogfights();
 	void handleDogfightMultiAction(int button);
+#ifdef __EMSCRIPTEN__
+	void startHarnessInterception(Craft *craft, Ufo *ufo);
+#endif
 	/// Dogfight experience handling.
 	void handleDogfightExperience();
 	/// Gets the number of minimized dogfights.

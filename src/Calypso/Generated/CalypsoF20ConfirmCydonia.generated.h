@@ -4,50 +4,304 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF20ConfirmCydoniaGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kFormId = "f20-confirm-cydonia";
 inline constexpr int kFamilyId = 20;
-inline constexpr const char* kArchetype = "small-confirmation";
-inline constexpr const char* kSourceConfig = "FormConfigs/f20-confirm-cydonia.json";
+inline constexpr const char* kArchetype = "operations-workspace";
+inline constexpr const char* kNativeState = "ConfirmCydoniaState";
+inline constexpr const char* kVisualShell = "base-operations";
+inline constexpr const char* kHeaderArt = "logistics-group";
+inline constexpr const char* kSharedChromeId = "base-command-shell";
+inline constexpr const char* kSharedChromeVersion = "hd.2026-09-07.1";
 
-inline constexpr const char* kDensityProfile = "standard";
-inline constexpr int kPresentationScaleNumerator = 1;
-inline constexpr int kPresentationScaleDenominator = 1;
-inline constexpr float kPresentationScale = 1.000000f;
-
-struct CalypsoF20ConfirmCydoniaGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
-inline constexpr CalypsoF20ConfirmCydoniaGenButton kButtons[] = {
-    { "cancel", "CANCEL", "safe", "cancel", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
-    { "confirm", "LAUNCH", "danger", "confirm", 0xF25F5CFFu, 0xF25F5CFFu, 0x071013FFu },
-};
-inline constexpr int kButtonCount = 2;
-
-inline constexpr float kCutCornerPx = 14.000000f;
-inline constexpr float kProtocolTextInsetPx = 26.000000f;
-inline constexpr std::uint32_t kPanelFillTop = 0x08191DEBu;
-inline constexpr std::uint32_t kPanelFillBottom = 0x041014E8u;
-inline constexpr std::uint32_t kFrame = 0x74FFB073u;
-inline constexpr std::uint32_t kProtocolText = 0xA9D8C7FFu;
-inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
-inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
-inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
-inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
-
+/// One design-space rectangle (design px).
 struct CalypsoF20ConfirmCydoniaGenRect { int x; int y; int w; int h; };
-struct CalypsoF20ConfirmCydoniaGenLayout { int designWidth; int designHeight; CalypsoF20ConfirmCydoniaGenRect window; CalypsoF20ConfirmCydoniaGenRect status; CalypsoF20ConfirmCydoniaGenRect warning; CalypsoF20ConfirmCydoniaGenRect title; CalypsoF20ConfirmCydoniaGenRect message; CalypsoF20ConfirmCydoniaGenRect footer;
+
+/// Generated policy for an operations toolbar chooser.
+struct CalypsoF20ConfirmCydoniaGenToolbarChooser
+{
+	int optionRowHeight;
+	int optionInsetX;
+	int optionInsetY;
+	int maxOptions;
+	int minPanelWidth;
+	CalypsoF20ConfirmCydoniaGenRect bounds;
 };
-inline constexpr CalypsoF20ConfirmCydoniaGenLayout kLayouts[] = {
-    { 1280, 720, { 356, 230, 568, 236 }, { 356, 230, 568, 38 }, { 388, 290, 32, 32 }, { 436, 284, 456, 44 }, { 388, 336, 504, 54 }, { 356, 404, 568, 62 } }, // wide
-    { 740, 360, { 115, 60, 510, 221 }, { 115, 60, 510, 34 }, { 143, 111, 28, 28 }, { 185, 106, 412, 38 }, { 143, 150, 454, 48 }, { 115, 215, 510, 66 } }, // compact
+
+/// The complete f20-confirm-cydonia.json layout for one class.
+struct CalypsoF20ConfirmCydoniaGenLayout
+{
+	int designWidth;
+	int designHeight;
+	CalypsoF20ConfirmCydoniaGenRect window;
+	CalypsoF20ConfirmCydoniaGenRect screenHeader;
+	CalypsoF20ConfirmCydoniaGenRect headerArt;
+	CalypsoF20ConfirmCydoniaGenRect title;
+	CalypsoF20ConfirmCydoniaGenRect summaryBar;
+	CalypsoF20ConfirmCydoniaGenRect toolbarBar;
+	CalypsoF20ConfirmCydoniaGenRect collectionViewport;
+	CalypsoF20ConfirmCydoniaGenRect footer;
+	CalypsoF20ConfirmCydoniaGenRect summary_craft;
+	CalypsoF20ConfirmCydoniaGenRect summary_target;
+	CalypsoF20ConfirmCydoniaGenRect summary_units;
+	CalypsoF20ConfirmCydoniaGenRect tab_workspace_a;
+	CalypsoF20ConfirmCydoniaGenRect tab_workspace_b;
+	CalypsoF20ConfirmCydoniaGenRect toolbar_brief;
+	CalypsoF20ConfirmCydoniaGenRect toolbar_roster;
+	CalypsoF20ConfirmCydoniaGenRect collection_scroll_track;
+	CalypsoF20ConfirmCydoniaGenRect collection_scroll_thumb;
+	CalypsoF20ConfirmCydoniaGenRect collection_column_field;
+	CalypsoF20ConfirmCydoniaGenRect collection_column_value;
+	CalypsoF20ConfirmCydoniaGenRect collection_row_slot_1;
+	CalypsoF20ConfirmCydoniaGenRect collection_row_slot_2;
+	CalypsoF20ConfirmCydoniaGenRect action_cancel;
+	CalypsoF20ConfirmCydoniaGenRect action_begin;
+	CalypsoF20ConfirmCydoniaGenToolbarChooser toolbarChooser;
 };
-struct CalypsoF20ConfirmCydoniaGenButtonRect { const char* id; CalypsoF20ConfirmCydoniaGenRect rect; };
-inline constexpr CalypsoF20ConfirmCydoniaGenButtonRect kButtonRects[][ 2 ] = {
-    { { "cancel", { 566, 413, 158, 44 } }, { "confirm", { 734, 413, 158, 44 } } }, // wide
-    { { "cancel", { 289, 225, 148, 44 } }, { "confirm", { 449, 225, 148, 44 } } }, // compact
+
+inline constexpr CalypsoF20ConfirmCydoniaGenLayout kLayouts[] =
+{
+	// wide
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 360, 78 }, { 130, 119, 480, 36 }, { 1000, 96, 256, 78 }, { 112, 190, 816, 44 }, { 112, 234, 1144, 412 }, { 112, 658, 1144, 44 }, { 1000, 96, 84, 78 }, { 1085, 96, 84, 78 }, { 1170, 96, 86, 78 }, { 92, 158, 414, 44 }, { 514, 158, 414, 44 }, { 538, 190, 190, 44 }, { 738, 190, 190, 44 }, { 1238, 270, 18, 308 }, { 1238, 270, 18, 308 }, { 112, 234, 793, 36 }, { 906, 234, 296, 36 }, { 112, 270, 1090, 44 }, { 112, 314, 1090, 44 }, { 112, 658, 158, 44 }, { 1098, 658, 158, 44 }, { 44, 8, 0, 5, 240, { 112, 234, 1144, 412 } } },
+	// compact
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 420, 48, 100, 52 }, { 60, 61, 350, 26 }, { 520, 48, 212, 52 }, { 52, 108, 466, 44 }, { 52, 152, 680, 152 }, { 52, 312, 680, 44 }, { 520, 48, 70, 52 }, { 591, 48, 70, 52 }, { 662, 48, 70, 52 }, { 52, 102, 230, 44 }, { 288, 102, 230, 44 }, { 302, 108, 104, 44 }, { 414, 108, 104, 44 }, { 714, 180, 18, 88 }, { 714, 180, 18, 88 }, { 52, 152, 447, 28 }, { 500, 152, 180, 28 }, { 52, 180, 628, 44 }, { 52, 224, 628, 44 }, { 52, 312, 120, 44 }, { 612, 312, 120, 44 }, { 44, 8, 0, 5, 240, { 52, 52, 680, 260 } } },
 };
 inline constexpr int kLayoutCount = 2;
-inline constexpr int kMotionDurationMs = 200;
-inline constexpr float kMotionScaleFrom = 0.960000f;
+
+inline constexpr const char* kSourceConfig = "FormConfigs/f20-confirm-cydonia.json";
+inline constexpr const char* kPresentationProfile = "table-context";
+inline constexpr const char* kProvenanceTemplate = "FormTemplates/operations-workspace.json";
+inline constexpr int kProvenanceTemplateVersion = 4;
+inline constexpr const char* kProvenanceGeneratorKind = "operations";
+inline constexpr const char* kProfileId = "operations-ac";
+inline constexpr const char* kProfileVersion = "hd.2026-09-10.1";
+inline constexpr const char* kProfileThemeSource = "CommandCenter/CommandCenterTheme.h";
+inline constexpr const char* kProfileThemeSourceHash = "8c4eb7f074fe2868aac3d0835b324d42f4d57ca727dcea7ab1e16220c19e53b2";
+
+struct CalypsoF20ConfirmCydoniaGenActionTone
+{
+	const char* id;
+	std::uint32_t fill;
+	std::uint32_t border;
+	std::uint32_t text;
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenActionTone kActionTones[] = {
+    { "normal", 0x071624FFu, 0x173246FFu, 0xE7F0F3FFu },
+    { "safe", 0x071624FFu, 0x285267FFu, 0xE7F0F3FFu },
+    { "primary", 0x81E0B5FFu, 0x81E0B5FFu, 0x03130DFFu },
+    { "warning", 0xF2C56DFFu, 0xF2C56DFFu, 0x03130DFFu },
+    { "danger", 0x071624FFu, 0xFF6E72FFu, 0xFF6E72FFu },
+};
+inline constexpr int kActionToneCount = 5;
+
+struct CalypsoF20ConfirmCydoniaGenProfileStyle
+{
+	std::uint32_t background;
+	std::uint32_t panel;
+	std::uint32_t panelRaised;
+	std::uint32_t hover;
+	std::uint32_t selected;
+	std::uint32_t border;
+	std::uint32_t borderStrong;
+	std::uint32_t accent;
+	std::uint32_t text;
+	std::uint32_t secondary;
+	std::uint32_t disabled;
+	std::uint32_t onAccent;
+	std::uint32_t warning;
+	std::uint32_t danger;
+	float cornerRadiusPx;
+	float cutCornerPx;
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenProfileStyle kProfileStyle = {
+	0x02060EFFu,
+	0x071624FFu,
+	0x0A1C2DFFu,
+	0x0C2232FFu,
+	0x0D2931FFu,
+	0x173246FFu,
+	0x285267FFu,
+	0x81E0B5FFu,
+	0xE7F0F3FFu,
+	0xA8BBC4FFu,
+	0x455966FFu,
+	0x03130DFFu,
+	0xF2C56DFFu,
+	0xFF6E72FFu,
+	12.0f,
+	14.0f,
+};
+
+struct CalypsoF20ConfirmCydoniaGenTypography
+{
+	int title;
+	int detailTitle;
+	int body;
+	int label;
+	int data;
+	int input;
+	int action;
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenTypography kTypographyWide = {
+	28, 18, 14, 12, 15, 14, 14
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenTypography kTypographyCompact = {
+	18, 16, 12, 12, 13, 12, 12
+};
+
+struct CalypsoF20ConfirmCydoniaGenColumnRole
+{
+	const char* id;
+	int weight;
+	int minWidth;
+	const char* font;
+	const char* align;
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenColumnRole kColumnRoles[] = {
+    { "category", 3, 72, "body", "left" },
+    { "count", 1, 64, "data", "right" },
+    { "date", 2, 72, "data", "right" },
+    { "money", 2, 72, "data", "right" },
+    { "name", 6, 96, "body", "left" },
+    { "quantity", 2, 64, "data", "right" },
+    { "status", 2, 64, "body", "left" },
+    { "time", 2, 64, "data", "right" },
+    { "type", 1, 64, "data", "right" },
+};
+inline constexpr int kColumnRoleCount = 9;
+
+struct CalypsoF20ConfirmCydoniaGenCollectionCell
+{
+	const char* id;
+	CalypsoF20ConfirmCydoniaGenRect rect;
+	const char* contentRole;
+	const char* font;
+	const char* align;
+	int minWidth;
+	int weight;
+};
+struct CalypsoF20ConfirmCydoniaGenCollectionRowSlot
+{
+	const char* id;
+	CalypsoF20ConfirmCydoniaGenRect rect;
+	const CalypsoF20ConfirmCydoniaGenCollectionCell* cells;
+	int cellCount;
+};
+struct CalypsoF20ConfirmCydoniaGenCollectionMetrics
+{
+	int totalItems;
+	int visibleCapacity;
+	int totalUnits;
+	int visibleUnits;
+	int itemsPerUnit;
+	const char* scrollUnit;
+	bool overflow;
+	int scrollSteps;
+	CalypsoF20ConfirmCydoniaGenRect track;
+	CalypsoF20ConfirmCydoniaGenRect thumb;
+	CalypsoF20ConfirmCydoniaGenRect trackHitTarget;
+	CalypsoF20ConfirmCydoniaGenRect thumbHitTarget;
+	int thumbTravelPx;
+};
+struct CalypsoF20ConfirmCydoniaGenCollectionLayout
+{
+	const char* id;
+	const CalypsoF20ConfirmCydoniaGenCollectionCell* columns;
+	int columnCount;
+	const CalypsoF20ConfirmCydoniaGenCollectionRowSlot* rowSlots;
+	int rowSlotCount;
+	int count;
+	CalypsoF20ConfirmCydoniaGenRect rowActionArea;
+	CalypsoF20ConfirmCydoniaGenCollectionMetrics metrics;
+};
+
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionCell kCollectionColumnHeadersWide[] = {
+    { "field", { 112, 234, 793, 36 }, "name", "body", "left", 96, 6 },
+    { "value", { 906, 234, 296, 36 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionCell kCollectionRowSlot1CellsWide[] = {
+    { "field", { 112, 270, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 906, 270, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionCell kCollectionRowSlot2CellsWide[] = {
+    { "field", { 112, 314, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 906, 314, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionCell kCollectionRowSlot3CellsWide[] = {
+    { "field", { 112, 358, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 906, 358, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionCell kCollectionRowSlot4CellsWide[] = {
+    { "field", { 112, 402, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 906, 402, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionCell kCollectionRowSlot5CellsWide[] = {
+    { "field", { 112, 446, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 906, 446, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionCell kCollectionRowSlot6CellsWide[] = {
+    { "field", { 112, 490, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 906, 490, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionCell kCollectionRowSlot7CellsWide[] = {
+    { "field", { 112, 534, 793, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 906, 534, 296, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionRowSlot kCollectionRowSlotsWide[] = {
+    { "row-slot-1", { 112, 270, 1090, 44 }, kCollectionRowSlot1CellsWide, 2 },
+    { "row-slot-2", { 112, 314, 1090, 44 }, kCollectionRowSlot2CellsWide, 2 },
+    { "row-slot-3", { 112, 358, 1090, 44 }, kCollectionRowSlot3CellsWide, 2 },
+    { "row-slot-4", { 112, 402, 1090, 44 }, kCollectionRowSlot4CellsWide, 2 },
+    { "row-slot-5", { 112, 446, 1090, 44 }, kCollectionRowSlot5CellsWide, 2 },
+    { "row-slot-6", { 112, 490, 1090, 44 }, kCollectionRowSlot6CellsWide, 2 },
+    { "row-slot-7", { 112, 534, 1090, 44 }, kCollectionRowSlot7CellsWide, 2 },
+};
+inline constexpr int kCollectionRowSlotWideCount = 7;
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionMetrics kCollectionMetricsWide = { 1, 7, 1, 7, 1, "record", false, 0, { 1238, 270, 18, 308 }, { 1238, 270, 18, 308 }, { 1212, 270, 44, 308 }, { 1212, 270, 44, 308 }, 0 };
+
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionCell kCollectionColumnHeadersCompact[] = {
+    { "field", { 52, 152, 447, 28 }, "name", "body", "left", 96, 6 },
+    { "value", { 500, 152, 180, 28 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionCell kCollectionRowSlot1CellsCompact[] = {
+    { "field", { 52, 180, 447, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 500, 180, 180, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionCell kCollectionRowSlot2CellsCompact[] = {
+    { "field", { 52, 224, 447, 44 }, "name", "body", "left", 96, 6 },
+    { "value", { 500, 224, 180, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionRowSlot kCollectionRowSlotsCompact[] = {
+    { "row-slot-1", { 52, 180, 628, 44 }, kCollectionRowSlot1CellsCompact, 2 },
+    { "row-slot-2", { 52, 224, 628, 44 }, kCollectionRowSlot2CellsCompact, 2 },
+};
+inline constexpr int kCollectionRowSlotCompactCount = 2;
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionMetrics kCollectionMetricsCompact = { 1, 2, 1, 2, 1, "record", false, 0, { 714, 180, 18, 88 }, { 714, 180, 18, 88 }, { 688, 180, 44, 88 }, { 688, 180, 44, 88 }, 0 };
+
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionLayout kCollectionsWide[1] = {
+    { "collection", kCollectionColumnHeadersWide, 2, kCollectionRowSlotsWide, 7, 1, { 0, 0, 0, 0 }, kCollectionMetricsWide },
+};
+inline constexpr int kCollectionLayoutWideCount = 1;
+inline constexpr CalypsoF20ConfirmCydoniaGenCollectionLayout kCollectionsCompact[1] = {
+    { "collection", kCollectionColumnHeadersCompact, 2, kCollectionRowSlotsCompact, 2, 1, { 0, 0, 0, 0 }, kCollectionMetricsCompact },
+};
+inline constexpr int kCollectionLayoutCompactCount = 1;
+
+struct CalypsoF20ConfirmCydoniaGenActionSlot { const char* id; CalypsoF20ConfirmCydoniaGenRect rect; };
+struct CalypsoF20ConfirmCydoniaGenStrictActionSlotGroup
+{
+	const char* id;
+	const CalypsoF20ConfirmCydoniaGenActionSlot* slots;
+	int slotCount;
+};
+inline constexpr CalypsoF20ConfirmCydoniaGenStrictActionSlotGroup kStrictActionSlotGroupsWide[1] = {
+};
+inline constexpr int kStrictActionSlotGroupWideCount = 0;
+inline constexpr CalypsoF20ConfirmCydoniaGenStrictActionSlotGroup kStrictActionSlotGroupsCompact[1] = {
+};
+inline constexpr int kStrictActionSlotGroupCompactCount = 0;
+
+/// Layout for a design canvas, or nullptr (the harness never guesses).
 inline const CalypsoF20ConfirmCydoniaGenLayout* layoutForDesign(int dw, int dh)
 {
 	for (int i = 0; i < kLayoutCount; ++i)
@@ -55,4 +309,9 @@ inline const CalypsoF20ConfirmCydoniaGenLayout* layoutForDesign(int dw, int dh)
 			return &kLayouts[i];
 	return nullptr;
 }
+
+// Opening motion (capture mode deterministic).
+inline constexpr int kMotionDurationMs = 200;
+inline constexpr float kMotionScaleFrom = 0.960000f;
+inline constexpr bool kMotionDisabledInCapture = true;
 } } }

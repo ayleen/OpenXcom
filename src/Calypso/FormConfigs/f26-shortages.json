@@ -1,0 +1,58 @@
+{
+  "actions": [
+    {
+      "id": "cancel",
+      "label": "Close",
+      "action": "cancel",
+      "tone": "safe"
+    },
+    {
+      "id": "keep",
+      "label": "Purchase",
+      "action": "keep",
+      "tone": "primary"
+    },
+    {
+      "id": "extra",
+      "label": "Manufacture",
+      "action": "extra",
+      "tone": "safe"
+    }
+  ],
+  "archetype": "scrollable-collection",
+  "collection": {
+    "mode": "table",
+    "selectionRole": "inventory",
+    "columns": [
+      {
+        "id": "field-0",
+        "label": "Item"
+      },
+      {
+        "id": "field-1",
+        "label": "Quantity"
+      },
+      {
+        "id": "field-2",
+        "label": "Craft"
+      }
+    ],
+    "items": [
+      {
+        "id": "example",
+        "values": [
+          "Equipment",
+          "1",
+          "Transport"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "familyId": 26,
+  "id": "f26-shortages",
+  "schema": 1,
+  "title": "Cannot re-equip",
+  "version": "hd.2026-08-29.1",
+  "state": "CannotReequipState"
+}

@@ -44,6 +44,7 @@ public:
 	void draw() override;
 	/// Gets the selected body part.
 	int getSelectedPart() const;
+	void selectPart(int part);
 	/// Updates the selected body part.
 	void updateSelectedPart();
 };

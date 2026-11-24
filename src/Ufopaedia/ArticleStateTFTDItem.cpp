@@ -202,6 +202,10 @@ namespace OpenXcom
 		_txtArrows->setText(ss2.str());
 
 		centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+		auto *details = articleItemDetails(item->getBattleType() == BT_FIREARM ? _lstInfo : nullptr, _txtAmmoType, _txtAmmoDamage);
+		openHdReader(*_txtTitle, *_txtInfo, {}, {details}, articleIllustration(defs->image_id));
+#endif
 	}
 
 	ArticleStateTFTDItem::~ArticleStateTFTDItem()

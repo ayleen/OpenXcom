@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "ActionMenuState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicList.h"
+
+#endif
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
 #include "../Engine/LocalizedText.h"
@@ -212,6 +216,9 @@ ActionMenuState::ActionMenuState(BattleAction *action, int x, int y,
  */
 ActionMenuState::~ActionMenuState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdList;
+#endif
 
 }
 
@@ -220,6 +227,14 @@ ActionMenuState::~ActionMenuState()
  */
 void ActionMenuState::init()
 {
+#ifdef __EMSCRIPTEN__
+	if (_hdList) return;
+	if (!_hdChoices.empty())
+	{
+		openHdMenu();
+		return;
+	}
+#endif
 	if (!_actionMenu[0]->getVisible())
 	{
 		// Item don't have any actions, close popup.
@@ -243,6 +258,9 @@ void ActionMenuState::addItem(BattleActionType ba, const std::string &name, int 
 		s1 = tr("STR_ACCURACY_SHORT").arg(Unicode::formatPercentage(acc));
 	s2 = tr("STR_TIME_UNITS_SHORT").arg(tu);
 	_actionMenu[*id]->setAction(ba, tr(name), s1, s2, tu);
+#ifdef __EMSCRIPTEN__
+	_hdChoices.push_back({tr(name), s1, s2, key});
+#endif
 	_actionMenu[*id]->setVisible(true);
 	if (key != SDLK_UNKNOWN)
 	{
@@ -258,6 +276,22 @@ void ActionMenuState::addItem(BattleActionType ba, const std::string &name, int 
 void ActionMenuState::handle(Action *action)
 {
 	State::handle(action);
+	if (!_game->isState(this)) return;
+#ifdef __EMSCRIPTEN__
+	if (_hdList && action->getDetails()->type == SDL_KEYDOWN)
+	{
+		const auto key = action->getDetails()->key.keysym.sym;
+		for (size_t i = 0; i < _hdChoices.size(); ++i)
+		{
+			if (key != SDLK_UNKNOWN && key == _hdChoices[i].key)
+			{
+				action->setSender(_actionMenu[i]);
+				btnActionMenuItemClick(action);
+				return;
+			}
+		}
+	}
+#endif
 	if (action->getDetails()->type == SDL_MOUSEBUTTONDOWN && _game->isRightClick(action))
 	{
 		_game->popState();
@@ -575,6 +609,15 @@ void ActionMenuState::handleAction()
  */
 void ActionMenuState::resize(int &dX, int &dY)
 {
+#ifdef __EMSCRIPTEN__
+	if (_hdList)
+	{
+		_hdList->layout();
+		recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+		_hdList->fitInput();
+		return;
+	}
+#endif
 	State::recenter(dX, dY * 2);
 }
 

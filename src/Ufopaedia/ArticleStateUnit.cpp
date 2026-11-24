@@ -70,7 +70,9 @@ namespace OpenXcom
 		add(_txtTitle);
 
 		// Set up objects
+#ifndef __EMSCRIPTEN__
 		_game->getMod()->getSurface(defs->image_id)->blitNShade(_bg, 0, 0);
+#endif
 		_btnOk->setColor(buttonColor);
 		_btnPrev->setColor(buttonColor);
 		_btnNext->setColor(buttonColor);
@@ -99,7 +101,9 @@ namespace OpenXcom
 		_lstStats->setColor(listColor1);
 		_lstStats->setSecondaryColor(listColor2);
 		_lstStats->setColumns(3, widthStats - 40, 20, 20);
+#ifndef __EMSCRIPTEN__
 		_lstStats->setDot(true);
+#endif
 
 		int widthArmor = Clamp(defs->rect_armor.width, 60, 320);
 		_lstArmor = new TextList(widthArmor, defs->rect_armor.height, defs->rect_armor.x, defs->rect_armor.y);
@@ -108,7 +112,9 @@ namespace OpenXcom
 		_lstArmor->setColor(listColor1);
 		_lstArmor->setSecondaryColor(listColor2);
 		_lstArmor->setColumns(3, widthArmor - 40, 20, 20);
+#ifndef __EMSCRIPTEN__
 		_lstArmor->setDot(true);
+#endif
 		if (defs->rect_armor.height == 0)
 		{
 			_lstArmor->setVisible(false);
@@ -206,6 +212,11 @@ namespace OpenXcom
 		_lstArmor->addRow(columns, tr("STR_UNDER_ARMOR").c_str(), std::to_string(civArmor[SIDE_UNDER]).c_str(), std::to_string(alienArmor[SIDE_UNDER]).c_str());
 
 		centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+		std::vector<TextList *> stats{_lstStats};
+		if (_lstArmor->getVisible()) stats.push_back(_lstArmor);
+		openHdReader(*_txtTitle, *_txtInfo, {_txtDifficulty}, std::move(stats), articleIllustration(defs->image_id));
+#endif
 	}
 
 	ArticleStateUnit::~ArticleStateUnit()

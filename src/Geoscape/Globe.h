@@ -243,6 +243,10 @@ public:
 	/// composite for this globe; canonical enablement flows from the
 	/// registered F16 hdUiFamilies route in GeoscapeState.
 	void setGpuDirect(bool on);
+#ifdef __EMSCRIPTEN__
+	/// Publish only the physical world pass for a fullscreen HD map overlay.
+	void presentHdWorld();
+#endif
 
 	void draw() override;
 	/// Draws the ocean of the globe.

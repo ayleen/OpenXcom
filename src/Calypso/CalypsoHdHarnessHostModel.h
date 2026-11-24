@@ -126,7 +126,71 @@ enum class CalypsoHarnessScenario
 	F05TransformationReview = 128,
 	F12Stores = 129,
 	F12ActiveTransfers = 130,
-	F12ItemLocations = 131
+	F12ItemLocations = 131,
+	F02BaseInformation = 132,
+	F02MonthlyCosts = 133,
+	F13GlobalContainment = 134,
+	F13ManageContainment = 135,
+	F13ContainmentReview = 136,
+	F36Economy = 137,
+	F37ContractDelivery = 138,
+	F15TopicSelector = 139,
+	F16ExtendedLinks = 140,
+	F16MusicSelector = 141,
+	F17AlienBase = 142,
+	F17ContactTracker = 143,
+	F17OverlappingTargets = 144,
+	F17TargetInfo = 145,
+	F24UnlockCraft = 175,
+	F24UnlockFacility = 176,
+	F24UnlockManufacture = 177,
+	F24UnlockPurchase = 178,
+	F24UnlockResearch = 179,
+	F24StrategicEvent = 180,
+	F31ArchiveSections = 181,
+	F31ArchiveTopics = 182,
+	F32TextArticle = 183,
+	F32AdvancedStats = 185,
+	F23Graphs = 162,
+	F19PilotExperience = 190,
+	F30TurnDiary = 191,
+	F29AutomaticRecovery = 211,
+	F29Debriefing = 210,
+	F26Shortages = 219,
+	F26Inspection = 225,
+	F26Inventory = 224,
+	F26SaveTemplate = 218,
+	F26PersonalTemplate = 217,
+	F26LoadTemplate = 216,
+	F26InventoryLinks = 215,
+	F28TacticalAlert = 201,
+	F28TacticalNotice = 200,
+	F28TacticalLinks = 199,
+	F28TurnTransition = 198,
+	F27TargetBriefing = 197,
+	F27MissionBriefing = 196,
+	F25Skills = 209,
+	F25Actions = 208,
+	F25Scanner = 223,
+	F25Minimap = 222,
+	F25Medikit = 221,
+	F25UnitInfo = 220,
+	F25Timer = 212,
+	F30Promotions = 192,
+	F30FallenCommendations = 195,
+	F30Commendations = 194,
+	F30ExperienceOverview = 193,
+	F23Funding = 160,
+	F23MonthlyReport = 161,
+	F18PatrolArrival = 146,
+	F18InterceptFleet = 147,
+	F18CourseConfirm = 148,
+	F18CourseMap = 149,
+	F18CraftNavigation = 150,
+	F22PhysicalBases = 151,
+	F22PsiBases = 152,
+	F22PhysicalRoster = 153,
+	F22PsionicRoster = 154
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -142,6 +206,11 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F03Dismantle)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F04SackSoldier)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F18CraftError)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F18CraftNavigation)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F18CourseMap)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F18CourseConfirm)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F18InterceptFleet)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F18PatrolArrival)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F18LowFuel)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F18NotEnoughPilots)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F19DogfightError)
@@ -172,6 +241,11 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F14GlobalProduction)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F15TechTree)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F13Containment)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F31ArchiveSections)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F31ArchiveTopics)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F32TextArticle)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F32AdvancedStats)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F24StrategicEvent)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F24ItemsArriving)
 		|| id == static_cast<int>(CalypsoHarnessScenario::GeoscapeHd)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F01Basescape)
@@ -205,7 +279,58 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F12TransferItems)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F12Stores)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F12ActiveTransfers)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F12ItemLocations);
+		|| id == static_cast<int>(CalypsoHarnessScenario::F12ItemLocations)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F02BaseInformation)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F02MonthlyCosts)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F13GlobalContainment)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F13ManageContainment)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F13ContainmentReview)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F36Economy)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F37ContractDelivery)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F15TopicSelector)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F16ExtendedLinks)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F16MusicSelector)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F17AlienBase)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F17ContactTracker)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F17OverlappingTargets)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F17TargetInfo)
+		|| (id >= static_cast<int>(CalypsoHarnessScenario::F24UnlockCraft)
+			&& id <= static_cast<int>(CalypsoHarnessScenario::F24UnlockResearch))
+		|| id == static_cast<int>(CalypsoHarnessScenario::F23Graphs)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F19PilotExperience)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F30TurnDiary)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F29AutomaticRecovery)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F29Debriefing)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F26Shortages)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F26Inspection)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F26Inventory)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F26SaveTemplate)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F26PersonalTemplate)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F26LoadTemplate)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F26InventoryLinks)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F28TacticalAlert)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F28TacticalNotice)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F28TacticalLinks)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F28TurnTransition)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F27TargetBriefing)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F27MissionBriefing)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F25Skills)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F25Actions)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F25Scanner)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F25Minimap)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F25Medikit)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F25UnitInfo)
+	|| id == static_cast<int>(CalypsoHarnessScenario::F25Timer)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F30Promotions)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F30FallenCommendations)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F30Commendations)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F30ExperienceOverview)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F23Funding)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F23MonthlyReport)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F22PhysicalBases)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F22PsiBases)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F22PhysicalRoster)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F22PsionicRoster);
 }
 
 struct CalypsoHarnessSwitchRequest

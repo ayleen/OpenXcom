@@ -21,7 +21,7 @@
 
 namespace OpenXcom
 {
-namespace Calypso { class CalypsoF24ItemsArrivingUi; }
+namespace Calypso { class CalypsoBaseLedger; }
 
 class TextButton;
 class Window;
@@ -37,7 +37,7 @@ class Base;
 class ItemsArrivingState : public State
 {
 #ifdef __EMSCRIPTEN__
-friend class Calypso::CalypsoF24ItemsArrivingUi;
+	friend class Calypso::CalypsoBaseLedger;
 #endif
 private:
 	GeoscapeState *_state;
@@ -58,9 +58,8 @@ public:
 
 #ifdef __EMSCRIPTEN__
 private:
-    bool _hdLayout = false;
-    bool _hdWideLayout = false;
-    Calypso::CalypsoF24ItemsArrivingUi *_hdAdapter = nullptr;
+	std::vector<Base *> _destinations;
+	Calypso::CalypsoBaseLedger *_ledger = nullptr;
 public:
     void resize(int &dX, int &dY) override;
 #endif

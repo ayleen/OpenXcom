@@ -21,6 +21,9 @@
 
 namespace OpenXcom
 {
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoTacticalSensor; }
+#endif
 
 class Camera;
 class BattlescapeButton;
@@ -36,7 +39,8 @@ class MiniMapState : public State
 {
 	Surface * _bg;
 #ifdef __EMSCRIPTEN__
-	SDL_Surface *_bgNative = nullptr;  ///< Calypso: 320×200 bg snapshot, bilinear-stretched into the scaled _bg
+	Calypso::CalypsoTacticalSensor *_sensor = nullptr;
+	void sensorClick(Action *action);
 #endif
 	MiniMapView *_miniMapView;
 	BattlescapeButton *_btnLvlUp, *_btnLvlDwn, *_btnOk;

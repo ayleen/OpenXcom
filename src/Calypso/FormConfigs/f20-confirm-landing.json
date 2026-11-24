@@ -3,40 +3,102 @@
   "id": "f20-confirm-landing",
   "familyId": 20,
   "version": "hd.2026-08-29.1",
-  "archetype": "small-confirmation",
-  "protocol": {
-    "authority": "CALYPSO COMMAND",
-    "record": "MISSION PROTOCOL",
-    "code": "MS-20-L",
-    "revision": "1.0.21",
-    "effectiveDate": "15.07.2061"
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "logistics-group"
   },
-  "title": "CONFIRM LANDING?",
-  "body": [
-    "Land at the selected site",
-    "and deploy team?"
-  ],
-  "icon": {
-    "kind": "question",
-    "glyph": "?",
-    "tone": "primary"
+  "state": "ConfirmLandingState",
+  "labelKeys": {
+    "title": "STR_CAL_DROP_LANDING",
+    "home": "STR_RETURN_TO_BASE",
+    "patrol": "STR_PATROL",
+    "begin": "STR_BEGIN_MISSION",
+    "brief": "STR_CAL_DROP_BRIEF",
+    "roster": "STR_CAL_DROP_ROSTER"
   },
-  "buttons": [
+  "title": "DROP AUTHORIZATION",
+  "actions": [
     {
-      "id": "cancel",
-      "label": "CANCEL",
-      "tone": "safe",
-      "action": "cancel"
+      "id": "home",
+      "label": "RETURN TO BASE",
+      "labelKey": "STR_RETURN_TO_BASE",
+      "tone": "normal",
+      "action": "home"
     },
     {
-      "id": "confirm",
-      "label": "CONFIRM",
+      "id": "patrol",
+      "label": "PATROL HERE",
+      "labelKey": "STR_PATROL",
+      "tone": "normal",
+      "action": "patrol"
+    },
+    {
+      "id": "begin",
+      "label": "BEGIN MISSION",
+      "labelKey": "STR_BEGIN_MISSION",
       "tone": "primary",
-      "action": "confirm"
+      "action": "begin"
     }
   ],
-  "visibleButtons": [
-    "cancel",
-    "confirm"
+  "summary": [
+    {
+      "id": "craft",
+      "label": "SUBMARINE",
+      "value": "Ketos-1"
+    },
+    {
+      "id": "target",
+      "label": "TARGET",
+      "value": "Site 1"
+    },
+    {
+      "id": "units",
+      "label": "ON BOARD",
+      "value": "6"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "information",
+    "columns": [
+      {
+        "id": "field",
+        "label": "ENTRY",
+        "contentRole": "name"
+      },
+      {
+        "id": "value",
+        "label": "DETAILS",
+        "contentRole": "status"
+      }
+    ],
+    "items": [
+      {
+        "id": "site",
+        "values": [
+          "Mission",
+          "Site 1"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [
+    {
+      "id": "brief",
+      "label": "SITE BRIEF",
+      "labelKey": "STR_CAL_DROP_BRIEF",
+      "tone": "normal",
+      "action": "brief"
+    },
+    {
+      "id": "roster",
+      "label": "BASE ROSTER",
+      "labelKey": "STR_CAL_DROP_ROSTER",
+      "tone": "normal",
+      "action": "roster"
+    }
   ]
 }

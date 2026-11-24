@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "MultipleTargetsState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Interface/TextList.h"
+#endif
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
 #include "../Interface/TextButton.h"
@@ -51,6 +55,9 @@ MultipleTargetsState::MultipleTargetsState(std::vector<Target*> targets, std::ve
 
 	if (_targets.size() > 1)
 	{
+#ifdef __EMSCRIPTEN__
+		openContactList();
+#else
 		int winHeight = BUTTON_HEIGHT * _targets.size() + SPACING * (_targets.size() - 1) + MARGIN * 2;
 		int winY = (200 - winHeight) / 2;
 		int btnY = winY + MARGIN;
@@ -81,10 +88,6 @@ MultipleTargetsState::MultipleTargetsState(std::vector<Target*> targets, std::ve
 		_btnTargets[0]->onKeyboardPress((ActionHandler)&MultipleTargetsState::btnCancelClick, Options::keyCancel);
 
 		centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-		// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-		applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-		enableUiScaling(320, 200, 1.0f);
 #endif
 	}
 }
@@ -94,6 +97,9 @@ MultipleTargetsState::MultipleTargetsState(std::vector<Target*> targets, std::ve
  */
 MultipleTargetsState::~MultipleTargetsState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdLedger;
+#endif
 
 }
 
@@ -103,6 +109,11 @@ MultipleTargetsState::~MultipleTargetsState()
  */
 void MultipleTargetsState::init()
 {
+	if (_targets.empty())
+	{
+		_game->popState();
+		return;
+	}
 	if (_targets.size() == 1)
 	{
 		popupTarget(*_targets.begin());
@@ -172,5 +183,31 @@ void MultipleTargetsState::btnTargetClick(Action *action)
 		}
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void MultipleTargetsState::chooseContact(Action *)
+{
+	_picked = _contacts->getSelectedRow();
+	_showDetails = false;
+}
+
+void MultipleTargetsState::inspectPicked(Action *)
+{
+	if (_picked < _targets.size()) _showDetails = !_showDetails;
+}
+
+void MultipleTargetsState::openPicked(Action *)
+{
+	if (_picked < _targets.size()) popupTarget(_targets[_picked]);
+}
+#endif
+
+#ifdef __EMSCRIPTEN__
+void MultipleTargetsState::resize(int &dX, int &dY)
+{
+	if (_hdLedger) _hdLedger->refresh();
+	else State::resize(dX,dY);
+}
+#endif
 
 }

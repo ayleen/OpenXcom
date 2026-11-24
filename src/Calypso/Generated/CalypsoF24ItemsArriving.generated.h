@@ -4,50 +4,312 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF24ItemsArrivingGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kFormId = "f24-items-arriving";
 inline constexpr int kFamilyId = 24;
-inline constexpr const char* kArchetype = "small-confirmation";
-inline constexpr const char* kSourceConfig = "FormConfigs/f24-items-arriving.json";
+inline constexpr const char* kArchetype = "operations-workspace";
+inline constexpr const char* kNativeState = "ItemsArrivingState";
+inline constexpr const char* kVisualShell = "base-operations";
+inline constexpr const char* kHeaderArt = "logistics-group";
+inline constexpr const char* kSharedChromeId = "base-command-shell";
+inline constexpr const char* kSharedChromeVersion = "hd.2026-09-07.1";
 
-inline constexpr const char* kDensityProfile = "standard";
-inline constexpr int kPresentationScaleNumerator = 1;
-inline constexpr int kPresentationScaleDenominator = 1;
-inline constexpr float kPresentationScale = 1.000000f;
-
-struct CalypsoF24ItemsArrivingGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
-inline constexpr CalypsoF24ItemsArrivingGenButton kButtons[] = {
-    { "cancel", "CANCEL", "safe", "cancel", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
-    { "confirm", "CONFIRM", "primary", "confirm", 0x74FFB0FFu, 0x74FFB0FFu, 0x071013FFu },
-};
-inline constexpr int kButtonCount = 2;
-
-inline constexpr float kCutCornerPx = 14.000000f;
-inline constexpr float kProtocolTextInsetPx = 26.000000f;
-inline constexpr std::uint32_t kPanelFillTop = 0x08191DEBu;
-inline constexpr std::uint32_t kPanelFillBottom = 0x041014E8u;
-inline constexpr std::uint32_t kFrame = 0x74FFB073u;
-inline constexpr std::uint32_t kProtocolText = 0xA9D8C7FFu;
-inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
-inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
-inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
-inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
-
+/// One design-space rectangle (design px).
 struct CalypsoF24ItemsArrivingGenRect { int x; int y; int w; int h; };
-struct CalypsoF24ItemsArrivingGenLayout { int designWidth; int designHeight; CalypsoF24ItemsArrivingGenRect window; CalypsoF24ItemsArrivingGenRect status; CalypsoF24ItemsArrivingGenRect warning; CalypsoF24ItemsArrivingGenRect title; CalypsoF24ItemsArrivingGenRect message; CalypsoF24ItemsArrivingGenRect footer;
+
+/// Generated policy for an operations toolbar chooser.
+struct CalypsoF24ItemsArrivingGenToolbarChooser
+{
+	int optionRowHeight;
+	int optionInsetX;
+	int optionInsetY;
+	int maxOptions;
+	int minPanelWidth;
+	CalypsoF24ItemsArrivingGenRect bounds;
 };
-inline constexpr CalypsoF24ItemsArrivingGenLayout kLayouts[] = {
-    { 1280, 720, { 436, 230, 408, 236 }, { 436, 230, 408, 38 }, { 468, 290, 32, 32 }, { 516, 284, 296, 44 }, { 468, 336, 344, 54 }, { 436, 404, 408, 62 } }, // wide
-    { 740, 360, { 187, 60, 366, 221 }, { 187, 60, 366, 34 }, { 215, 111, 28, 28 }, { 257, 106, 268, 38 }, { 215, 150, 310, 48 }, { 187, 215, 366, 66 } }, // compact
+
+/// The complete f24-items-arriving.json layout for one class.
+struct CalypsoF24ItemsArrivingGenLayout
+{
+	int designWidth;
+	int designHeight;
+	CalypsoF24ItemsArrivingGenRect window;
+	CalypsoF24ItemsArrivingGenRect screenHeader;
+	CalypsoF24ItemsArrivingGenRect headerArt;
+	CalypsoF24ItemsArrivingGenRect title;
+	CalypsoF24ItemsArrivingGenRect summaryBar;
+	CalypsoF24ItemsArrivingGenRect toolbarBar;
+	CalypsoF24ItemsArrivingGenRect collectionViewport;
+	CalypsoF24ItemsArrivingGenRect footer;
+	CalypsoF24ItemsArrivingGenRect summary_arrivals;
+	CalypsoF24ItemsArrivingGenRect tab_workspace_a;
+	CalypsoF24ItemsArrivingGenRect tab_workspace_b;
+	CalypsoF24ItemsArrivingGenRect collection_scroll_track;
+	CalypsoF24ItemsArrivingGenRect collection_scroll_thumb;
+	CalypsoF24ItemsArrivingGenRect collection_column_item;
+	CalypsoF24ItemsArrivingGenRect collection_column_quantity;
+	CalypsoF24ItemsArrivingGenRect collection_column_destination;
+	CalypsoF24ItemsArrivingGenRect collection_row_slot_1;
+	CalypsoF24ItemsArrivingGenRect collection_row_slot_2;
+	CalypsoF24ItemsArrivingGenRect action_goto;
+	CalypsoF24ItemsArrivingGenRect action_done;
+	CalypsoF24ItemsArrivingGenToolbarChooser toolbarChooser;
 };
-struct CalypsoF24ItemsArrivingGenButtonRect { const char* id; CalypsoF24ItemsArrivingGenRect rect; };
-inline constexpr CalypsoF24ItemsArrivingGenButtonRect kButtonRects[][ 2 ] = {
-    { { "cancel", { 486, 413, 158, 44 } }, { "confirm", { 654, 413, 158, 44 } } }, // wide
-    { { "cancel", { 217, 225, 148, 44 } }, { "confirm", { 377, 225, 148, 44 } } }, // compact
+
+inline constexpr CalypsoF24ItemsArrivingGenLayout kLayouts[] =
+{
+	// wide
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 360, 78 }, { 130, 119, 480, 36 }, { 1000, 96, 256, 78 }, { 112, 190, 816, 44 }, { 112, 190, 1144, 456 }, { 112, 658, 1144, 44 }, { 1000, 96, 256, 78 }, { 92, 158, 414, 44 }, { 514, 158, 414, 44 }, { 1238, 226, 18, 308 }, { 1238, 226, 18, 308 }, { 112, 190, 453, 36 }, { 566, 190, 183, 36 }, { 750, 190, 452, 36 }, { 112, 226, 1090, 44 }, { 112, 270, 1090, 44 }, { 112, 658, 158, 44 }, { 1098, 658, 158, 44 }, { 44, 8, 0, 5, 240, { 112, 234, 1144, 412 } } },
+	// compact
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 420, 48, 100, 52 }, { 60, 61, 350, 26 }, { 520, 48, 212, 52 }, { 52, 108, 466, 44 }, { 52, 108, 680, 196 }, { 52, 312, 680, 44 }, { 520, 48, 212, 52 }, { 52, 102, 230, 44 }, { 288, 102, 230, 44 }, { 714, 136, 18, 88 }, { 714, 136, 18, 88 }, { 52, 108, 255, 28 }, { 308, 108, 117, 28 }, { 426, 108, 254, 28 }, { 52, 136, 628, 44 }, { 52, 180, 628, 44 }, { 52, 312, 120, 44 }, { 612, 312, 120, 44 }, { 44, 8, 0, 5, 240, { 52, 52, 680, 260 } } },
 };
 inline constexpr int kLayoutCount = 2;
-inline constexpr int kMotionDurationMs = 200;
-inline constexpr float kMotionScaleFrom = 0.960000f;
+
+inline constexpr const char* kSourceConfig = "FormConfigs/f24-items-arriving.json";
+inline constexpr const char* kPresentationProfile = "table-context";
+inline constexpr const char* kProvenanceTemplate = "FormTemplates/operations-workspace.json";
+inline constexpr int kProvenanceTemplateVersion = 4;
+inline constexpr const char* kProvenanceGeneratorKind = "operations";
+inline constexpr const char* kProfileId = "operations-ac";
+inline constexpr const char* kProfileVersion = "hd.2026-09-10.1";
+inline constexpr const char* kProfileThemeSource = "CommandCenter/CommandCenterTheme.h";
+inline constexpr const char* kProfileThemeSourceHash = "8c4eb7f074fe2868aac3d0835b324d42f4d57ca727dcea7ab1e16220c19e53b2";
+
+struct CalypsoF24ItemsArrivingGenActionTone
+{
+	const char* id;
+	std::uint32_t fill;
+	std::uint32_t border;
+	std::uint32_t text;
+};
+inline constexpr CalypsoF24ItemsArrivingGenActionTone kActionTones[] = {
+    { "normal", 0x071624FFu, 0x173246FFu, 0xE7F0F3FFu },
+    { "safe", 0x071624FFu, 0x285267FFu, 0xE7F0F3FFu },
+    { "primary", 0x81E0B5FFu, 0x81E0B5FFu, 0x03130DFFu },
+    { "warning", 0xF2C56DFFu, 0xF2C56DFFu, 0x03130DFFu },
+    { "danger", 0x071624FFu, 0xFF6E72FFu, 0xFF6E72FFu },
+};
+inline constexpr int kActionToneCount = 5;
+
+struct CalypsoF24ItemsArrivingGenProfileStyle
+{
+	std::uint32_t background;
+	std::uint32_t panel;
+	std::uint32_t panelRaised;
+	std::uint32_t hover;
+	std::uint32_t selected;
+	std::uint32_t border;
+	std::uint32_t borderStrong;
+	std::uint32_t accent;
+	std::uint32_t text;
+	std::uint32_t secondary;
+	std::uint32_t disabled;
+	std::uint32_t onAccent;
+	std::uint32_t warning;
+	std::uint32_t danger;
+	float cornerRadiusPx;
+	float cutCornerPx;
+};
+inline constexpr CalypsoF24ItemsArrivingGenProfileStyle kProfileStyle = {
+	0x02060EFFu,
+	0x071624FFu,
+	0x0A1C2DFFu,
+	0x0C2232FFu,
+	0x0D2931FFu,
+	0x173246FFu,
+	0x285267FFu,
+	0x81E0B5FFu,
+	0xE7F0F3FFu,
+	0xA8BBC4FFu,
+	0x455966FFu,
+	0x03130DFFu,
+	0xF2C56DFFu,
+	0xFF6E72FFu,
+	12.0f,
+	14.0f,
+};
+
+struct CalypsoF24ItemsArrivingGenTypography
+{
+	int title;
+	int detailTitle;
+	int body;
+	int label;
+	int data;
+	int input;
+	int action;
+};
+inline constexpr CalypsoF24ItemsArrivingGenTypography kTypographyWide = {
+	28, 18, 14, 12, 15, 14, 14
+};
+inline constexpr CalypsoF24ItemsArrivingGenTypography kTypographyCompact = {
+	18, 16, 12, 12, 13, 12, 12
+};
+
+struct CalypsoF24ItemsArrivingGenColumnRole
+{
+	const char* id;
+	int weight;
+	int minWidth;
+	const char* font;
+	const char* align;
+};
+inline constexpr CalypsoF24ItemsArrivingGenColumnRole kColumnRoles[] = {
+    { "category", 3, 72, "body", "left" },
+    { "count", 1, 64, "data", "right" },
+    { "date", 2, 72, "data", "right" },
+    { "money", 2, 72, "data", "right" },
+    { "name", 6, 96, "body", "left" },
+    { "quantity", 2, 64, "data", "right" },
+    { "status", 2, 64, "body", "left" },
+    { "time", 2, 64, "data", "right" },
+    { "type", 1, 64, "data", "right" },
+};
+inline constexpr int kColumnRoleCount = 9;
+
+struct CalypsoF24ItemsArrivingGenCollectionCell
+{
+	const char* id;
+	CalypsoF24ItemsArrivingGenRect rect;
+	const char* contentRole;
+	const char* font;
+	const char* align;
+	int minWidth;
+	int weight;
+};
+struct CalypsoF24ItemsArrivingGenCollectionRowSlot
+{
+	const char* id;
+	CalypsoF24ItemsArrivingGenRect rect;
+	const CalypsoF24ItemsArrivingGenCollectionCell* cells;
+	int cellCount;
+};
+struct CalypsoF24ItemsArrivingGenCollectionMetrics
+{
+	int totalItems;
+	int visibleCapacity;
+	int totalUnits;
+	int visibleUnits;
+	int itemsPerUnit;
+	const char* scrollUnit;
+	bool overflow;
+	int scrollSteps;
+	CalypsoF24ItemsArrivingGenRect track;
+	CalypsoF24ItemsArrivingGenRect thumb;
+	CalypsoF24ItemsArrivingGenRect trackHitTarget;
+	CalypsoF24ItemsArrivingGenRect thumbHitTarget;
+	int thumbTravelPx;
+};
+struct CalypsoF24ItemsArrivingGenCollectionLayout
+{
+	const char* id;
+	const CalypsoF24ItemsArrivingGenCollectionCell* columns;
+	int columnCount;
+	const CalypsoF24ItemsArrivingGenCollectionRowSlot* rowSlots;
+	int rowSlotCount;
+	int count;
+	CalypsoF24ItemsArrivingGenRect rowActionArea;
+	CalypsoF24ItemsArrivingGenCollectionMetrics metrics;
+};
+
+inline constexpr CalypsoF24ItemsArrivingGenCollectionCell kCollectionColumnHeadersWide[] = {
+    { "item", { 112, 190, 453, 36 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 566, 190, 183, 36 }, "quantity", "data", "right", 64, 2 },
+    { "destination", { 750, 190, 452, 36 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF24ItemsArrivingGenCollectionCell kCollectionRowSlot1CellsWide[] = {
+    { "item", { 112, 226, 453, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 566, 226, 183, 44 }, "quantity", "data", "right", 64, 2 },
+    { "destination", { 750, 226, 452, 44 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF24ItemsArrivingGenCollectionCell kCollectionRowSlot2CellsWide[] = {
+    { "item", { 112, 270, 453, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 566, 270, 183, 44 }, "quantity", "data", "right", 64, 2 },
+    { "destination", { 750, 270, 452, 44 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF24ItemsArrivingGenCollectionCell kCollectionRowSlot3CellsWide[] = {
+    { "item", { 112, 314, 453, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 566, 314, 183, 44 }, "quantity", "data", "right", 64, 2 },
+    { "destination", { 750, 314, 452, 44 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF24ItemsArrivingGenCollectionCell kCollectionRowSlot4CellsWide[] = {
+    { "item", { 112, 358, 453, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 566, 358, 183, 44 }, "quantity", "data", "right", 64, 2 },
+    { "destination", { 750, 358, 452, 44 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF24ItemsArrivingGenCollectionCell kCollectionRowSlot5CellsWide[] = {
+    { "item", { 112, 402, 453, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 566, 402, 183, 44 }, "quantity", "data", "right", 64, 2 },
+    { "destination", { 750, 402, 452, 44 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF24ItemsArrivingGenCollectionCell kCollectionRowSlot6CellsWide[] = {
+    { "item", { 112, 446, 453, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 566, 446, 183, 44 }, "quantity", "data", "right", 64, 2 },
+    { "destination", { 750, 446, 452, 44 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF24ItemsArrivingGenCollectionCell kCollectionRowSlot7CellsWide[] = {
+    { "item", { 112, 490, 453, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 566, 490, 183, 44 }, "quantity", "data", "right", 64, 2 },
+    { "destination", { 750, 490, 452, 44 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF24ItemsArrivingGenCollectionRowSlot kCollectionRowSlotsWide[] = {
+    { "row-slot-1", { 112, 226, 1090, 44 }, kCollectionRowSlot1CellsWide, 3 },
+    { "row-slot-2", { 112, 270, 1090, 44 }, kCollectionRowSlot2CellsWide, 3 },
+    { "row-slot-3", { 112, 314, 1090, 44 }, kCollectionRowSlot3CellsWide, 3 },
+    { "row-slot-4", { 112, 358, 1090, 44 }, kCollectionRowSlot4CellsWide, 3 },
+    { "row-slot-5", { 112, 402, 1090, 44 }, kCollectionRowSlot5CellsWide, 3 },
+    { "row-slot-6", { 112, 446, 1090, 44 }, kCollectionRowSlot6CellsWide, 3 },
+    { "row-slot-7", { 112, 490, 1090, 44 }, kCollectionRowSlot7CellsWide, 3 },
+};
+inline constexpr int kCollectionRowSlotWideCount = 7;
+inline constexpr CalypsoF24ItemsArrivingGenCollectionMetrics kCollectionMetricsWide = { 2, 7, 2, 7, 1, "record", false, 0, { 1238, 226, 18, 308 }, { 1238, 226, 18, 308 }, { 1212, 226, 44, 308 }, { 1212, 226, 44, 308 }, 0 };
+
+inline constexpr CalypsoF24ItemsArrivingGenCollectionCell kCollectionColumnHeadersCompact[] = {
+    { "item", { 52, 108, 255, 28 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 308, 108, 117, 28 }, "quantity", "data", "right", 64, 2 },
+    { "destination", { 426, 108, 254, 28 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF24ItemsArrivingGenCollectionCell kCollectionRowSlot1CellsCompact[] = {
+    { "item", { 52, 136, 255, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 308, 136, 117, 44 }, "quantity", "data", "right", 64, 2 },
+    { "destination", { 426, 136, 254, 44 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF24ItemsArrivingGenCollectionCell kCollectionRowSlot2CellsCompact[] = {
+    { "item", { 52, 180, 255, 44 }, "name", "body", "left", 96, 6 },
+    { "quantity", { 308, 180, 117, 44 }, "quantity", "data", "right", 64, 2 },
+    { "destination", { 426, 180, 254, 44 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF24ItemsArrivingGenCollectionRowSlot kCollectionRowSlotsCompact[] = {
+    { "row-slot-1", { 52, 136, 628, 44 }, kCollectionRowSlot1CellsCompact, 3 },
+    { "row-slot-2", { 52, 180, 628, 44 }, kCollectionRowSlot2CellsCompact, 3 },
+};
+inline constexpr int kCollectionRowSlotCompactCount = 2;
+inline constexpr CalypsoF24ItemsArrivingGenCollectionMetrics kCollectionMetricsCompact = { 2, 2, 2, 2, 1, "record", false, 0, { 714, 136, 18, 88 }, { 714, 136, 18, 88 }, { 688, 136, 44, 88 }, { 688, 136, 44, 88 }, 0 };
+
+inline constexpr CalypsoF24ItemsArrivingGenCollectionLayout kCollectionsWide[1] = {
+    { "collection", kCollectionColumnHeadersWide, 3, kCollectionRowSlotsWide, 7, 2, { 0, 0, 0, 0 }, kCollectionMetricsWide },
+};
+inline constexpr int kCollectionLayoutWideCount = 1;
+inline constexpr CalypsoF24ItemsArrivingGenCollectionLayout kCollectionsCompact[1] = {
+    { "collection", kCollectionColumnHeadersCompact, 3, kCollectionRowSlotsCompact, 2, 2, { 0, 0, 0, 0 }, kCollectionMetricsCompact },
+};
+inline constexpr int kCollectionLayoutCompactCount = 1;
+
+struct CalypsoF24ItemsArrivingGenActionSlot { const char* id; CalypsoF24ItemsArrivingGenRect rect; };
+struct CalypsoF24ItemsArrivingGenStrictActionSlotGroup
+{
+	const char* id;
+	const CalypsoF24ItemsArrivingGenActionSlot* slots;
+	int slotCount;
+};
+inline constexpr CalypsoF24ItemsArrivingGenStrictActionSlotGroup kStrictActionSlotGroupsWide[1] = {
+};
+inline constexpr int kStrictActionSlotGroupWideCount = 0;
+inline constexpr CalypsoF24ItemsArrivingGenStrictActionSlotGroup kStrictActionSlotGroupsCompact[1] = {
+};
+inline constexpr int kStrictActionSlotGroupCompactCount = 0;
+
+/// Layout for a design canvas, or nullptr (the harness never guesses).
 inline const CalypsoF24ItemsArrivingGenLayout* layoutForDesign(int dw, int dh)
 {
 	for (int i = 0; i < kLayoutCount; ++i)
@@ -55,4 +317,9 @@ inline const CalypsoF24ItemsArrivingGenLayout* layoutForDesign(int dw, int dh)
 			return &kLayouts[i];
 	return nullptr;
 }
+
+// Opening motion (capture mode deterministic).
+inline constexpr int kMotionDurationMs = 200;
+inline constexpr float kMotionScaleFrom = 0.960000f;
+inline constexpr bool kMotionDisabledInCapture = true;
 } } }

@@ -32,14 +32,16 @@
     "protocol": "CALYPSO COMMAND · RESEARCH PROTOCOL RS-24",
     "title": "RESEARCH REQUIRED",
     "message": [
-      "Additional research is",
-      "required to proceed."
+      "You will need to research a",
+      "MANTIS clip",
+      "in order to produce the",
+      "MANTIS Projector"
     ]
   },
   "presentation": {
-    "density": "brief-acknowledgement",
-    "scaleNumerator": 2,
-    "scaleDenominator": 3
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
   },
   "style": {
     "cutCornerPx": 14,
@@ -62,47 +64,47 @@
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 484,
-        "y": 269,
-        "width": 312,
-        "height": 158
+        "x": 406,
+        "y": 203,
+        "width": 468,
+        "height": 290
       },
       "status": {
-        "x": 484,
-        "y": 269,
-        "width": 312,
-        "height": 25
+        "x": 406,
+        "y": 203,
+        "width": 468,
+        "height": 38
       },
       "warning": {
-        "x": 505,
-        "y": 309,
-        "width": 22,
-        "height": 21
+        "x": 438,
+        "y": 263,
+        "width": 32,
+        "height": 32
       },
       "title": {
-        "x": 537,
-        "y": 305,
-        "width": 238,
-        "height": 29
+        "x": 486,
+        "y": 257,
+        "width": 356,
+        "height": 44
       },
       "message": {
-        "x": 505,
-        "y": 338,
-        "width": 270,
-        "height": 40
+        "x": 438,
+        "y": 309,
+        "width": 404,
+        "height": 108
       },
       "footer": {
-        "x": 484,
-        "y": 379,
-        "width": 312,
-        "height": 48
+        "x": 406,
+        "y": 431,
+        "width": 468,
+        "height": 62
       },
       "buttons": {
         "ok": {
-          "x": 669,
-          "y": 388,
-          "width": 106,
-          "height": 29
+          "x": 684,
+          "y": 440,
+          "width": 158,
+          "height": 44
         }
       }
     },
@@ -110,47 +112,47 @@
       "designWidth": 740,
       "designHeight": 360,
       "window": {
-        "x": 230,
-        "y": 97,
-        "width": 280,
-        "height": 147
+        "x": 160,
+        "y": 36,
+        "width": 420,
+        "height": 269
       },
       "status": {
-        "x": 230,
-        "y": 97,
-        "width": 280,
-        "height": 23
+        "x": 160,
+        "y": 36,
+        "width": 420,
+        "height": 34
       },
       "warning": {
-        "x": 249,
-        "y": 131,
-        "width": 18,
-        "height": 19
+        "x": 188,
+        "y": 87,
+        "width": 28,
+        "height": 28
       },
       "title": {
-        "x": 277,
-        "y": 128,
-        "width": 214,
-        "height": 25
+        "x": 230,
+        "y": 82,
+        "width": 322,
+        "height": 38
       },
       "message": {
-        "x": 249,
-        "y": 153,
-        "width": 242,
-        "height": 40
+        "x": 188,
+        "y": 126,
+        "width": 364,
+        "height": 96
       },
       "footer": {
-        "x": 230,
-        "y": 196,
-        "width": 280,
-        "height": 48
+        "x": 160,
+        "y": 239,
+        "width": 420,
+        "height": 66
       },
       "buttons": {
         "ok": {
-          "x": 393,
-          "y": 205,
-          "width": 98,
-          "height": 29
+          "x": 404,
+          "y": 249,
+          "width": 148,
+          "height": 44
         }
       }
     }

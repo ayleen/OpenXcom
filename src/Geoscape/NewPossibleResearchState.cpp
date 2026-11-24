@@ -18,6 +18,10 @@
  */
 #include <algorithm>
 #include "NewPossibleResearchState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#include <algorithm>
+#endif
 #include "../Engine/Game.h"
 #include "../Engine/LocalizedText.h"
 #include "../Mod/Mod.h"
@@ -40,7 +44,11 @@ namespace OpenXcom
  */
 NewPossibleResearchState::NewPossibleResearchState(Base * base, const std::vector<RuleResearch *> & possibilities) : _base(base)
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+#else
 	_screen = false;
+#endif
 
 	// Create objects
 	_window = new Window(this, 288, 180, 16, 10);
@@ -59,11 +67,7 @@ NewPossibleResearchState::NewPossibleResearchState(Base * base, const std::vecto
 	add(_lstPossibilities, "text2", "geoResearch");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
+
 
 	// Set up objects
 	setWindowBackground(_window, "geoResearch");
@@ -77,11 +81,19 @@ NewPossibleResearchState::NewPossibleResearchState(Base * base, const std::vecto
 	_txtTitle->setBig();
 	_txtTitle->setAlign(ALIGN_CENTER);
 
+#ifdef __EMSCRIPTEN__
+	_lstPossibilities->setColumns(2, 130, 120);
+#else
 	_lstPossibilities->setColumns(1, 250);
+#endif
 	_lstPossibilities->setBig();
 	_lstPossibilities->setAlign(ALIGN_CENTER);
 	_lstPossibilities->setScrolling(true, 0);
 
+#ifdef __EMSCRIPTEN__
+	_pending = possibilities;
+	_txtTitle->setText(tr("STR_WE_CAN_NOW_RESEARCH"));
+#else
 	bool foundNew = false;
 	for (const auto* rule : possibilities)
 	{
@@ -104,6 +116,7 @@ NewPossibleResearchState::NewPossibleResearchState(Base * base, const std::vecto
 	{
 		_txtTitle->setText(tr("STR_WE_CAN_NOW_RESEARCH"));
 	}
+#endif
 }
 
 /**
@@ -124,5 +137,6 @@ void NewPossibleResearchState::btnResearchClick(Action *)
 	_game->popState();
 	_game->pushState (new ResearchState(_base));
 }
+
 
 }

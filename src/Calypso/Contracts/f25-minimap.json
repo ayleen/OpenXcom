@@ -1,0 +1,1100 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f25-minimap",
+    "familyId": 25,
+    "archetype": "tabbed-management",
+    "source": "FormConfigs/f25-minimap.json",
+    "actions": [
+      {
+        "id": "lower",
+        "label": "Level −",
+        "action": "lower",
+        "tone": "normal",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB059",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "higher",
+        "label": "Level +",
+        "action": "higher",
+        "tone": "normal",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB059",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "done",
+        "label": "Close",
+        "action": "done",
+        "tone": "safe",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "tabs": [
+      {
+        "id": "left",
+        "label": "Left"
+      },
+      {
+        "id": "up",
+        "label": "Up"
+      },
+      {
+        "id": "down",
+        "label": "Down"
+      },
+      {
+        "id": "right",
+        "label": "Right"
+      }
+    ],
+    "selectedTab": "up",
+    "summary": [
+      {
+        "id": "status",
+        "label": "Readout",
+        "value": "Level 1"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "inspect",
+      "columns": [
+        {
+          "id": "display",
+          "label": "Readout"
+        },
+        {
+          "id": "area",
+          "label": "Area"
+        }
+      ],
+      "items": [
+        {
+          "id": "readout",
+          "values": [
+            "Minimap",
+            "Current level"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": [
+      {
+        "id": "center",
+        "label": "Recenter",
+        "action": "center",
+        "tone": "normal",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB059",
+          "text": "E8FFF5FF"
+        }
+      }
+    ]
+  },
+  "copy": {
+    "title": "Minimap",
+    "tabs": {
+      "left": "Left",
+      "up": "Up",
+      "down": "Down",
+      "right": "Right"
+    },
+    "summary": [
+      {
+        "id": "status",
+        "label": "Readout",
+        "value": "Level 1"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "inspect",
+      "columns": [
+        {
+          "id": "display",
+          "label": "Readout"
+        },
+        {
+          "id": "area",
+          "label": "Area"
+        }
+      ],
+      "items": [
+        {
+          "id": "readout",
+          "values": [
+            "Minimap",
+            "Current level"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": {
+      "center": "Recenter"
+    }
+  },
+  "style": {
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "divider": "74FFB04D",
+    "text": "E8FFF5FF",
+    "mutedText": "A9D8C7FF",
+    "selectedTab": "74FFB033",
+    "selection": "74FFB033",
+    "scrollTrack": "061B1CD6",
+    "scrollThumb": "74FFB099",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "cutCornerPx": 14
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 140,
+        "y": 50,
+        "width": 1000,
+        "height": 620
+      },
+      "title": {
+        "x": 172,
+        "y": 68,
+        "width": 936,
+        "height": 44
+      },
+      "summaryBar": {
+        "x": 172,
+        "y": 116,
+        "width": 936,
+        "height": 36
+      },
+      "summary": {
+        "status": {
+          "x": 172,
+          "y": 116,
+          "width": 936,
+          "height": 36
+        }
+      },
+      "tabBar": {
+        "x": 172,
+        "y": 160,
+        "width": 936,
+        "height": 48
+      },
+      "collectionViewport": {
+        "x": 172,
+        "y": 280,
+        "width": 936,
+        "height": 286
+      },
+      "detailPanel": {
+        "x": 172,
+        "y": 280,
+        "width": 306,
+        "height": 286
+      },
+      "contextDock": null,
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "display",
+            "rect": {
+              "x": 172,
+              "y": 280,
+              "width": 440,
+              "height": 36
+            }
+          },
+          {
+            "id": "area",
+            "rect": {
+              "x": 613,
+              "y": 280,
+              "width": 441,
+              "height": 36
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 172,
+              "y": 316,
+              "width": 882,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "display",
+                "rect": {
+                  "x": 172,
+                  "y": 316,
+                  "width": 440,
+                  "height": 44
+                }
+              },
+              {
+                "id": "area",
+                "rect": {
+                  "x": 613,
+                  "y": 316,
+                  "width": 441,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 172,
+              "y": 360,
+              "width": 882,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "display",
+                "rect": {
+                  "x": 172,
+                  "y": 360,
+                  "width": 440,
+                  "height": 44
+                }
+              },
+              {
+                "id": "area",
+                "rect": {
+                  "x": 613,
+                  "y": 360,
+                  "width": 441,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-3",
+            "rect": {
+              "x": 172,
+              "y": 404,
+              "width": 882,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "display",
+                "rect": {
+                  "x": 172,
+                  "y": 404,
+                  "width": 440,
+                  "height": 44
+                }
+              },
+              {
+                "id": "area",
+                "rect": {
+                  "x": 613,
+                  "y": 404,
+                  "width": 441,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-4",
+            "rect": {
+              "x": 172,
+              "y": 448,
+              "width": 882,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "display",
+                "rect": {
+                  "x": 172,
+                  "y": 448,
+                  "width": 440,
+                  "height": 44
+                }
+              },
+              {
+                "id": "area",
+                "rect": {
+                  "x": 613,
+                  "y": 448,
+                  "width": 441,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-5",
+            "rect": {
+              "x": 172,
+              "y": 492,
+              "width": 882,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "display",
+                "rect": {
+                  "x": 172,
+                  "y": 492,
+                  "width": 440,
+                  "height": 44
+                }
+              },
+              {
+                "id": "area",
+                "rect": {
+                  "x": 613,
+                  "y": 492,
+                  "width": 441,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ],
+        "scroll": {
+          "track": {
+            "x": 1090,
+            "y": 316,
+            "width": 18,
+            "height": 220
+          },
+          "thumb": {
+            "x": 1090,
+            "y": 316,
+            "width": 18,
+            "height": 220
+          }
+        }
+      },
+      "toolbarBar": {
+        "x": 172,
+        "y": 218,
+        "width": 936,
+        "height": 52
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 140,
+        "y": 578,
+        "width": 1000,
+        "height": 92
+      },
+      "tabs": {
+        "left": {
+          "x": 172,
+          "y": 160,
+          "width": 228,
+          "height": 48
+        },
+        "up": {
+          "x": 408,
+          "y": 160,
+          "width": 228,
+          "height": 48
+        },
+        "down": {
+          "x": 644,
+          "y": 160,
+          "width": 228,
+          "height": 48
+        },
+        "right": {
+          "x": 880,
+          "y": 160,
+          "width": 228,
+          "height": 48
+        }
+      },
+      "toolbar": {
+        "center": {
+          "x": 960,
+          "y": 222,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "actions": {
+        "lower": {
+          "x": 614,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        },
+        "higher": {
+          "x": 782,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        },
+        "done": {
+          "x": 950,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "partRects": {
+        "window": {
+          "x": 140,
+          "y": 50,
+          "width": 1000,
+          "height": 620
+        },
+        "title": {
+          "x": 172,
+          "y": 68,
+          "width": 936,
+          "height": 44
+        },
+        "summaryBar": {
+          "x": 172,
+          "y": 116,
+          "width": 936,
+          "height": 36
+        },
+        "tabBar": {
+          "x": 172,
+          "y": 160,
+          "width": 936,
+          "height": 48
+        },
+        "toolbarBar": {
+          "x": 172,
+          "y": 218,
+          "width": 936,
+          "height": 52
+        },
+        "collectionViewport": {
+          "x": 172,
+          "y": 280,
+          "width": 936,
+          "height": 286
+        },
+        "footer": {
+          "x": 140,
+          "y": 578,
+          "width": 1000,
+          "height": 92
+        },
+        "summary.status": {
+          "x": 172,
+          "y": 116,
+          "width": 936,
+          "height": 36
+        },
+        "tab.left": {
+          "x": 172,
+          "y": 160,
+          "width": 228,
+          "height": 48
+        },
+        "tab.up": {
+          "x": 408,
+          "y": 160,
+          "width": 228,
+          "height": 48
+        },
+        "tab.down": {
+          "x": 644,
+          "y": 160,
+          "width": 228,
+          "height": 48
+        },
+        "tab.right": {
+          "x": 880,
+          "y": 160,
+          "width": 228,
+          "height": 48
+        },
+        "toolbar.center": {
+          "x": 960,
+          "y": 222,
+          "width": 148,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 1090,
+          "y": 316,
+          "width": 18,
+          "height": 220
+        },
+        "collection.scroll.thumb": {
+          "x": 1090,
+          "y": 316,
+          "width": 18,
+          "height": 220
+        },
+        "collection.column.display": {
+          "x": 172,
+          "y": 280,
+          "width": 440,
+          "height": 36
+        },
+        "collection.column.area": {
+          "x": 613,
+          "y": 280,
+          "width": 441,
+          "height": 36
+        },
+        "collection.row-slot.1": {
+          "x": 172,
+          "y": 316,
+          "width": 882,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 172,
+          "y": 360,
+          "width": 882,
+          "height": 44
+        },
+        "collection.row-slot.3": {
+          "x": 172,
+          "y": 404,
+          "width": 882,
+          "height": 44
+        },
+        "collection.row-slot.4": {
+          "x": 172,
+          "y": 448,
+          "width": 882,
+          "height": 44
+        },
+        "collection.row-slot.5": {
+          "x": 172,
+          "y": 492,
+          "width": 882,
+          "height": 44
+        },
+        "action.lower": {
+          "x": 614,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        },
+        "action.higher": {
+          "x": 782,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        },
+        "action.done": {
+          "x": 950,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 20,
+        "y": 8,
+        "width": 700,
+        "height": 344
+      },
+      "title": {
+        "x": 44,
+        "y": 8,
+        "width": 652,
+        "height": 32
+      },
+      "summaryBar": {
+        "x": 44,
+        "y": 44,
+        "width": 652,
+        "height": 24
+      },
+      "summary": {
+        "status": {
+          "x": 44,
+          "y": 44,
+          "width": 652,
+          "height": 24
+        }
+      },
+      "tabBar": {
+        "x": 44,
+        "y": 72,
+        "width": 652,
+        "height": 44
+      },
+      "collectionViewport": {
+        "x": 44,
+        "y": 168,
+        "width": 652,
+        "height": 112
+      },
+      "detailPanel": {
+        "x": 44,
+        "y": 168,
+        "width": 250,
+        "height": 112
+      },
+      "contextDock": null,
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "display",
+            "rect": {
+              "x": 44,
+              "y": 168,
+              "width": 299,
+              "height": 24
+            }
+          },
+          {
+            "id": "area",
+            "rect": {
+              "x": 344,
+              "y": 168,
+              "width": 300,
+              "height": 24
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 44,
+              "y": 192,
+              "width": 600,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "display",
+                "rect": {
+                  "x": 44,
+                  "y": 192,
+                  "width": 299,
+                  "height": 44
+                }
+              },
+              {
+                "id": "area",
+                "rect": {
+                  "x": 344,
+                  "y": 192,
+                  "width": 300,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 44,
+              "y": 236,
+              "width": 600,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "display",
+                "rect": {
+                  "x": 44,
+                  "y": 236,
+                  "width": 299,
+                  "height": 44
+                }
+              },
+              {
+                "id": "area",
+                "rect": {
+                  "x": 344,
+                  "y": 236,
+                  "width": 300,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ],
+        "scroll": {
+          "track": {
+            "x": 678,
+            "y": 192,
+            "width": 18,
+            "height": 88
+          },
+          "thumb": {
+            "x": 678,
+            "y": 192,
+            "width": 18,
+            "height": 88
+          }
+        }
+      },
+      "toolbarBar": {
+        "x": 44,
+        "y": 120,
+        "width": 652,
+        "height": 44
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 20,
+        "y": 284,
+        "width": 700,
+        "height": 68
+      },
+      "tabs": {
+        "left": {
+          "x": 44,
+          "y": 72,
+          "width": 158,
+          "height": 44
+        },
+        "up": {
+          "x": 208,
+          "y": 72,
+          "width": 158,
+          "height": 44
+        },
+        "down": {
+          "x": 372,
+          "y": 72,
+          "width": 158,
+          "height": 44
+        },
+        "right": {
+          "x": 536,
+          "y": 72,
+          "width": 160,
+          "height": 44
+        }
+      },
+      "toolbar": {
+        "center": {
+          "x": 564,
+          "y": 120,
+          "width": 132,
+          "height": 44
+        }
+      },
+      "actions": {
+        "lower": {
+          "x": 228,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        },
+        "higher": {
+          "x": 388,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        },
+        "done": {
+          "x": 548,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "partRects": {
+        "window": {
+          "x": 20,
+          "y": 8,
+          "width": 700,
+          "height": 344
+        },
+        "title": {
+          "x": 44,
+          "y": 8,
+          "width": 652,
+          "height": 32
+        },
+        "summaryBar": {
+          "x": 44,
+          "y": 44,
+          "width": 652,
+          "height": 24
+        },
+        "tabBar": {
+          "x": 44,
+          "y": 72,
+          "width": 652,
+          "height": 44
+        },
+        "toolbarBar": {
+          "x": 44,
+          "y": 120,
+          "width": 652,
+          "height": 44
+        },
+        "collectionViewport": {
+          "x": 44,
+          "y": 168,
+          "width": 652,
+          "height": 112
+        },
+        "footer": {
+          "x": 20,
+          "y": 284,
+          "width": 700,
+          "height": 68
+        },
+        "summary.status": {
+          "x": 44,
+          "y": 44,
+          "width": 652,
+          "height": 24
+        },
+        "tab.left": {
+          "x": 44,
+          "y": 72,
+          "width": 158,
+          "height": 44
+        },
+        "tab.up": {
+          "x": 208,
+          "y": 72,
+          "width": 158,
+          "height": 44
+        },
+        "tab.down": {
+          "x": 372,
+          "y": 72,
+          "width": 158,
+          "height": 44
+        },
+        "tab.right": {
+          "x": 536,
+          "y": 72,
+          "width": 160,
+          "height": 44
+        },
+        "toolbar.center": {
+          "x": 564,
+          "y": 120,
+          "width": 132,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 678,
+          "y": 192,
+          "width": 18,
+          "height": 88
+        },
+        "collection.scroll.thumb": {
+          "x": 678,
+          "y": 192,
+          "width": 18,
+          "height": 88
+        },
+        "collection.column.display": {
+          "x": 44,
+          "y": 168,
+          "width": 299,
+          "height": 24
+        },
+        "collection.column.area": {
+          "x": 344,
+          "y": 168,
+          "width": 300,
+          "height": 24
+        },
+        "collection.row-slot.1": {
+          "x": 44,
+          "y": 192,
+          "width": 600,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 44,
+          "y": 236,
+          "width": 600,
+          "height": 44
+        },
+        "collection.row-slot.3": {
+          "x": 44,
+          "y": 236,
+          "width": 600,
+          "height": 44
+        },
+        "collection.row-slot.4": {
+          "x": 44,
+          "y": 236,
+          "width": 600,
+          "height": 44
+        },
+        "collection.row-slot.5": {
+          "x": 44,
+          "y": 236,
+          "width": 600,
+          "height": 44
+        },
+        "action.lower": {
+          "x": 228,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        },
+        "action.higher": {
+          "x": 388,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        },
+        "action.done": {
+          "x": 548,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/tabbed-management.json",
+    "templateVersion": 5,
+    "generatorKind": "tabbed"
+  },
+  "collectionMetrics": {
+    "wide": {
+      "totalItems": 1,
+      "visibleCapacity": 5,
+      "totalUnits": 1,
+      "visibleUnits": 5,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 1090,
+        "y": 316,
+        "width": 18,
+        "height": 220
+      },
+      "thumb": {
+        "x": 1090,
+        "y": 316,
+        "width": 18,
+        "height": 220
+      },
+      "trackHitTarget": {
+        "x": 1064,
+        "y": 316,
+        "width": 44,
+        "height": 220
+      },
+      "thumbHitTarget": {
+        "x": 1064,
+        "y": 316,
+        "width": 44,
+        "height": 220
+      },
+      "thumbTravelPx": 0
+    },
+    "compact": {
+      "totalItems": 1,
+      "visibleCapacity": 2,
+      "totalUnits": 1,
+      "visibleUnits": 2,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 678,
+        "y": 192,
+        "width": 18,
+        "height": 88
+      },
+      "thumb": {
+        "x": 678,
+        "y": 192,
+        "width": 18,
+        "height": 88
+      },
+      "trackHitTarget": {
+        "x": 652,
+        "y": 192,
+        "width": 44,
+        "height": 88
+      },
+      "thumbHitTarget": {
+        "x": 652,
+        "y": 192,
+        "width": 44,
+        "height": 88
+      },
+      "thumbTravelPx": 0
+    }
+  },
+  "actions": [
+    "action.lower",
+    "action.higher",
+    "action.done"
+  ],
+  "parts": [
+    "window",
+    "title",
+    "summaryBar",
+    "tabBar",
+    "toolbarBar",
+    "collectionViewport",
+    "footer",
+    "summary.status",
+    "tab.left",
+    "tab.up",
+    "tab.down",
+    "tab.right",
+    "toolbar.center",
+    "collection.scroll.track",
+    "collection.scroll.thumb",
+    "collection.column.display",
+    "collection.column.area",
+    "collection.row-slot.1",
+    "collection.row-slot.2",
+    "collection.row-slot.3",
+    "collection.row-slot.4",
+    "collection.row-slot.5",
+    "action.lower",
+    "action.higher",
+    "action.done"
+  ]
+}

@@ -52,7 +52,11 @@ void CutsceneState::init()
 	// pop self off stack and replace with actual player state
 	_game->popState();
 
+#ifdef __EMSCRIPTEN__
+	const RuleVideo *videoRule = _game->getMod()->getVideo(_cutsceneId, false);
+#else
 	const RuleVideo *videoRule = _game->getMod()->getVideo(_cutsceneId, true);
+#endif
 	if (_game->getSavedGame() && _game->getSavedGame()->getEnding() != END_NONE)
 	{
 		if (_game->getSavedGame()->getMonthsPassed() > -1)
@@ -66,6 +70,18 @@ void CutsceneState::init()
 		}
 	}
 
+#ifdef __EMSCRIPTEN__
+	// The browser FLC decoder cannot present frames. Use the ruleset's slide
+	// sequence even when native preferences select FMV.
+	if (!videoRule)
+	{
+		static const SlideshowHeader noAudio;
+		static const std::vector<SlideshowSlide> noFrames;
+		_game->pushState(new SlideshowState(noAudio, &noFrames));
+	}
+	else
+		_game->pushState(new SlideshowState(videoRule->getSlideshowHeader(), videoRule->getSlides()));
+#else
 	bool fmv = false, slide = false;
 	if (!videoRule->getVideos()->empty())
 	{
@@ -88,6 +104,7 @@ void CutsceneState::init()
 	{
 		Log(LOG_WARNING) << "cutscene definition empty: " << _cutsceneId;
 	}
+#endif
 }
 
 bool CutsceneState::initDisplay()

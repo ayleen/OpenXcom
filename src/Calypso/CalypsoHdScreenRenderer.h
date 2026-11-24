@@ -59,6 +59,7 @@ private:
 	const CalypsoGeoscapeHdRuntimeModel& liveGeoscapeSnapshot(const GeoscapeState& state) const;
 	bool resolvePhysicalFonts(CalypsoTtfSourceDescriptor& heading,
 		CalypsoTtfSourceDescriptor& body, CalypsoTtfSourceDescriptor& mono) const;
+	void collectChrome(CalypsoHdFrameBuilder& builder) const;
 	void collectBasescape(CalypsoHdFrameBuilder& builder) const;
 	const void* _state;
 	CalypsoHdScreenRenderModel _model;

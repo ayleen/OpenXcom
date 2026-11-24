@@ -29,7 +29,7 @@
 #include "../Savegame/SavedBattleGame.h"
 #include "../Savegame/SavedGame.h"
 #ifdef __EMSCRIPTEN__
-#include "../Calypso/CalypsoF30NoExperienceUi.h"
+#include "../Calypso/CalypsoStrategicList.h"
 #endif
 
 namespace OpenXcom
@@ -40,10 +40,14 @@ namespace OpenXcom
  */
 NoExperienceState::NoExperienceState()
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_window = new Window(this, 216, 160, 52, 20);
+#else
 	_screen = false;
 
-	// Create objects
 	_window = new Window(this, 216, 160, 52, 20, POPUP_BOTH);
+#endif
 	_txtTitle = new Text(206, 17, 57, 32);
 	_btnCancel = new TextButton(140, 16, 90, 156);
 	_lstSoldiers = new TextList(180, 96, 65, 52);
@@ -57,13 +61,12 @@ NoExperienceState::NoExperienceState()
 	add(_lstSoldiers, "optionLists", "battlescape");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF30NoExperienceUi::configure(*this);
-#endif
 
 	// Set up objects
 	_window->setHighContrast(true);
+#ifndef __EMSCRIPTEN__
 	_window->setBackground(_game->getMod()->getSurface("TAC00.SCR"));
+#endif
 
 	_txtTitle->setAlign(ALIGN_CENTER);
 	_txtTitle->setBig();
@@ -99,6 +102,12 @@ NoExperienceState::NoExperienceState()
 			}
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	_hdList = new Calypso::CalypsoStrategicList(this, nullptr, _game->getMod(), _window,
+		_txtTitle, _lstSoldiers, _btnCancel, Calypso::CalypsoStrategicList::Content::ExperienceRoster);
+	enableUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
+#endif
 }
 
 /**
@@ -116,8 +125,10 @@ void NoExperienceState::btnCancelClick(Action *)
 namespace OpenXcom {
 void NoExperienceState::resize(int &dX, int &dY)
 {
-	if (Calypso::CalypsoF30NoExperienceUi::resize(*this)) return;
-	State::resize(dX, dY);
+	if (!_hdList) { State::resize(dX, dY); return; }
+	_hdList->layout();
+	recaptureUiScaling(_hdList->designWidth(), _hdList->designHeight(), 1.0f, false);
+	_hdList->fitInput();
 }
 }
 #endif
@@ -126,8 +137,7 @@ namespace OpenXcom {
 NoExperienceState::~NoExperienceState()
 {
 #ifdef __EMSCRIPTEN__
-	delete _hdAdapter;
-	_hdAdapter = nullptr;
+	delete _hdList;
 #endif
 }
 }

@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "UfoTrackerState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Interface/TextList.h"
+#endif
 #include "InterceptState.h"
 #include <sstream>
 #include "../Engine/Game.h"
@@ -52,14 +56,24 @@ UfoTrackerState::UfoTrackerState(GeoscapeState *state, Globe *globe) : _state(st
 	const int WIDTH_ALTITUDE = 54;
 	const int WIDTH_HEADING = 54;
 	const int WIDTH_SPEED = 32;
+	#ifdef __EMSCRIPTEN__
+	_screen = true;
+#else
 	_screen = false;
+#endif
 
 	int extraRows = Clamp(Options::oxceInterceptTableSize, 8, 80) - 8;
 	int extraHeight = 8 * extraRows;
 	int offset = extraHeight / 2;
 
 	// Create objects
-	_window = new Window(this, 320, 140 + extraHeight, 0, 30 - offset, POPUP_HORIZONTAL);
+	_window = new Window(this, 320, 140 + extraHeight, 0, 30 - offset,
+#ifdef __EMSCRIPTEN__
+		POPUP_NONE
+#else
+		POPUP_HORIZONTAL
+#endif
+	);
 	_btnCancel = new TextButton(288, 16, 16, 146 + offset);
 	_txtTitle = new Text(300, 17, 10, 46 - offset);
 	int x = 14;
@@ -117,7 +131,12 @@ UfoTrackerState::UfoTrackerState(GeoscapeState *state, Globe *globe) : _state(st
 	_lstObjects->setSelectable(true);
 	_lstObjects->setBackground(_window);
 	_lstObjects->setMargin(2);
+#ifdef __EMSCRIPTEN__
+	_lstObjects->onMouseClick((ActionHandler)&UfoTrackerState::chooseContact);
+	_lstObjects->onKeyboardPress((ActionHandler)&UfoTrackerState::chooseContact, SDLK_SPACE);
+#else
 	_lstObjects->onMouseClick((ActionHandler)&UfoTrackerState::lstObjectsLeftClick);
+#endif
 	_lstObjects->onMouseClick((ActionHandler)&UfoTrackerState::lstObjectsRightClick, SDL_BUTTON_RIGHT);
 	_lstObjects->onMouseClick((ActionHandler)&UfoTrackerState::lstObjectsMiddleClick, SDL_BUTTON_MIDDLE);
 
@@ -170,6 +189,21 @@ UfoTrackerState::UfoTrackerState(GeoscapeState *state, Globe *globe) : _state(st
 		_lstObjects->addRow(1, ab->getName(_game->getLanguage()).c_str());
 		row++;
 	}
+#ifdef __EMSCRIPTEN__
+	_open = new TextButton(60, 16);
+	_center = new TextButton(60, 16);
+	_reference = new TextButton(60, 16);
+	for (auto *button : {_open, _center, _reference}) add(button, "button", "ufoTracker");
+	_open->setText(tr("STR_INFO"));
+	_center->setText(tr("STR_CAL_CENTER_CONTACT"));
+	_reference->setText(tr("STR_UFOPAEDIA_UC"));
+	_open->onMouseClick((ActionHandler)&UfoTrackerState::openPicked);
+	_open->onKeyboardPress((ActionHandler)&UfoTrackerState::openPicked, Options::keyOk);
+	_center->onMouseClick((ActionHandler)&UfoTrackerState::centerPicked);
+	_reference->onMouseClick((ActionHandler)&UfoTrackerState::referencePicked);
+	_reference->setVisible(false);
+	_hdLedger = new Calypso::CalypsoBaseLedger(*this);
+#endif
 }
 
 /**
@@ -177,6 +211,9 @@ UfoTrackerState::UfoTrackerState(GeoscapeState *state, Globe *globe) : _state(st
  */
 UfoTrackerState::~UfoTrackerState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdLedger;
+#endif
 
 }
 
@@ -228,6 +265,11 @@ void UfoTrackerState::lstObjectsLeftClick(Action *)
  */
 void UfoTrackerState::lstObjectsRightClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	chooseContact(nullptr);
+	centerPicked(nullptr);
+	return;
+#endif
 	Target* t = _objects[_lstObjects->getSelectedRow()];
 	if (t)
 	{
@@ -242,6 +284,11 @@ void UfoTrackerState::lstObjectsRightClick(Action *)
 */
 void UfoTrackerState::lstObjectsMiddleClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	chooseContact(nullptr);
+	referencePicked(nullptr);
+	return;
+#endif
 	Target* t = _objects[_lstObjects->getSelectedRow()];
 	if (t)
 	{
@@ -254,5 +301,14 @@ void UfoTrackerState::lstObjectsMiddleClick(Action *)
 		}
 	}
 }
+
+
+#ifdef __EMSCRIPTEN__
+void UfoTrackerState::resize(int &dX, int &dY)
+{
+	if (_hdLedger) _hdLedger->refresh();
+	else State::resize(dX,dY);
+}
+#endif
 
 }

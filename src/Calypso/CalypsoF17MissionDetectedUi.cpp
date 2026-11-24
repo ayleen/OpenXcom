@@ -29,6 +29,8 @@ void CalypsoF17MissionDetectedUi::applyLayout(MissionDetectedState& state)
 		widget->setHeight(rect.h);
 	};
 	applyRect(state._window, layout->window);
+	applyRect(state._txtTitle, layout->title);
+	applyRect(state._txtCity, layout->message);
 	const int layoutIndex = wide ? 0 : 1;
 	applyRect(state._btnIntercept,
 		CalypsoF17MissionDetectedGen::kButtonRects[layoutIndex][0].rect);
@@ -92,11 +94,19 @@ void CalypsoF17MissionDetectedUi::collect(CalypsoHdFrameBuilder& builder) const 
         _state->_btnCancel ? _state->_btnCancel->getText() : std::string());
     calypsoCollectSmallConfirmation(builder, m, _motion);
 }
+const void* CalypsoF17MissionDetectedUi::physicalUnderlayState() const
+{
+    return _state && !_state->_screen ? _state->_state : nullptr;
+}
+
 void CalypsoF17MissionDetectedUi::configure(MissionDetectedState& s, bool allow) {
-    if(!allow || !s._game || !s._game->getMod()->isHdUiFamilyEnabled("F17")) { s._hdLayout=false; return; }
+    if (!allow || !s._game || !s._game->getMod())
+        CalypsoHdUiOverlay::instance().failHdRoute("Contact detection prerequisites are unavailable");
+    s._screen = !CalypsoHdUiOverlay::instance().hasRegisteredState(s._state);
     s._hdLayout = true;
     s._hdWideLayout = (Options::baseXResolution >= 1000);
     applyLayout(s);
+    s.recaptureUiScaling(s._hdWideLayout ? 1280 : 740, s._hdWideLayout ? 720 : 360, 1.0f, false);
     auto* a = new CalypsoF17MissionDetectedUi(&s);
     s._hdAdapter = a;
     CalypsoHdUiOverlay::instance().registerAdapter(a);
@@ -105,6 +115,7 @@ bool CalypsoF17MissionDetectedUi::resize(MissionDetectedState& s) {
     if(!s._hdLayout) return false;
     s._hdWideLayout = (Options::baseXResolution >= 1000);
     applyLayout(s);
+    s.recaptureUiScaling(s._hdWideLayout ? 1280 : 740, s._hdWideLayout ? 720 : 360, 1.0f, false);
     return true;
 }
 } }

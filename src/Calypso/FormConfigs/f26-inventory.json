@@ -1,0 +1,101 @@
+{
+  "schema": 1,
+  "id": "f26-inventory",
+  "familyId": 26,
+  "version": "hd.2026-08-29.1",
+  "archetype": "tabbed-management",
+  "title": "Inventory",
+  "actions": [
+    {
+      "id": "previous",
+      "label": "Previous",
+      "action": "previous",
+      "tone": "normal"
+    },
+    {
+      "id": "next",
+      "label": "Next",
+      "action": "next",
+      "tone": "normal"
+    },
+    {
+      "id": "done",
+      "label": "Close",
+      "action": "done",
+      "tone": "safe"
+    }
+  ],
+  "tabs": [
+    {
+      "id": "gear",
+      "label": "Equipment"
+    },
+    {
+      "id": "info",
+      "label": "Details"
+    }
+  ],
+  "selectedTab": "gear",
+  "summary": [
+    {
+      "id": "unit",
+      "label": "Unit",
+      "value": "Seaman"
+    },
+    {
+      "id": "status",
+      "label": "Status",
+      "value": "Ready"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "inspect",
+    "columns": [
+      {
+        "id": "field",
+        "label": "Field"
+      },
+      {
+        "id": "value",
+        "label": "Value"
+      }
+    ],
+    "items": [
+      {
+        "id": "hands",
+        "values": [
+          "Hands",
+          "Equipment"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [
+    {
+      "id": "ground",
+      "label": "Ground",
+      "action": "ground",
+      "tone": "normal"
+    },
+    {
+      "id": "unload",
+      "label": "Unload",
+      "action": "unload",
+      "tone": "normal"
+    },
+    {
+      "id": "stats",
+      "label": "Stats",
+      "action": "stats",
+      "tone": "normal"
+    },
+    {
+      "id": "links",
+      "label": "Actions",
+      "action": "links",
+      "tone": "normal"
+    }
+  ]
+}

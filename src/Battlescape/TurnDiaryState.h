@@ -27,6 +27,9 @@ class Text;
 class TextButton;
 class TextList;
 class HitLog;
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoStrategicList; }
+#endif
 
 /**
  * Turn Diary window that displays the hit log history (for the current turn).
@@ -38,11 +41,19 @@ private:
 	Text *_txtTitle;
 	TextButton *_btnCancel;
 	TextList *_lstTurnDiary;
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+	std::vector<std::string> _entries;
+	void layoutDiary(bool initial);
+#endif
 public:
 	/// Creates the Turn Diary state.
 	TurnDiaryState(const HitLog *hitLog);
 	/// Cleans up the Turn Diary state.
-	~TurnDiaryState() = default;
+	~TurnDiaryState();
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 	/// Handler for clicking the Cancel button.
 	void btnCancelClick(Action *action);
 };

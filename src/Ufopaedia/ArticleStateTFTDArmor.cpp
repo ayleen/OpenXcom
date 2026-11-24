@@ -46,7 +46,10 @@ namespace OpenXcom
 
 		_lstInfo->setColor(_listColor1);
 		_lstInfo->setColumns(2, 125, 25);
+
+#ifndef __EMSCRIPTEN__
 		_lstInfo->setDot(true);
+#endif
 
 		// Add armor values
 		addStat("STR_FRONT_ARMOR", armor->getFrontArmor());
@@ -149,6 +152,9 @@ namespace OpenXcom
 		addStat("STR_PSIONIC_SKILL", armor->getStats()->psiSkill, true);
 
 		centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+		openHdReader(*_txtTitle, *_txtInfo, {}, {_lstInfo}, articleIllustration(defs->image_id));
+#endif
 	}
 
 	ArticleStateTFTDArmor::~ArticleStateTFTDArmor()

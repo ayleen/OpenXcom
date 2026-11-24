@@ -56,6 +56,8 @@
 #include "../Mod/Mod.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#include <emscripten.h>
 #endif
 
 namespace OpenXcom
@@ -255,6 +257,10 @@ DogfightState::DogfightState(GeoscapeState *state, Craft *craft, Ufo *ufo, bool 
 	_delayedRecolorDone(false)
 {
 	_screen = false;
+#ifdef __EMSCRIPTEN__
+	static unsigned nextDisplayId = 0;
+	_displayId = ++nextDisplayId;
+#endif
 	_craft->setInDogfight(true);
 	_weaponNum = _craft->getRules()->getWeapons();
 	if (_weaponNum > RuleCraft::WeaponMax)
@@ -1988,6 +1994,7 @@ void DogfightState::aggressiveDistance()
  * the text timeout counter.
  * @param status New status text.
  */
+
 void DogfightState::setStatus(const std::string &status)
 {
 	_txtStatus->setText(tr(status));

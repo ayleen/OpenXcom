@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "ScannerState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTacticalSensor.h"
+#endif
 #include "ScannerView.h"
 #include "BattlescapeGame.h"
 #include "../Engine/InteractiveSurface.h"
@@ -41,6 +44,16 @@ namespace OpenXcom
  */
 ScannerState::ScannerState (BattleAction *action) : _action(action)
 {
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	auto *battle = _game->getSavedGame()->getSavedBattle();
+	battle->setPaletteByDepth(this);
+	_scannerView = new ScannerView(152,152,0,0,_game,_action->actor);
+	add(_scannerView);
+	_scannerView->setVisible(false);
+	_sensor = new Calypso::CalypsoTacticalSensor(*this,nullptr,_scannerView,nullptr,*battle,
+		(ActionHandler)&ScannerState::sensorClick,tr("STR_CAL_SENSOR_TITLE"));
+#else
 	if (Options::maximizeInfoScreens)
 	{
 		Options::baseXResolution = Screen::ORIGINAL_WIDTH;
@@ -68,39 +81,25 @@ ScannerState::ScannerState (BattleAction *action) : _action(action)
 	_game->getMod()->getSurface("DETBORD.PCK")->blitNShade(_bg, 0, 0);
 	_game->getMod()->getSurface("DETBORD2.PCK")->blitNShade(_scan, 0, 0);
 
-#ifdef __EMSCRIPTEN__
-	// Calypso: scale this popup to fill the logical buffer (0.5x of fill — it is a
-	// small popup like the minimap/medikit per QA). Snapshot both painted 320x200
-	// backgrounds, scale every widget (the ScannerView composites native then
-	// scale-blits), then bilinear-stretch both backgrounds back in.
-	{
-		SDL_Surface* sb = _bg->getSurface();
-		if (sb && sb->format->BitsPerPixel == 32) _bgNative = SDL_ConvertSurface(sb, sb->format, 0);
-		SDL_Surface* ss = _scan->getSurface();
-		if (ss && ss->format->BitsPerPixel == 32) _scanNative = SDL_ConvertSurface(ss, ss->format, 0);
-	}
-	enableUiScaling(320, 200, 0.5f);
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	if (_bgNative)   { TTFUtil::blitStretch(_bgNative, _bg);   _bg->setRedraw(false); }
-	if (_scanNative) { TTFUtil::blitStretch(_scanNative, _scan); _scan->setRedraw(false); }
-#endif
+
 
 	_bg->onMouseClick((ActionHandler)&ScannerState::exitClick);
 	_bg->onKeyboardPress((ActionHandler)&ScannerState::exitClick, Options::keyCancel);
 
+
+
+	update();
+#endif
 	_timerAnimate = new Timer(125);
 	_timerAnimate->onTimer((StateHandler)&ScannerState::animate);
 	_timerAnimate->start();
-
-	update();
 }
 
 ScannerState::~ScannerState()
 {
 	delete _timerAnimate;
 #ifdef __EMSCRIPTEN__
-	if (_bgNative)   SDL_FreeSurface(_bgNative);
-	if (_scanNative) SDL_FreeSurface(_scanNative);
+	delete _sensor;
 #endif
 }
 
@@ -111,9 +110,7 @@ ScannerState::~ScannerState()
 void ScannerState::resize(int &dX, int &dY)
 {
 #ifdef __EMSCRIPTEN__
-	applyUiScaling();
-	if (_bgNative)   { TTFUtil::blitStretch(_bgNative, _bg);   _bg->setRedraw(false); }
-	if (_scanNative) { TTFUtil::blitStretch(_scanNative, _scan); _scan->setRedraw(false); }
+	if (_sensor) _sensor->layout();
 #else
 	State::resize(dX, dY);
 #endif
@@ -146,6 +143,9 @@ void ScannerState::update()
 void ScannerState::animate()
 {
 	_scannerView->animate();
+#ifdef __EMSCRIPTEN__
+	_sensor->refresh();
+#endif
 }
 
 /**
@@ -163,11 +163,13 @@ void ScannerState::think()
  */
 void ScannerState::exitClick(Action *)
 {
+#ifndef __EMSCRIPTEN__
 	if (Options::maximizeInfoScreens)
 	{
 		Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, true);
 		_game->getScreen()->resetDisplay(false);
 	}
+#endif
 	_game->popState();
 }
 

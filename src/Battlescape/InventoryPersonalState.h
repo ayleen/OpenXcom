@@ -31,18 +31,28 @@ class Soldier;
 /**
  * A dialog window that allows viewing the content of the soldier's personal equipment template.
  */
+#ifdef __EMSCRIPTEN__
+class TextList;
+namespace Calypso { class CalypsoStrategicList; }
+#endif
 class InventoryPersonalState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+#endif
 	Window* _window;
 	Text* _txtTitle;
 	TextList* _lstLayout;
 	TextButton* _btnCancel;
 public:
+#ifdef __EMSCRIPTEN__
+	void resize(int &dx, int &dy) override;
+#endif
 	/// Creates the InventoryPersonalState.
 	InventoryPersonalState(Soldier* soldier);
 	/// Cleans up the state.
-	~InventoryPersonalState() = default;
+	~InventoryPersonalState();
 	/// Handler for clicking the Cancel button.
 	void btnCancelClick(Action* action);
 };

@@ -22,6 +22,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoBaseLedger; }
+class TextList;
 class TextButton;
 class Window;
 class Text;
@@ -37,6 +39,13 @@ class AlienDeployment;
 class TargetInfoState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
+	TextList *_facts = nullptr;
+	TextButton *_apply = nullptr;
+	void applyName(Action *);
+#endif
 	Target *_target;
 	Globe *_globe;
 
@@ -59,8 +68,7 @@ public:
 	/// Handler for changing the text on the Name edit.
 	void edtTitleChange(Action *action);
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+	void resize(int &dX, int &dY) override;
 #endif
 };
 

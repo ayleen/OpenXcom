@@ -24,14 +24,16 @@
  * Pops up from CalypsoEconomyState when the player clicks an Accepted
  * contract on the Contracts tab. Lists every base whose stores hold at
  * least the contract quantity of the requested item; selecting a base
- * hands off to Economy::deliver and pops back to the Economy screen.
+ * opens a review before explicit delivery.
  */
 #include "../Engine/State.h"
+#include "CalypsoEconomy.h"
 #include <vector>
 
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoBaseLedger; }
 class TextButton;
 class Window;
 class Text;
@@ -45,10 +47,20 @@ class Base;
 class CalypsoContractDeliverState : public State
 {
 private:
+	friend class Calypso::CalypsoBaseLedger;
+	Calypso::CalypsoBaseLedger *_hdLedger = nullptr;
 	int _contractId;
 	Window* _window;
 	Text* _txtTitle, *_txtInfo;
-	TextButton* _btnCancel;
+	TextButton *_btnCancel, *_btnDeliver;
+	Base *_selected = nullptr;
+	Calypso::Contract _quote;
+	int _held = 0, _standing = 0, _standingAfter = 0;
+	int64_t _funds = 0;
+	std::string _notice;
+	const Calypso::Contract *currentContract() const;
+	void btnDeliverClick(Action *);
+	void showReview();
 	TextList* _lstBases;
 	std::vector<Base*> _eligible;   // bases holding >= qty (row-aligned with _lstBases)
 	/// Rebuilds the eligible-bases list from the current save.
@@ -57,12 +69,13 @@ public:
 	/// Creates the Deliver modal for the given contract id.
 	explicit CalypsoContractDeliverState(int contractId);
 	/// Cleans up the Deliver modal.
-	~CalypsoContractDeliverState() override = default;
+	~CalypsoContractDeliverState() override;
+	void resize(int &dX, int &dY) override;
 	/// Initialises the screen (populates the base list).
 	void init() override;
 	/// Handler for clicking the Cancel button.
 	void btnCancelClick(Action* action);
-	/// Handler for clicking a base row (attempts delivery).
+	/// Handler for clicking a base row (opens the review).
 	void lstBaseClick(Action* action);
 };
 

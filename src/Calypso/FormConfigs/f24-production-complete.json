@@ -3,47 +3,88 @@
   "id": "f24-production-complete",
   "familyId": 24,
   "version": "hd.2026-08-29.1",
-  "archetype": "small-confirmation",
-  "protocol": {
-    "authority": "CALYPSO COMMAND",
-    "record": "TACTICAL NOTICE",
-    "code": "F24-PC-01",
-    "revision": "1.0.21",
-    "effectiveDate": "15.07.2061"
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "logistics-group"
   },
-  "title": "PRODUCTION COMPLETE",
-  "body": [
-    "Manufacturing project",
-    "completed successfully."
-  ],
-  "icon": {
-    "kind": "info",
-    "glyph": "i",
-    "tone": "primary"
+  "state": "ProductionCompleteState",
+  "labelKeys": {
+    "title": "STR_PRODUCTION_OVERVIEW",
+    "base": "STR_GO_TO_BASE",
+    "summary": "STR_RANDOM_PRODUCTION_SUMMARY",
+    "done": "STR_OK"
   },
-  "buttons": [
+  "title": "PRODUCTION",
+  "actions": [
     {
-      "id": "ok",
-      "label": "OK",
-      "tone": "safe",
-      "action": "ok"
-    },
-    {
-      "id": "goto",
+      "id": "base",
       "label": "GO TO BASE",
-      "tone": "primary",
-      "action": "goto"
+      "labelKey": "STR_GO_TO_BASE",
+      "action": "base",
+      "tone": "normal"
     },
+    {
+      "id": "done",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "action": "done",
+      "tone": "primary"
+    }
+  ],
+  "summary": [
+    {
+      "id": "base",
+      "label": "BASE",
+      "value": "Batumi"
+    },
+    {
+      "id": "funds",
+      "label": "FUNDS",
+      "value": "$2000000"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "production-output",
+    "columns": [
+      {
+        "id": "item",
+        "label": "ITEM",
+        "contentRole": "name"
+      },
+      {
+        "id": "quantity",
+        "label": "QUANTITY",
+        "contentRole": "quantity"
+      }
+    ],
+    "items": [
+      {
+        "id": "first",
+        "values": [
+          "Flare",
+          "4"
+        ]
+      },
+      {
+        "id": "second",
+        "values": [
+          "Flare",
+          "2"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [
     {
       "id": "summary",
       "label": "SUMMARY",
-      "tone": "safe",
-      "action": "summary"
+      "labelKey": "STR_RANDOM_PRODUCTION_SUMMARY",
+      "action": "summary",
+      "tone": "normal"
     }
-  ],
-  "visibleButtons": [
-    "ok",
-    "goto",
-    "summary"
   ]
 }

@@ -18,6 +18,8 @@
  */
 #include "CraftErrorState.h"
 #include "ConfirmLandingState.h"
+#include "LandingSupplies.h"
+#include "../Savegame/ItemContainer.h"
 #include <sstream>
 #include "../Engine/Game.h"
 #include "../Engine/LocalizedText.h"
@@ -167,16 +169,8 @@ void ConfirmLandingState::init()
 		_game->popState();
 }
 
-/**
-* Checks the starting condition.
-*/
-std::string ConfirmLandingState::checkStartingCondition()
+const RuleStartingCondition *ConfirmLandingState::landingStartingCondition() const
 {
-	if (_craft->areBannedArmorsOnboard())
-	{
-		return tr("STR_ARMOR_NOT_ALLOWED_ONBOARD");
-	}
-
 	Ufo* u = dynamic_cast<Ufo*>(_craft->getDestination());
 	MissionSite* m = dynamic_cast<MissionSite*>(_craft->getDestination());
 	AlienBase* b = dynamic_cast<AlienBase*>(_craft->getDestination());
@@ -204,13 +198,13 @@ std::string ConfirmLandingState::checkStartingCondition()
 	else
 	{
 		// irrelevant for this check
-		return "";
+		return nullptr;
 	}
 
 	if (ruleDeploy == 0)
 	{
 		// just in case
-		return "";
+		return nullptr;
 	}
 
 	RuleStartingCondition *rule = _game->getMod()->getStartingCondition(ruleDeploy->getStartingCondition());
@@ -218,10 +212,21 @@ std::string ConfirmLandingState::checkStartingCondition()
 	{
 		rule = _game->getMod()->getStartingCondition(_missionTexture->getStartingCondition());
 	}
+	return rule;
+}
+
+std::string ConfirmLandingState::checkStartingCondition(const RuleStartingCondition *rule)
+{
+	if (_craft->areBannedArmorsOnboard())
+	{
+		return tr("STR_ARMOR_NOT_ALLOWED_ONBOARD");
+	}
+
 	if (rule != 0)
 	{
 		if (rule->requiresCommanderOnboard() && !_craft->isCommanderOnboard())
 		{
+			auto *u = dynamic_cast<Ufo*>(_craft->getDestination());
 			if (!u || u->getStatus() == Ufo::LANDED || u->getStatus() == Ufo::CRASHED)
 			{
 				return tr("STR_STARTING_CONDITION_COMMANDER");
@@ -240,13 +245,6 @@ std::string ConfirmLandingState::checkStartingCondition()
 		{
 			return tr("STR_STARTING_CONDITION_ITEM"); // simple message without details/argument
 		}
-		else
-		{
-			if (rule->getDestroyRequiredItems())
-			{
-				_craft->destroyRequiredItems(rule->getRequiredItems());
-			}
-		}
 	}
 	return "";
 }
@@ -257,7 +255,8 @@ std::string ConfirmLandingState::checkStartingCondition()
  */
 void ConfirmLandingState::btnYesClick(Action *)
 {
-	std::string message = checkStartingCondition();
+	const auto *rule = landingStartingCondition();
+	std::string message = checkStartingCondition(rule);
 	if (!message.empty())
 	{
 		_craft->returnToBase();
@@ -317,7 +316,16 @@ void ConfirmLandingState::btnYesClick(Action *)
 	{
 		throw Exception("No mission available!");
 	}
-	bgen.run();
+	if (rule && rule->getDestroyRequiredItems() && !rule->getRequiredItems().empty())
+	{
+		generateLandingWithSupplies(*_craft, rule->getRequiredItems(), [&](const ItemContainer &available) {
+			bgen.run(&available);
+		});
+	}
+	else
+	{
+		bgen.run();
+	}
 	_game->pushState(new BriefingState(_craft));
 }
 
@@ -358,6 +366,14 @@ void ConfirmLandingState::togglePatrolButton(Action *)
 
 #ifdef __EMSCRIPTEN__
 namespace OpenXcom {
+void ConfirmLandingState::reviewTabClick(Action *action) { _hdAdapter->changePage(action); }
+
+void ConfirmLandingState::reviewPatrolClick(Action *)
+{
+	_craft->setDestination(nullptr);
+	_game->popState();
+}
+
 void ConfirmLandingState::resize(int &dX, int &dY)
 {
 	if (Calypso::CalypsoF20ConfirmLandingUi::resize(*this)) return;

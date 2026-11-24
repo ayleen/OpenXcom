@@ -128,6 +128,8 @@ void ConfirmCydoniaState::btnNoClick(Action *)
 
 #ifdef __EMSCRIPTEN__
 namespace OpenXcom {
+void ConfirmCydoniaState::reviewTabClick(Action *action) { _hdAdapter->changePage(action); }
+
 void ConfirmCydoniaState::resize(int &dX, int &dY)
 {
 	if (Calypso::CalypsoF20ConfirmCydoniaUi::resize(*this)) return;

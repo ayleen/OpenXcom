@@ -44,6 +44,8 @@
 
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
+#include "../Calypso/CalypsoBaseLedger.h"
+#include "../Calypso/CalypsoReportLines.h"
 #endif
 
 namespace OpenXcom
@@ -89,9 +91,10 @@ MonthlyReportState::MonthlyReportState(Globe *globe) : _gameOver(0), _ratingTota
 
 	centerAllSurfaces();
 #ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
+	_screen = true;
+	_reportRows = new TextList(260, 110);
+	add(_reportRows, "text2", "monthlyReport");
+	_reportRows->setColumns(2, 65, 195);
 #endif
 
 	// Set up objects
@@ -311,6 +314,7 @@ MonthlyReportState::MonthlyReportState(Globe *globe) : _gameOver(0), _ratingTota
 		}
 	}
 #ifdef __EMSCRIPTEN__
+	_ledger = new Calypso::CalypsoBaseLedger(*this);
 	CalypsoTutorial::get().fire(_game, "monthly.report");
 #endif
 }
@@ -320,7 +324,11 @@ MonthlyReportState::MonthlyReportState(Globe *globe) : _gameOver(0), _ratingTota
  */
 MonthlyReportState::~MonthlyReportState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _ledger;
+#endif
 }
+
 
 /**
  * Returns to the previous screen.

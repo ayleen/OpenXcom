@@ -162,7 +162,7 @@ namespace
 			else if (Options::customInitialBase)
 			{
 				// fixed location, fixed name
-				game->pushState(new PlaceLiftState(base, gs->getGlobe(), true));
+				game->pushState(PlaceLiftState::create(base, gs->getGlobe(), true));
 			}
 		}
 		else

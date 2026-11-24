@@ -195,6 +195,9 @@ public:
 	/// Sets the columns in the text list.
 	void setColumns(int cols, ...);
 #ifdef __EMSCRIPTEN__
+	void setColumnWidths(const std::vector<size_t> &widths) { _columns = widths; }
+#endif
+#ifdef __EMSCRIPTEN__
 	/// Calypso HD: re-base the design-space (native) size used by the HD scale()
 	/// factor. The list was created at a legacy native width (e.g. 280), but an HD
 	/// screen may re-lay it out with column widths authored for a DIFFERENT design

@@ -22,6 +22,7 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoStrategicList; }
 class TextButton;
 class Window;
 class Text;
@@ -39,11 +40,17 @@ private:
 	Text *_txtTitle;
 	TextList *_lstSoldiers;
 	std::vector<std::string> _commendationsNames;
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStrategicList *_hdList = nullptr;
+#endif
 public:
 	/// Creates the Medals state.
 	CommendationState(std::vector<Soldier*> soldiers);
 	/// Cleans up the Medals state.
 	~CommendationState();
+#ifdef __EMSCRIPTEN__
+	void resize(int &dx, int &dy) override;
+#endif
 	/// Handler for clicking on a medal.
 	void lstSoldiersMouseClick(Action *action);
 	/// Handler for clicking the OK button.

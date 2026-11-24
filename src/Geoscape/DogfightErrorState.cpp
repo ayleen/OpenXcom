@@ -42,7 +42,12 @@ DogfightErrorState::DogfightErrorState(Craft *craft, const std::string &msg) : _
 	_screen = false;
 
 	// Create objects
+#ifdef __EMSCRIPTEN__
+	_screen = true;
+	_window = new Window(this, 208, 120, 24, 48);
+#else
 	_window = new Window(this, 208, 120, 24, 48, POPUP_BOTH);
+#endif
 	_btnIntercept = new TextButton(180, 12, 38, 128);
 	_btnBase = new TextButton(180, 12, 38, 144);
 	_txtCraft = new Text(198, 16, 29, 63);
@@ -58,17 +63,9 @@ DogfightErrorState::DogfightErrorState(Craft *craft, const std::string &msg) : _
 	add(_txtMessage, "text", "dogfightInfo");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
-	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
-	enableUiScaling(320, 200, 1.0f);
-#endif
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF19DogfightErrorUi::configure(*this);
-#endif
-
-	// Set up objects
+#ifndef __EMSCRIPTEN__
 	setWindowBackground(_window, "dogfightInfo");
+#endif
 
 	_btnIntercept->setText(tr("STR_CONTINUE_INTERCEPTION_PURSUIT"));
 	_btnIntercept->onMouseClick((ActionHandler)&DogfightErrorState::btnInterceptClick);
@@ -85,6 +82,9 @@ DogfightErrorState::DogfightErrorState(Craft *craft, const std::string &msg) : _
 	_txtMessage->setAlign(ALIGN_CENTER);
 	_txtMessage->setWordWrap(true);
 	_txtMessage->setText(msg);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF19DogfightErrorUi::configure(*this);
+#endif
 }
 
 /**

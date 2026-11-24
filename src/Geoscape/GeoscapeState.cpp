@@ -30,6 +30,7 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include "../Calypso/CalypsoEconomy.h"
+#include "../Calypso/CalypsoInterceptionHud.h"
 #include "../Calypso/CalypsoEconomyState.h"
 #include "../Calypso/CalypsoTraining.h"
 #endif
@@ -546,11 +547,11 @@ GeoscapeState::~GeoscapeState()
 void GeoscapeState::blit()
 {
 	State::blit();
-	for (auto* dfs : _dogfights)
-	{
-		dfs->blit();
-	}
+#ifndef __EMSCRIPTEN__
+	for (auto* dfs : _dogfights) dfs->blit();
+#endif
 }
+
 
 /**
  * Handle key shortcuts.
@@ -559,6 +560,11 @@ void GeoscapeState::blit()
 void GeoscapeState::handle(Action *action)
 {
 #ifdef __EMSCRIPTEN__
+	if (Calypso::CalypsoInterceptionHud::handle(*this, action))
+	{
+		_minimizedDogfights = minimizedDogfightsCount();
+		return;
+	}
 	// A registered HD drawer is the topmost Escape owner.
 	if (action != nullptr && action->getDetails()->type == SDL_KEYDOWN
 		&& action->getDetails()->key.keysym.sym == Options::keyCancel
@@ -735,10 +741,9 @@ void GeoscapeState::handle(Action *action)
 	}
 	if (!_dogfights.empty())
 	{
-		for (auto* dfs : _dogfights)
-		{
-			dfs->handle(action);
-		}
+#ifndef __EMSCRIPTEN__
+		for (auto* dfs : _dogfights) dfs->handle(action);
+#endif
 		_minimizedDogfights = minimizedDogfightsCount();
 	}
 }
@@ -835,6 +840,17 @@ void GeoscapeState::init()
 void GeoscapeState::think()
 {
 	State::think();
+	if (_restoreEventNotices)
+	{
+		_restoreEventNotices = false;
+		std::vector<GeoscapeEvent*> notices;
+		for (auto *event : _game->getSavedGame()->getGeoscapeEvents())
+			if (event->receipt().needsPresentation() && !event->queued()) notices.push_back(event);
+		std::stable_sort(notices.begin(), notices.end(), [](GeoscapeEvent *a, GeoscapeEvent *b) {
+			return a->receipt().order < b->receipt().order;
+		});
+		for (auto *event : notices) popup(new GeoscapeEventState(event->getRules(), event));
+	}
 #ifdef __EMSCRIPTEN__
 	// F01 pending route (T15): consume before timers; a handled route ends think.
 	if (Calypso::calypsoPollStrategicRoute(*this)) return;
@@ -1935,7 +1951,7 @@ bool GeoscapeState::processMissionSite(MissionSite *site)
 		if (canSpawn)
 		{
 			timerReset();
-			popup(new GeoscapeEventState(*eventRules));
+			popup(new GeoscapeEventState(*eventRules, _game->getSavedGame()->addReadyEvent(*eventRules)));
 		}
 	}
 
@@ -2135,7 +2151,7 @@ void GeoscapeState::time30Minutes()
 	{
 		ge->think();
 
-		if (ge->isOver())
+		if (ge->isOver() && !ge->queued() && !ge->receipt().acknowledged)
 		{
 			bool interrupted = false;
 			if (!ge->getRules().getInterruptResearch().empty())
@@ -2148,8 +2164,9 @@ void GeoscapeState::time30Minutes()
 			if (!interrupted)
 			{
 				timerReset();
-				popup(new GeoscapeEventState(ge->getRules()));
+				popup(new GeoscapeEventState(ge->getRules(), ge));
 			}
+			else ge->receipt().acknowledged = true;
 		}
 	}
 
@@ -2158,7 +2175,7 @@ void GeoscapeState::time30Minutes()
 		_game->getSavedGame()->getGeoscapeEvents(),
 		[](GeoscapeEvent *ge)
 		{
-			return ge->isOver();
+			return ge->receipt().acknowledged;
 		}
 	);
 }
@@ -2646,7 +2663,13 @@ void GeoscapeState::time1Day()
 			saveGame->getAvailableResearchProjects(after, mod, xbase);
 			std::vector<RuleResearch *> newPossibleResearch;
 			saveGame->getNewlyAvailableResearchProjects(before, after, newPossibleResearch);
-			popup(new NewPossibleResearchState(xbase, newPossibleResearch));
+#ifdef __EMSCRIPTEN__
+			if (std::any_of(newPossibleResearch.begin(), newPossibleResearch.end(),
+				[saveGame](const RuleResearch *rule) { return NewPossibleResearchState::eligible(*saveGame, rule); }))
+#endif
+			{
+				popup(new NewPossibleResearchState(xbase, newPossibleResearch));
+			}
 			// 3i. inform about new possible manufacture, purchase, craft and facilities
 			std::vector<RuleManufacture *> newPossibleManufacture;
 			saveGame->getDependableManufacture(newPossibleManufacture, research, mod, xbase);
