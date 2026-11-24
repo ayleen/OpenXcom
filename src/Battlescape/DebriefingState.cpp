@@ -938,7 +938,7 @@ void DebriefingState::btnOkClick(Action *)
 			bool canSpawn = _game->getSavedGame()->canSpawnInstantEvent(_eventToSpawn);
 			if (canSpawn)
 			{
-				_game->pushState(new GeoscapeEventState(*_eventToSpawn));
+				_game->pushState(new GeoscapeEventState(*_eventToSpawn, _game->getSavedGame()->addReadyEvent(*_eventToSpawn)));
 			}
 		}
 		if (!_deadSoldiersCommended.empty())

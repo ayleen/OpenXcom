@@ -19,6 +19,7 @@
  */
 #include "../Engine/State.h"
 #include <string>
+#include <functional>
 #include <vector>
 #include <cstdint>
 namespace OpenXcom {
@@ -32,6 +33,7 @@ private:
 	friend class Calypso::CalypsoF36MarketUi;
 	Base* _base;
 	bool _sellMode;
+	std::function<void(const std::string&)> _selectBuyer;
 	Window* _window;
 	Text* _txtTitle, *_txtInfo;
 	TextButton* _btnCancel;
@@ -45,7 +47,7 @@ private:
 #endif
 	void refresh();
 public:
-	CalypsoMarketState(Base* base, bool sellMode);
+	CalypsoMarketState(Base* base, bool sellMode, std::function<void(const std::string&)> selectBuyer = {});
 	~CalypsoMarketState() override;
 	void init() override;
 #ifdef __EMSCRIPTEN__

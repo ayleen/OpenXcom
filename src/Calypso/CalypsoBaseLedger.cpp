@@ -957,11 +957,11 @@ CalypsoBaseLedger::CalypsoBaseLedger(ProductionCompleteState &s)
 			s._noticeWidth = width;
 			s._noticeFont = type.body;
 		}
-		auto model = ledgerModel(s, s.tr(summary ? "STR_RANDOM_PRODUCTION_SUMMARY" : "STR_PRODUCTION_OVERVIEW"),
+		auto model = ledgerModel(s, s.tr(!s._saleItem.empty() ? "STR_CAL_OUTPUT_SELL" : summary ? "STR_RANDOM_PRODUCTION_SUMMARY" : "STR_PRODUCTION_OVERVIEW"),
 			*(summary ? s._lstSummary : s._noticeRows), s._base, g, table, Gen::kProfileStyle, type,
 			{{"base", s.tr("STR_BASE"), s._base->getName(), design(g.summary_base)},
 			 {"funds", s.tr("STR_CAL_FUNDS"), Unicode::formatFunding(getCurrentGame()->getSavedGame()->getFunds()), design(g.summary_funds)}},
-			{{s.tr(summary ? "STR_ITEM" : "STR_TYPE")}, {s.tr(summary ? "STR_QUANTITY_UC" : "STR_VALUE")}},
+			{{s.tr(summary && s._saleItem.empty() ? "STR_ITEM" : "STR_TYPE")}, {s.tr(summary && s._saleItem.empty() ? "STR_QUANTITY_UC" : "STR_VALUE")}},
 			{{"summary", s._btnSummary, s._btnSummary->getText(), design(g.toolbar_summary), false, true},
 			 {"base", s._btnGotoBase, s._btnGotoBase->getText(), design(g.action_base)},
 			 {"done", s._btnOk, s._btnOk->getText(), design(g.action_done)}},

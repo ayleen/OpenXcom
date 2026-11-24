@@ -1114,6 +1114,8 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdDiagnosticsTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoInventoryLocationsTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/LandingSuppliesTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/ProductionOutputSaleTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/StrategicEventReceiptTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoSelectionListScrollTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdOperationsModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/ResearchInfoTransactionTest.cpp

@@ -19,6 +19,7 @@
  */
 #include <string>
 #include <map>
+#include "ProductionOutputSale.h"
 #include <vector>
 #include "../Engine/State.h"
 #include "../Savegame/Production.h"
@@ -49,6 +50,12 @@ private:
 
 	std::map<std::string, int> _randomProductionInfo;
 	std::vector<std::string> _index;
+	std::string _saleItem, _buyer;
+	ProductionOutputSale _shownSale;
+	void showOutput();
+	void showSale(const std::string &item, const std::string &buyer);
+	ProductionOutputSale quoteSale() const;
+	void confirmSale();
 
 	TextButton *_btnOk, *_btnGotoBase, *_btnSummary;
 	Window *_window;

@@ -32,9 +32,14 @@
 #include "../Basescape/ManufactureState.h"
 #include "../Savegame/Base.h"
 #include "../Savegame/ItemContainer.h"
+#include "../Mod/RuleItem.h"
+#include "../Engine/Unicode.h"
 #include "../Savegame/SavedGame.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoBaseLedger.h"
+#include "../Calypso/CalypsoMarket.h"
+#include "../Calypso/CalypsoMarketState.h"
+#include "../Calypso/CalypsoEconomy.h"
 #endif
 
 namespace OpenXcom
@@ -110,20 +115,13 @@ ProductionCompleteState::ProductionCompleteState(Base *base, const std::string &
 	_lstSummary->setSelectable(true);
 	_lstSummary->setMargin(8);
 	_lstSummary->setVisible(false);
-	_lstSummary->onMouseClick((ActionHandler)&ProductionCompleteState::lstSummaryClick, SDL_BUTTON_RIGHT);
+	_lstSummary->onMouseClick((ActionHandler)&ProductionCompleteState::lstSummaryClick);
 
 	if (production && !production->getRules()->getRandomProducedItems().empty())
 	{
 		_btnGotoBase->setVisible(false);
 		_randomProductionInfo = production->getRandomProductionInfo(); // local copy is necessary
-		_index.reserve(_randomProductionInfo.size());
-		for (auto& each : production->getRandomProductionInfo())
-		{
-			std::ostringstream ss;
-			ss << each.second;
-			_lstSummary->addRow(2, tr(each.first).c_str(), ss.str().c_str());
-			_index.push_back(each.first);
-		}
+
 	}
 	else
 	{
@@ -182,6 +180,11 @@ ProductionCompleteState::~ProductionCompleteState()
  */
 void ProductionCompleteState::btnOkClick(Action *)
 {
+	if (!_saleItem.empty())
+	{
+		showOutput();
+		return;
+	}
 	_game->popState();
 }
 
@@ -207,67 +210,138 @@ void ProductionCompleteState::btnGotoBaseClick(Action *)
  * Displays the random production info.
  * @param action Pointer to an action.
  */
-void ProductionCompleteState::btnSummaryClick(Action *)
+void ProductionCompleteState::btnSummaryClick(Action *action)
 {
-	_btnSummary->setVisible(false);
-	_txtMessage->setVisible(false);
+	if (!_saleItem.empty()) confirmSale();
+	else if (_lstSummary->getVisible()) lstSummaryClick(action);
+	else showOutput();
+}
 
-	_btnGotoBase->setVisible(true);
+void ProductionCompleteState::showOutput()
+{
+	_saleItem.clear();
+	_buyer.clear();
+	_index.clear();
+	_lstSummary->clearList();
+	for (auto &output : _randomProductionInfo)
+	{
+		const auto *rule = _game->getMod()->getItem(output.first, false);
+		if (!rule) continue;
+		output.second = std::min(output.second, _base->getStorageItems()->getItem(rule));
+		if (output.second <= 0) continue;
+		_index.push_back(output.first);
+		_lstSummary->addRow(2, tr(output.first).c_str(), std::to_string(output.second).c_str());
+	}
+	_txtMessage->setVisible(false);
 	_txtItem->setVisible(true);
 	_txtQuantity->setVisible(true);
 	_lstSummary->setVisible(true);
+	_lstSummary->setSelectable(true);
+	_lstSummary->setSelectedRow(0);
+	_btnGotoBase->setVisible(true);
+	_btnOk->setText(tr("STR_OK"));
+	_btnSummary->setText(tr("STR_CAL_OUTPUT_SELL"));
+	_btnSummary->setVisible(!_index.empty());
 #ifdef __EMSCRIPTEN__
 	_noticeRows->setVisible(false);
+	_ledger->refresh();
+#else
+	const int left = _window->getX() + 8;
+	_btnOk->setWidth(76);
+	_btnSummary->setWidth(76);
+	_btnGotoBase->setWidth(84);
+	_btnOk->setX(left);
+	_btnSummary->setX(left + 78);
+	_btnGotoBase->setX(left + 156);
+#endif
+}
+
+void ProductionCompleteState::lstSummaryClick(Action *)
+{
+	const size_t row = _lstSummary->getSelectedRow();
+	if (!_saleItem.empty() || row >= _index.size()) return;
+	const auto item = _index[row];
+#ifdef __EMSCRIPTEN__
+	// A new campaign can finish production before the player opens the market.
+	if (auto *economy = _game->getSavedGame()->getCalypsoEconomy())
+		economy->bindRules(&_game->getMod()->getCalypsoEconomyRules());
+	if (Calypso::marketActive(_game))
+	{
+		_game->pushState(new CalypsoMarketState(_base, true, [this, item](const std::string &buyer) {
+			showSale(item, buyer);
+		}));
+		return;
+	}
+#endif
+	showSale(item, "");
+}
+
+ProductionOutputSale ProductionCompleteState::quoteSale() const
+{
+	const auto it = _randomProductionInfo.find(_saleItem);
+	const auto *rule = _game->getMod()->getItem(_saleItem, false);
+	if (it == _randomProductionInfo.end() || !rule || (rule->isAlien() && !Options::canSellLiveAliens)) return {};
+	int demand = it->second;
+	int64_t price = rule->getSellCostAdjusted(_base, _game->getSavedGame());
+#ifdef __EMSCRIPTEN__
+	if (Calypso::marketActive(_game))
+	{
+		if (_buyer.empty() || !Calypso::marketCanSell(_game, _buyer, rule)) return {};
+		demand = Calypso::marketDemand(_game, _buyer, rule);
+		price = Calypso::marketSellPrice(_game, _buyer, rule);
+	}
+	else if (!_buyer.empty()) return {};
+#endif
+	return ProductionOutputSale::quote(it->second, _base->getStorageItems()->getItem(rule), demand, price,
+		_game->getSavedGame()->getFunds());
+}
+
+void ProductionCompleteState::showSale(const std::string &item, const std::string &buyer)
+{
+	_saleItem = item;
+	_buyer = buyer;
+	_shownSale = quoteSale();
+	_lstSummary->clearList();
+	_lstSummary->setSelectable(false);
+	auto row = [&](const char *label, const std::string &value) {
+		_lstSummary->addRow(2, tr(label).c_str(), value.c_str());
+	};
+	row("STR_ITEM", tr(item));
+#ifdef __EMSCRIPTEN__
+	if (!buyer.empty()) row("STR_CAL_OUTPUT_BUYER", tr(buyer == Calypso::BLACK_MARKET ? "STR_CAL_MARKET_BLACKMARKET" : buyer));
+#endif
+	row("STR_QUANTITY_UC", std::to_string(_shownSale.quantity));
+	row("STR_CAL_PROCEEDS", Unicode::formatFunding(_shownSale.proceeds()));
+	const auto *rule = _game->getMod()->getItem(item, false);
+	std::ostringstream space;
+	space << (_base->getUsedStores() - (rule ? rule->getSize() * _shownSale.quantity : 0)) << " / " << _base->getAvailableStores();
+	row("STR_CAL_CAPACITY", space.str());
+	_btnGotoBase->setVisible(false);
+	_btnOk->setText(tr("STR_CANCEL"));
+	_btnSummary->setText(tr("STR_CAL_OUTPUT_CONFIRM"));
+	_btnSummary->setVisible(_shownSale.quantity > 0);
+#ifdef __EMSCRIPTEN__
 	_ledger->refresh();
 #endif
 }
 
-/**
- * Sells the selected item(s)... unless they were sold, transferred or otherwise disposed of earlier already.
- * @param action Pointer to an action.
- */
-void ProductionCompleteState::lstSummaryClick(Action *)
+void ProductionCompleteState::confirmSale()
 {
-	// 1. remember stuff
-	auto scrollPos = _lstSummary->getScroll();
-	unsigned int sel = _lstSummary->getSelectedRow();
-	std::string itemName = _index[sel];
-	int itemCount = _randomProductionInfo[itemName];
-
-	// 2. deal with it
-	auto* itemRule = _game->getMod()->getItem(itemName, false);
-	if (itemRule)
+	const auto current = quoteSale();
+	if (!_shownSale.canConfirm(current))
 	{
-		// check if we sold something in the meantime
-		if (_base->getStorageItems()->getItem(itemRule) < itemCount)
-		{
-			itemCount = _base->getStorageItems()->getItem(itemRule);
-			_randomProductionInfo[itemName] -= itemCount; // just decrease amount by the maximum we can sell
-		}
-		else
-		{
-			// remove completely
-			_index.erase(_index.begin() + sel);
-		}
-
-		if (itemCount > 0)
-		{
-			int64_t adjustedSellValue = itemRule->getSellCostAdjusted(_base, _game->getSavedGame());
-			adjustedSellValue *= itemCount;
-			_game->getSavedGame()->setFunds(_game->getSavedGame()->getFunds() + adjustedSellValue);
-			_base->getStorageItems()->removeItem(itemRule, itemCount);
-		}
+		showSale(_saleItem, _buyer);
+		return;
 	}
-
-	// 3. refresh UI
-	_lstSummary->clearList();
-	for (const auto& name : _index)
-	{
-		std::ostringstream ss;
-		ss << _randomProductionInfo[name];
-		_lstSummary->addRow(2, tr(name).c_str(), ss.str().c_str());
-	}
-	_lstSummary->scrollTo(scrollPos);
+	const auto *rule = _game->getMod()->getItem(_saleItem, true);
+#ifdef __EMSCRIPTEN__
+	if (!_buyer.empty()) Calypso::marketRecordSell(_game, _buyer, rule, current.quantity);
+#endif
+	_base->getStorageItems()->removeItem(rule, current.quantity);
+	auto *save = _game->getSavedGame();
+	save->setFunds(save->getFunds() + current.proceeds());
+	_randomProductionInfo.at(_saleItem) -= current.quantity;
+	showOutput();
 }
 
 }

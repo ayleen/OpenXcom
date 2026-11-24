@@ -2121,8 +2121,15 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 			auto *globe = new GeoscapeState();
 			game->pushState(globe);
 			calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
-			return new ProductionCompleteState(game->getSavedGame()->getBases()->front(),
-				game->getLanguage()->getString(rule->getName()), globe);
+			auto *base = game->getSavedGame()->getBases()->front();
+			Production batch(rule, 1);
+			if (!rule->getRandomProducedItems().empty())
+			{
+				batch.setAssignedEngineers(rule->getManufactureTime());
+				batch.step(base, game->getSavedGame(), game->getMod(), game->getLanguage());
+			}
+			return new ProductionCompleteState(base, game->getLanguage()->getString(rule->getName()), globe,
+				PROGRESS_COMPLETE, &batch);
 		}
 	case CalypsoHarnessScenario::F05SoldierTransform:
 		return new CraftErrorState(nullptr, "Soldier transformation is now available.");
@@ -2553,7 +2560,11 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		game->pushState(globe);
 		calypsoHarnessNavigationDestination(calypsoHarnessSession(), globe);
 		const auto *events = game->getMod()->getEventList();
-		if (!events->empty()) return new GeoscapeEventState(*game->getMod()->getEvent(events->front(), true));
+		if (!events->empty())
+		{
+			const auto *rule = game->getMod()->getEvent(events->front(), true);
+			return new GeoscapeEventState(*rule, game->getSavedGame()->addReadyEvent(*rule));
+		}
 		// The stock campaign has no scripted events. A read-only preview
 		// rule supplies translatable narrative and uses the standard event artwork.
 		static const RuleEvent preview = [] {

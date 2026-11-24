@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <map>
+#include "../Savegame/GeoscapeEvent.h"
 #include "../Engine/State.h"
 
 namespace OpenXcom
@@ -44,16 +44,18 @@ private:
 	ToggleTextButton *_btnItemsArriving;
 	TextList *_lstTransfers;
 
-	std::map<std::string, int> _itemsRemoved;
+	GeoscapeEvent *_pending;
+	bool _initialized = false;
 	std::string _researchName;
 	std::string _bonusResearchName;
 	const RuleEvent &_eventRule;
 
 	/// Helper performing event logic.
-	void eventLogic();
+	void eventLogic(StrategicEventReceipt &receipt);
+	void presentEvent();
 public:
 	/// Creates the GeoscapeEventState.
-	GeoscapeEventState(const RuleEvent& eventRule);
+	GeoscapeEventState(const RuleEvent& eventRule, GeoscapeEvent *pending = nullptr);
 	/// Cleans up the GeoscapeEventState.
 	~GeoscapeEventState();
 	/// Initializes the state.

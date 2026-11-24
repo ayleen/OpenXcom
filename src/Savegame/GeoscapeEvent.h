@@ -18,6 +18,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "../Engine/Yaml.h"
+#include "StrategicEventReceipt.h"
 
 namespace OpenXcom
 {
@@ -33,6 +34,8 @@ private:
 	const RuleEvent &_rule;
 	size_t _spawnCountdown;
 	bool _over;
+	StrategicEventReceipt _receipt;
+	bool _queued = false;
 public:
 	/// Creates a blank GeoscapeEvent.
 	GeoscapeEvent(const RuleEvent &rule);
@@ -50,6 +53,9 @@ public:
 	void setSpawnCountdown(size_t minutes);
 
 	/// Is this event over?
+	StrategicEventReceipt &receipt() { return _receipt; }
+	bool queued() const { return _queued; }
+	void markQueued() { _queued = true; }
 	bool isOver() const { return _over; }
 	/// Handle event spawning schedule.
 	void think();

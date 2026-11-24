@@ -206,6 +206,9 @@ public:
 	void loadUfopediaRuleStatus(const YAML::YamlNodeReader& reader);
 	/// Saves a saved game to YAML.
 	void save(const std::string &filename, Mod *mod) const;
+	std::string serializeCampaign(Mod *mod) const;
+	static std::string writeEventRecovery(const std::string &snapshot);
+	GeoscapeEvent *addReadyEvent(const RuleEvent &rule);
 	/// Gets the game name.
 	std::string getName() const;
 	/// Sets the game name.

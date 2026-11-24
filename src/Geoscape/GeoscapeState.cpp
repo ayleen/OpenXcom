@@ -840,6 +840,17 @@ void GeoscapeState::init()
 void GeoscapeState::think()
 {
 	State::think();
+	if (_restoreEventNotices)
+	{
+		_restoreEventNotices = false;
+		std::vector<GeoscapeEvent*> notices;
+		for (auto *event : _game->getSavedGame()->getGeoscapeEvents())
+			if (event->receipt().needsPresentation() && !event->queued()) notices.push_back(event);
+		std::stable_sort(notices.begin(), notices.end(), [](GeoscapeEvent *a, GeoscapeEvent *b) {
+			return a->receipt().order < b->receipt().order;
+		});
+		for (auto *event : notices) popup(new GeoscapeEventState(event->getRules(), event));
+	}
 #ifdef __EMSCRIPTEN__
 	// F01 pending route (T15): consume before timers; a handled route ends think.
 	if (Calypso::calypsoPollStrategicRoute(*this)) return;
@@ -1940,7 +1951,7 @@ bool GeoscapeState::processMissionSite(MissionSite *site)
 		if (canSpawn)
 		{
 			timerReset();
-			popup(new GeoscapeEventState(*eventRules));
+			popup(new GeoscapeEventState(*eventRules, _game->getSavedGame()->addReadyEvent(*eventRules)));
 		}
 	}
 
@@ -2140,7 +2151,7 @@ void GeoscapeState::time30Minutes()
 	{
 		ge->think();
 
-		if (ge->isOver())
+		if (ge->isOver() && !ge->queued() && !ge->receipt().acknowledged)
 		{
 			bool interrupted = false;
 			if (!ge->getRules().getInterruptResearch().empty())
@@ -2153,8 +2164,9 @@ void GeoscapeState::time30Minutes()
 			if (!interrupted)
 			{
 				timerReset();
-				popup(new GeoscapeEventState(ge->getRules()));
+				popup(new GeoscapeEventState(ge->getRules(), ge));
 			}
+			else ge->receipt().acknowledged = true;
 		}
 	}
 
@@ -2163,7 +2175,7 @@ void GeoscapeState::time30Minutes()
 		_game->getSavedGame()->getGeoscapeEvents(),
 		[](GeoscapeEvent *ge)
 		{
-			return ge->isOver();
+			return ge->receipt().acknowledged;
 		}
 	);
 }

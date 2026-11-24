@@ -64,7 +64,8 @@ static const char* tierKey(Calypso::StandingTier t)
  * @param base Pointer to the base the Buy/Sell was invoked from.
  * @param sellMode false = Buy (-> PurchaseState), true = Sell (-> SellState).
  */
-CalypsoMarketState::CalypsoMarketState(Base* base, bool sellMode) : _base(base), _sellMode(sellMode)
+CalypsoMarketState::CalypsoMarketState(Base* base, bool sellMode, std::function<void(const std::string&)> selectBuyer)
+	: _base(base), _sellMode(sellMode), _selectBuyer(std::move(selectBuyer))
 {
 	_screen = false;
 	_window   = new Window(this, 288, 180, 16, 10, POPUP_BOTH);
@@ -147,7 +148,12 @@ void CalypsoMarketState::lstCounterpartyClick(Action*)
 	if (row >= _rowCp.size()) return;
 	const std::string& cp = _rowCp[row];
 	if (cp == Calypso::BLACK_MARKET) CalypsoTutorial::get().fire(_game, "market.blackmarket.enter");
-	if (_sellMode)
+	if (_selectBuyer)
+	{
+		_game->popState();
+		_selectBuyer(cp);
+	}
+	else if (_sellMode)
 		_game->pushState(new SellState(_base, 0, OPT_GEOSCAPE, cp));
 	else
 		_game->pushState(new PurchaseState(_base, nullptr, cp));

@@ -70,6 +70,7 @@ private:
 	Text *_txtSlacking;
 	Text *_txtTraining;
 	std::list<State*> _popups;
+	bool _restoreEventNotices = true;
 	std::list<DogfightState*> _dogfights, _dogfightsToBeStarted;
 	std::vector<Craft*> _activeCrafts;
 	size_t _minimizedDogfights;

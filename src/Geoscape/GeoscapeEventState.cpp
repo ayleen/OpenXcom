@@ -17,6 +17,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "GeoscapeEventState.h"
+#include "../Engine/Exception.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoBaseLedger.h"
 #include "../Calypso/CalypsoHdUiOverlay.h"
@@ -57,7 +58,7 @@ namespace OpenXcom
  * Initializes all the elements in the Geoscape Event window.
  * @param geoEvent Pointer to the event.
  */
-GeoscapeEventState::GeoscapeEventState(const RuleEvent& eventRule) : _eventRule(eventRule)
+GeoscapeEventState::GeoscapeEventState(const RuleEvent& eventRule, GeoscapeEvent *pending) : _pending(pending), _eventRule(eventRule)
 {
 #ifdef __EMSCRIPTEN__
 	_screen = true;
@@ -122,12 +123,51 @@ GeoscapeEventState::GeoscapeEventState(const RuleEvent& eventRule) : _eventRule(
 	_lstTransfers->setBackground(_window);
 	_lstTransfers->setMargin(2);
 
-#ifdef __EMSCRIPTEN__
-	const auto *bases = _game->getSavedGame()->getBases();
-	if (bases->empty() || !bases->front())
-		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Strategic event requires a destination base");
-#endif
-	eventLogic();
+	if (_pending)
+	{
+		if (!_pending->receipt().order)
+			_pending->receipt().order = _game->getSavedGame()->getId("calypsoStrategicNotice");
+		_pending->markQueued();
+	}
+}
+
+void GeoscapeEventState::presentEvent()
+{
+	SavedGame *save = _game->getSavedGame();
+	if (save->getBases()->empty() || !save->getBases()->front())
+		throw Exception("Strategic event requires a destination base");
+	StrategicEventReceipt preview;
+	auto &note = _pending ? _pending->receipt() : preview;
+	if (!note.recoveryFile.empty())
+		throw Exception("Strategic event interrupted. Load recovery save " + note.recoveryFile);
+	if (!note.applied)
+	{
+		const std::string before = _pending ? save->serializeCampaign(_game->getMod()) : std::string();
+		try
+		{
+			note.applyOnce([&] { eventLogic(note); });
+		}
+		catch (const std::exception &e)
+		{
+			if (!_pending) throw;
+			note.recoveryFile = SavedGame::writeEventRecovery(before);
+			throw Exception("Strategic event " + _eventRule.getName() + " failed: " + e.what()
+				+ ". Load recovery save " + note.recoveryFile);
+		}
+	}
+	if (!note.region.empty())
+	{
+		std::string place = tr(note.region);
+		auto *region = _game->getMod()->getRegion(note.region, false);
+		if (region && note.city >= 0 && static_cast<size_t>(note.city) < region->getCities()->size())
+			place = region->getCities()->at(note.city)->getName(_game->getLanguage());
+		_txtTitle->setText(tr(_eventRule.getName()).arg(place));
+		_txtMessage->setText(tr(_eventRule.getDescription()).arg(place));
+	}
+	for (const auto &item : note.items)
+		_lstTransfers->addRow(2, tr(item.first).c_str(), std::to_string(item.second).c_str());
+	_researchName = note.research;
+	_bonusResearchName = note.bonusResearch;
 
 	_txtItem->setVisible(false);
 	_txtQuantity->setVisible(false);
@@ -155,7 +195,7 @@ GeoscapeEventState::GeoscapeEventState(const RuleEvent& eventRule) : _eventRule(
 /**
  * Helper performing event logic.
  */
-void GeoscapeEventState::eventLogic()
+void GeoscapeEventState::eventLogic(StrategicEventReceipt &receipt)
 {
 	if (!_eventRule.getAdhocMissionScriptTags().empty())
 	{
@@ -175,7 +215,7 @@ void GeoscapeEventState::eventLogic()
 		size_t pickRegion = RNG::generate(0, rule.getRegionList().size() - 1);
 		auto& regionName = rule.getRegionList().at(pickRegion);
 		regionRule = _game->getMod()->getRegion(regionName, true);
-		std::string place = tr(regionName);
+		receipt.region = regionName;
 
 		if (rule.isCitySpecific())
 		{
@@ -184,15 +224,10 @@ void GeoscapeEventState::eventLogic()
 			{
 				size_t pickCity = RNG::generate(0, cities - 1);
 				city = regionRule->getCities()->at(pickCity);
-				place = city->getName(_game->getLanguage());
+				receipt.city = static_cast<int>(pickCity);
 			}
 		}
 
-		std::string titlePlus = tr(rule.getName()).arg(place);
-		_txtTitle->setText(titlePlus);
-
-		std::string messagePlus = tr(rule.getDescription()).arg(place);
-		_txtMessage->setText(messagePlus);
 	}
 
 	// even if the event isn't city-specific, we'll still pick one city randomly to represent the region (and maybe even a country)
@@ -410,17 +445,13 @@ void GeoscapeEventState::eventLogic()
 				}
 			}
 
-			std::ostringstream ss;
-			ss << -removed;
-			_lstTransfers->addRow(2, tr(ti.first).c_str(), ss.str().c_str());
+			receipt.items[ti.first] = -removed;
 		}
 		else if (Options::oxceGeoscapeEventsInstantDelivery)
 		{
 			hq->getStorageItems()->addItem(mod->getItem(ti.first, true), ti.second);
 
-			std::ostringstream ss;
-			ss << ti.second;
-			_lstTransfers->addRow(2, tr(ti.first).c_str(), ss.str().c_str());
+			receipt.items[ti.first] = ti.second;
 		}
 		else
 		{
@@ -495,13 +526,13 @@ void GeoscapeEventState::eventLogic()
 		addResearchDiaryEntryForEvent(eventResearch, DiscoverySourceType::EVENT, &rule, nullptr);
 		save->addFinishedResearch(eventResearch, mod, hq, true);
 		topicsToCheck.push_back(eventResearch);
-		_researchName = alreadyResearched ? "" : eventResearch->getName();
+		receipt.research = alreadyResearched ? "" : eventResearch->getName();
 
 		if (const RuleResearch *lookupResearch = eventResearch->getLookup())
 		{
 			addResearchDiaryEntryForEvent(lookupResearch, DiscoverySourceType::EVENT, &rule, nullptr);
 			save->addFinishedResearch(lookupResearch, mod, hq, true);
-			_researchName = alreadyResearched ? "" : lookupResearch->getName();
+			receipt.research = alreadyResearched ? "" : lookupResearch->getName();
 		}
 
 		if (auto* bonus = save->selectGetOneFree(eventResearch))
@@ -509,13 +540,13 @@ void GeoscapeEventState::eventLogic()
 			addResearchDiaryEntryForEvent(bonus, DiscoverySourceType::FREE_FROM, nullptr, eventResearch);
 			save->addFinishedResearch(bonus, mod, hq, true);
 			topicsToCheck.push_back(bonus);
-			_bonusResearchName = bonus->getName();
+			receipt.bonusResearch = bonus->getName();
 
 			if (const RuleResearch *bonusLookup = bonus->getLookup())
 			{
 				addResearchDiaryEntryForEvent(bonusLookup, DiscoverySourceType::FREE_FROM, nullptr, eventResearch);
 				save->addFinishedResearch(bonusLookup, mod, hq, true);
-				_bonusResearchName = bonusLookup->getName();
+				receipt.bonusResearch = bonusLookup->getName();
 			}
 		}
 	}
@@ -551,6 +582,22 @@ GeoscapeEventState::~GeoscapeEventState()
 void GeoscapeEventState::init()
 {
 	State::init();
+	if (!_initialized)
+	{
+#ifdef __EMSCRIPTEN__
+		try
+		{
+			presentEvent();
+		}
+		catch (const std::exception &e)
+		{
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(e.what());
+		}
+#else
+		presentEvent();
+#endif
+		_initialized = true;
+	}
 
 	if (!_eventRule.getMusic().empty())
 	{
@@ -594,6 +641,11 @@ void GeoscapeEventState::btnOkClick(Action *)
 	if (!_researchName.empty())
 	{
 		Ufopaedia::openArticle(_game, _researchName);
+	}
+	if (_pending)
+	{
+		_pending->receipt().acknowledged = true;
+		_pending = nullptr;
 	}
 }
 
